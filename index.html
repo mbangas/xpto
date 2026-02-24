@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cadastro de Pessoas</title>
+    <style>
+      body { font-family: Arial, sans-serif; max-width: 1000px; margin: 24px auto; padding: 0 16px; }
+      form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+      form .full { grid-column: 1 / -1; }
+      label { display:block; font-size: 13px; margin-bottom: 4px; }
+      input[type=text], select, textarea { width:100%; padding:8px; box-sizing:border-box; }
+      textarea { min-height:64px; }
+      table { width:100%; border-collapse: collapse; margin-top: 8px; }
+      th, td { border:1px solid #ddd; padding:8px; font-size:13px; }
+      th { background:#f5f5f5; text-align:left; }
+      .actions button { margin-right:6px; }
+      .deleted { background: #ffecec; }
+    </style>
+  </head>
+  <body>
+    <h1>Cadastro de Pessoas</h1>
+
+    <form id="personForm">
+      <div class="full">
+        <label for="id">ID (UUID)</label>
+        <input type="text" id="id" name="id" readonly />
+      </div>
+
+      <div>
+        <label for="firstName">First Name</label>
+        <input type="text" id="firstName" name="firstName" required />
+      </div>
+
+      <div>
+        <label for="lastName">Last Name</label>
+        <input type="text" id="lastName" name="lastName" required />
+      </div>
+
+      <div>
+        <label for="gender">Gender</label>
+        <select id="gender" name="gender">
+          <option value="">-- selecione --</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="full">
+        <label for="notes">Notes</label>
+        <textarea id="notes" name="notes"></textarea>
+      </div>
+
+      <div>
+        <label for="createdAt">Created At</label>
+        <input type="text" id="createdAt" name="createdAt" readonly />
+      </div>
+
+      <div>
+        <label for="updatedAt">Updated At</label>
+        <input type="text" id="updatedAt" name="updatedAt" readonly />
+      </div>
+
+      <div>
+        <label for="deletedAt">Deleted At</label>
+        <input type="text" id="deletedAt" name="deletedAt" readonly />
+      </div>
+
+      <div class="full">
+        <button type="submit" id="saveBtn">Salvar</button>
+        <button type="button" id="resetBtn">Limpar</button>
+      </div>
+    </form>
+
+    <hr />
+
+    <div>
+      <label><input type="checkbox" id="hideDeleted" /> Ocultar registros excluídos</label>
+    </div>
+
+    <table id="peopleTable">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>First Name</th>
+          <th>Last Name</th>
+          <th>Gender</th>
+          <th>Notes</th>
+          <th>Created At</th>
+          <th>Updated At</th>
+          <th>Deleted At</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <script>
+      const STORAGE_KEY = 'people:xpto';
+
+      function nowISO() { return new Date().toISOString(); }
+
+      function generateUUID() {
+        if (crypto && crypto.randomUUID) return crypto.randomUUID();
+        const bytes = crypto.getRandomValues(new Uint8Array(16));
+        bytes[6] = (bytes[6] & 0x0f) | 0x40;
+        bytes[8] = (bytes[8] & 0x3f) | 0x80;
+        const b2h = b => Array.from(b).map(x => x.toString(16).padStart(2,'0')).join('');
+        const s = b2h(bytes);
+        return s.slice(0,8)+'-'+s.slice(8,12)+'-'+s.slice(12,16)+'-'+s.slice(16,20)+'-'+s.slice(20);
+      }
+
+      function loadPeople() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) {
+          console.error('Erro ao ler storage', e);
+          return [];
+        }
+      }
+
+      function savePeople(people) { localStorage.setItem(STORAGE_KEY, JSON.stringify(people)); }
+
+      function renderTable() {
+        const tbody = document.querySelector('#peopleTable tbody');
+        tbody.innerHTML = '';
+        const people = loadPeople();
+        const hideDeleted = document.getElementById('hideDeleted').checked;
+        people.forEach(p => {
+          if (hideDeleted && p.deletedAt) return;
+          const tr = document.createElement('tr');
+          if (p.deletedAt) tr.classList.add('deleted');
+          tr.innerHTML = `
+            <td>${p.id}</td>
+            <td>${escapeHtml(p.firstName)}</td>
+            <td>${escapeHtml(p.lastName)}</td>
+            <td>${p.gender || ''}</td>
+            <td>${escapeHtml(p.notes || '')}</td>
+            <td>${p.createdAt || ''}</td>
+            <td>${p.updatedAt || ''}</td>
+            <td>${p.deletedAt || ''}</td>
+            <td class="actions">
+              <button data-id="${p.id}" class="edit">Editar</button>
+              <button data-id="${p.id}" class="del">Excluir</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+      function resetForm() {
+        document.getElementById('personForm').reset();
+        document.getElementById('id').value = '';
+        document.getElementById('createdAt').value = '';
+        document.getElementById('updatedAt').value = '';
+        document.getElementById('deletedAt').value = '';
+      }
+
+      document.getElementById('personForm').addEventListener('submit', function(e){
+        e.preventDefault();
+        const id = document.getElementById('id').value || generateUUID();
+        const firstName = document.getElementById('firstName').value.trim();
+        const lastName = document.getElementById('lastName').value.trim();
+        const gender = document.getElementById('gender').value;
+        const notes = document.getElementById('notes').value;
+        const createdAtField = document.getElementById('createdAt').value;
+        const deletedAtField = document.getElementById('deletedAt').value || null;
+
+        const people = loadPeople();
+        const existingIndex = people.findIndex(x => x.id === id);
+        const now = nowISO();
+
+        if (existingIndex >= 0) {
+          people[existingIndex] = {
+            ...people[existingIndex],
+            firstName, lastName, gender, notes,
+            updatedAt: now,
+            deletedAt: deletedAtField || null
+          };
+        } else {
+          people.push({
+            id,
+            firstName,
+            lastName,
+            gender,
+            notes,
+            createdAt: createdAtField || now,
+            updatedAt: now,
+            deletedAt: deletedAtField || null
+          });
+        }
+
+        savePeople(people);
+        renderTable();
+        resetForm();
+      });
+
+      document.getElementById('resetBtn').addEventListener('click', function(){ resetForm(); });
+
+      document.getElementById('peopleTable').addEventListener('click', function(e){
+        const id = e.target.getAttribute('data-id');
+        if (!id) return;
+        if (e.target.classList.contains('edit')) {
+          editPerson(id);
+        } else if (e.target.classList.contains('del')) {
+          softDeletePerson(id);
+        }
+      });
+
+      document.getElementById('hideDeleted').addEventListener('change', renderTable);
+
+      function editPerson(id) {
+        const people = loadPeople();
+        const p = people.find(x => x.id === id);
+        if (!p) return alert('Registro não encontrado');
+        document.getElementById('id').value = p.id;
+        document.getElementById('firstName').value = p.firstName || '';
+        document.getElementById('lastName').value = p.lastName || '';
+        document.getElementById('gender').value = p.gender || '';
+        document.getElementById('notes').value = p.notes || '';
+        document.getElementById('createdAt').value = p.createdAt || '';
+        document.getElementById('updatedAt').value = p.updatedAt || '';
+        document.getElementById('deletedAt').value = p.deletedAt || '';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+
+      function softDeletePerson(id) {
+        if (!confirm('Confirmar exclusão (soft delete)?')) return;
+        const people = loadPeople();
+        const i = people.findIndex(x => x.id === id);
+        if (i < 0) return alert('Registro não encontrado');
+        people[i].deletedAt = nowISO();
+        people[i].updatedAt = nowISO();
+        savePeople(people);
+        renderTable();
+      }
+
+      renderTable();
+    </script>
+  </body>
+</html>

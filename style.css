@@ -339,3 +339,21 @@ th {
   box-shadow: 0 6px 20px rgba(17,24,39,0.45);
 }
 
+/* Sidebar footer (configuração) - mantém link separado no fundo */
+.sidebar .sidebar-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  padding-top: 8px;
+}
+.sidebar .sidebar-footer a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 700;
+  display: flex;
+  gap: 10px;
+}
+.sidebar .sidebar-footer a:hover { color: var(--text-main); background: linear-gradient(90deg, rgba(59,130,246,0.06), rgba(167,139,250,0.03)); }
+

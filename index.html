@@ -97,36 +97,43 @@
           <div class="accordion-card" id="cardEventos">
             <button type="button" class="accordion-header" data-target="contentEventos"><span>Eventos</span><span class="accordion-arrow">▾</span></button>
             <div class="accordion-content" id="contentEventos">
-              <form id="eventForm">
-                <div>
-                  <label for="eventType">Tipo de evento</label>
-                  <select id="eventType" name="eventType" required>
-                    <option value="">-- selecione --</option>
-                    <option value="BIRTH">Nascimento</option>
-                    <option value="BAPTISM">Batismo</option>
-                    <option value="DEATH">Óbito</option>
-                    <option value="MARRIAGE">Casamento</option>
-                    <option value="DIVORCE">Divórcio</option>
-                    <option value="ADOPTION">Adoção</option>
-                    <option value="CUSTOM">Outro</option>
-                  </select>
-                </div>
-                <div>
-                  <label for="eventDate">Data</label>
-                  <input type="date" id="eventDate" name="eventDate" />
-                </div>
-                <div>
-                  <label for="eventLocation">Local</label>
-                  <input type="text" id="eventLocation" name="eventLocation" />
-                </div>
-                <div>
-                  <label for="eventNotes">Notas</label>
-                  <textarea id="eventNotes" name="eventNotes"></textarea>
-                </div>
-                <div class="full">
-                  <button type="button" id="addEventBtn">Adicionar Evento</button>
-                </div>
-              </form>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <div style="font-weight:600;color:var(--text-main);">Eventos</div>
+                <div><button type="button" id="openEventFormBtn" class="btn">Adicionar Evento</button></div>
+              </div>
+              <div id="eventFormWrapper" style="display:none;">
+                <form id="eventForm">
+                  <div>
+                    <label for="eventType">Tipo de evento</label>
+                    <select id="eventType" name="eventType" required>
+                      <option value="">-- selecione --</option>
+                      <option value="BIRTH">Nascimento</option>
+                      <option value="BAPTISM">Batismo</option>
+                      <option value="DEATH">Óbito</option>
+                      <option value="MARRIAGE">Casamento</option>
+                      <option value="DIVORCE">Divórcio</option>
+                      <option value="ADOPTION">Adoção</option>
+                      <option value="CUSTOM">Outro</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="eventDate">Data</label>
+                    <input type="date" id="eventDate" name="eventDate" />
+                  </div>
+                  <div>
+                    <label for="eventLocation">Local</label>
+                    <input type="text" id="eventLocation" name="eventLocation" />
+                  </div>
+                  <div>
+                    <label for="eventNotes">Notas</label>
+                    <textarea id="eventNotes" name="eventNotes"></textarea>
+                  </div>
+                  <div class="full" style="display:flex;gap:8px;">
+                    <button type="button" id="addEventBtn">Salvar Evento</button>
+                    <button type="button" id="cancelEventBtn">Cancelar</button>
+                  </div>
+                </form>
+              </div>
               <div id="eventsList"></div>
             </div>
           </div>
@@ -134,27 +141,34 @@
           <div class="accordion-card" id="cardRelacoes">
             <button type="button" class="accordion-header" data-target="contentRelacoes"><span>Relações</span><span class="accordion-arrow">▾</span></button>
             <div class="accordion-content" id="contentRelacoes">
-              <form id="relationForm">
-                <div>
-                  <label for="relationType">Tipo de relação</label>
-                  <select id="relationType" name="relationType">
-                    <option value="">-- selecione --</option>
-                    <option value="siblin">Siblin</option>
-                    <option value="ancestor">Ancestor</option>
-                    <option value="child">Child</option>
-                    <option value="mate">Mate</option>
-                  </select>
-                </div>
-                <div>
-                  <label for="relationPerson">Pessoa relacionada</label>
-                  <select id="relationPerson" name="relationPerson">
-                    <option value="">-- selecione --</option>
-                  </select>
-                </div>
-                <div class="full">
-                  <button type="button" id="addRelationBtn">Adicionar Relação</button>
-                </div>
-              </form>
+              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                <div style="font-weight:600;color:var(--text-main);">Relações</div>
+                <div><button type="button" id="openRelationFormBtn" class="btn">Adicionar Relação</button></div>
+              </div>
+              <div id="relationFormWrapper" style="display:none;">
+                <form id="relationForm">
+                  <div>
+                    <label for="relationType">Tipo de relação</label>
+                    <select id="relationType" name="relationType">
+                      <option value="">-- selecione --</option>
+                      <option value="siblin">Siblin</option>
+                      <option value="ancestor">Ancestor</option>
+                      <option value="child">Child</option>
+                      <option value="mate">Mate</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label for="relationPerson">Pessoa relacionada</label>
+                    <select id="relationPerson" name="relationPerson">
+                      <option value="">-- selecione --</option>
+                    </select>
+                  </div>
+                  <div class="full" style="display:flex;gap:8px;">
+                    <button type="button" id="addRelationBtn">Salvar Relação</button>
+                    <button type="button" id="cancelRelationBtn">Cancelar</button>
+                  </div>
+                </form>
+              </div>
               <div id="relationsList"></div>
             </div>
           </div>
@@ -304,6 +318,32 @@
             closeAccordion('contentRelacoes');
             closeAccordion('contentEventos');
             closeAccordion('contentDados');
+            // Helpers to toggle small forms: show lists by default
+            function showEventForm(show) {
+              const w = document.getElementById('eventFormWrapper');
+              const list = document.getElementById('eventsList');
+              if (!w || !list) return;
+              w.style.display = show ? 'block' : 'none';
+              list.style.display = show ? 'none' : 'block';
+            }
+            function showRelationForm(show) {
+              const w = document.getElementById('relationFormWrapper');
+              const list = document.getElementById('relationsList');
+              if (!w || !list) return;
+              w.style.display = show ? 'block' : 'none';
+              list.style.display = show ? 'none' : 'block';
+            }
+            // Wire open / cancel buttons for events/relations (if present)
+            (function(){
+              const openEventBtn = document.getElementById('openEventFormBtn');
+              if (openEventBtn) openEventBtn.addEventListener('click', function(){ showEventForm(true); openAccordion('contentEventos'); });
+              const cancelEventBtn = document.getElementById('cancelEventBtn');
+              if (cancelEventBtn) cancelEventBtn.addEventListener('click', function(){ const f = document.getElementById('eventForm'); if(f) f.reset(); showEventForm(false); });
+              const openRelationBtn = document.getElementById('openRelationFormBtn');
+              if (openRelationBtn) openRelationBtn.addEventListener('click', function(){ showRelationForm(true); openAccordion('contentRelacoes'); });
+              const cancelRelationBtn = document.getElementById('cancelRelationBtn');
+              if (cancelRelationBtn) cancelRelationBtn.addEventListener('click', function(){ const f = document.getElementById('relationForm'); if(f) f.reset(); showRelationForm(false); });
+            })();
             // Eventos
             function getEvents() {
               try {
@@ -315,6 +355,8 @@
               localStorage.setItem('events:xpto', JSON.stringify(events));
             }
             function renderEventsList(personId) {
+              // Always show the list view by default when rendering
+              try { showEventForm(false); } catch (e) {}
               const events = getEvents();
               const list = document.getElementById('eventsList');
               const evs = events.filter(ev => ev.personId === personId && !ev.deletedAt);
@@ -372,6 +414,7 @@
               renderEventsList(personId);
               renderTable(); // Atualiza tabela
               document.getElementById('eventForm').reset();
+              showEventForm(false);
             });
 
             // Relações
@@ -434,6 +477,8 @@
               localStorage.setItem('relations:xpto', JSON.stringify(relations));
             }
             function renderRelationsList(personId) {
+              // Ensure relation form is closed and the list is visible
+              try { showRelationForm(false); } catch(e) {}
               const relations = getRelations();
               const people = loadPeople();
               const list = document.getElementById('relationsList');
@@ -485,6 +530,7 @@
               renderRelationsList(from);
               document.getElementById('relationType').value = '';
               document.getElementById('relationPerson').value = '';
+              showRelationForm(false);
             });
       const STORAGE_KEY = 'people:xpto';
 

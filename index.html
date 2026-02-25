@@ -154,8 +154,14 @@
             addPersonBtn.addEventListener('click', function() {
               resetForm();
               showFormPanel(true);
-              // Oculta folder de relações na criação
+              // Oculta folders de relações e eventos na criação
               document.getElementById('folderRelacoes').style.display = 'none';
+              document.getElementById('folderEventos').style.display = 'none';
+              // Limpa listas de eventos e relações para nova ficha
+              if (typeof renderEventsList === 'function') renderEventsList('');
+              if (typeof renderRelationsList === 'function') renderRelationsList('');
+              // Limpa a área de datas (não mostrar datas para novo registro)
+              if (typeof showDatesInfo === 'function') showDatesInfo();
             });
             // Modifica editPerson para mostrar ficha e folders
             const originalEditPerson = editPerson;
@@ -438,6 +444,10 @@
       function resetForm() {
         document.getElementById('personForm').reset();
         document.getElementById('id').value = '';
+        // Limpa campos de datas que só existem após salvar (criação deve deixar em branco)
+        if (document.getElementById('createdAt')) document.getElementById('createdAt').value = '';
+        if (document.getElementById('updatedAt')) document.getElementById('updatedAt').value = '';
+        if (document.getElementById('deletedAt')) document.getElementById('deletedAt').value = '';
       }
 
       function formatDate(dateStr) {

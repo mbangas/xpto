@@ -399,6 +399,39 @@ th {
 /* Hidden state for layout controls (toggled via JS) */
 .layout-controls.hidden { display: none !important; }
 
+/* Mini cards for events & relations -- layout responsive to available width */
+.mini-list {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  width: 100%;
+}
+.mini-card {
+  flex: 1 1 280px; /* grow, shrink, base width */
+  min-width: 220px;
+  max-width: 100%;
+  background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02));
+  border: 1px solid rgba(163,163,255,0.04);
+  border-radius: 12px;
+  padding: 12px;
+  box-sizing: border-box;
+  box-shadow: 0 6px 18px rgba(2,6,23,0.35);
+  color: var(--text-main);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mini-card .mc-header { display:flex; justify-content:space-between; gap:8px; align-items:center; }
+.mc-type { font-weight:700; color:var(--text-main); }
+.mc-meta { color:var(--text-secondary); font-size:0.9rem; }
+.mc-notes { color:var(--text-secondary); font-size:0.95rem; white-space:pre-wrap; }
+.mc-actions { display:flex; justify-content:flex-end; gap:8px; }
+
+@media (max-width: 600px) {
+  .mini-card { flex-basis: 100%; min-width: 0; }
+}
+
 /* Mini cards for events and relations in pessoa-detalhe */
 .mini-list { display: flex; gap: 12px; flex-wrap: wrap; }
 .mini-card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border: 1px solid rgba(163,163,255,0.04); border-radius: 10px; padding: 12px; width: 260px; box-shadow: 0 6px 18px rgba(2,6,23,0.45); display: flex; flex-direction: column; gap: 8px; }

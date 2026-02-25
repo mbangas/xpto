@@ -40,6 +40,9 @@
             <div class="indicador-num" id="totalRelacoes">0</div>
             <div class="indicador-label">Relações</div>
           </div>
+          <div id="relationTypeCards" style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;"></div>
+          <div id="eventTypeCards" style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;margin-top:6px;"></div>
+          <div id="genderCards" style="display:flex;gap:12px;flex-wrap:wrap;align-items:stretch;margin-top:6px;"></div>
         </div>
       </main>
     </div>
@@ -69,6 +72,106 @@
         document.getElementById('totalPessoas').textContent = pessoas.length;
         document.getElementById('totalEventos').textContent = eventos.length;
         document.getElementById('totalRelacoes').textContent = relacoes.length;
+        // Contagem por tipo de relação e renderização de cards específicos
+        const typeMap = {
+          siblin: { label: 'Irmão / Irmã', icon: '🧑‍🤝‍🧑' },
+          ancestor: { label: 'Pai / Mãe', icon: '👪' },
+          child: { label: 'Filho(a)', icon: '🧒' },
+          mate: { label: 'Companheiro(a)', icon: '💞' }
+        };
+        const counts = {};
+        relacoes.forEach(r => { if (r && r.type) counts[r.type] = (counts[r.type] || 0) + 1; });
+        const container = document.getElementById('relationTypeCards');
+        if (container) {
+          container.innerHTML = '';
+          // Render known types in a stable order
+          Object.keys(typeMap).forEach(t => {
+            const n = counts[t] || 0;
+            const card = document.createElement('div');
+            card.className = 'indicador-card card';
+            card.style.minWidth = '140px';
+            card.innerHTML = `<div class="indicador-icon" title="${typeMap[t].label}">${typeMap[t].icon}</div><div class="indicador-num">${n}</div><div class="indicador-label">${typeMap[t].label}</div>`;
+            container.appendChild(card);
+            // remove from counts so remaining unknowns can be listed later
+            delete counts[t];
+          });
+          // Render any unknown types that exist in data
+          Object.keys(counts).forEach(t => {
+            const n = counts[t] || 0;
+            const card = document.createElement('div');
+            card.className = 'indicador-card card';
+            card.style.minWidth = '140px';
+            card.innerHTML = `<div class="indicador-icon" title="${t}">🔸</div><div class="indicador-num">${n}</div><div class="indicador-label">${t}</div>`;
+            container.appendChild(card);
+          });
+        }
+        // Eventos: contar por tipo e renderizar cards
+        const eventMap = {
+          BIRTH: { label: 'Nascimento', icon: '👶' },
+          BAPTISM: { label: 'Batismo', icon: '✝️' },
+          DEATH: { label: 'Óbito', icon: '🪦' },
+          MARRIAGE: { label: 'Casamento', icon: '💍' },
+          DIVORCE: { label: 'Divórcio', icon: '⚖️' },
+          ADOPTION: { label: 'Adoção', icon: '🤝' },
+          CUSTOM: { label: 'Outro', icon: '🔸' }
+        };
+        const evCounts = {};
+        eventos.forEach(ev => { if (ev && ev.type) evCounts[ev.type] = (evCounts[ev.type] || 0) + 1; });
+        const evContainer = document.getElementById('eventTypeCards');
+        if (evContainer) {
+          evContainer.innerHTML = '';
+          Object.keys(eventMap).forEach(t => {
+            const n = evCounts[t] || 0;
+            const card = document.createElement('div');
+            card.className = 'indicador-card card';
+            card.style.minWidth = '140px';
+            card.innerHTML = `<div class="indicador-icon" title="${eventMap[t].label}">${eventMap[t].icon}</div><div class="indicador-num">${n}</div><div class="indicador-label">${eventMap[t].label}</div>`;
+            evContainer.appendChild(card);
+            delete evCounts[t];
+          });
+          // Render any unknown event types
+          Object.keys(evCounts).forEach(t => {
+            const n = evCounts[t] || 0;
+            const card = document.createElement('div');
+            card.className = 'indicador-card card';
+            card.style.minWidth = '140px';
+            card.innerHTML = `<div class="indicador-icon" title="${t}">🔹</div><div class="indicador-num">${n}</div><div class="indicador-label">${t}</div>`;
+            evContainer.appendChild(card);
+          });
+        }
+        // Gêneros: contar por gênero e renderizar cards
+        const genderMap = {
+          male: { label: 'Masculino', icon: '♂' },
+          female: { label: 'Feminino', icon: '♀' },
+          other: { label: 'Outro', icon: '⚧' },
+          unknown: { label: 'Não informado', icon: '❓' }
+        };
+        const gCounts = {};
+        pessoas.forEach(p => { const g = p && p.gender ? p.gender : 'unknown'; gCounts[g] = (gCounts[g] || 0) + 1; });
+        const gContainer = document.getElementById('genderCards');
+        if (gContainer) {
+          gContainer.innerHTML = '';
+          // Render known genders in stable order
+          ['male','female','other','unknown'].forEach(k => {
+            const n = gCounts[k] || 0;
+            const info = genderMap[k] || { label: k, icon: '❓' };
+            const card = document.createElement('div');
+            card.className = 'indicador-card card';
+            card.style.minWidth = '140px';
+            card.innerHTML = `<div class="indicador-icon" title="${info.label}">${info.icon}</div><div class="indicador-num">${n}</div><div class="indicador-label">${info.label}</div>`;
+            gContainer.appendChild(card);
+            delete gCounts[k];
+          });
+          // Any unexpected gender keys
+          Object.keys(gCounts).forEach(k => {
+            const n = gCounts[k] || 0;
+            const card = document.createElement('div');
+            card.className = 'indicador-card card';
+            card.style.minWidth = '140px';
+            card.innerHTML = `<div class="indicador-icon" title="${k}">🔸</div><div class="indicador-num">${n}</div><div class="indicador-label">${k}</div>`;
+            gContainer.appendChild(card);
+          });
+        }
       }
       updateIndicadores();
     </script>

@@ -27,9 +27,12 @@
           <div class="table-panel card">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0;">
                 <div style="display:flex;gap:12px;align-items:center;">
-                  <input type="text" id="nameFilter" placeholder="Filtrar por nome..." style="padding:8px 10px;border-radius:8px;border:1px solid rgba(163,163,255,0.06);background:transparent;color:var(--text-main);" />
-                  <div id="paginationControls" style="color:var(--text-secondary);"></div>
-                </div>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                      <input type="text" id="nameFilter" placeholder="Filtrar por nome..." style="padding:8px 10px;border-radius:8px;border:1px solid rgba(163,163,255,0.06);background:transparent;color:var(--text-main);" />
+                      <button id="nameSearchBtn" type="button" title="Pesquisar" style="padding:8px 10px;border-radius:8px;border:1px solid rgba(163,163,255,0.06);background:transparent;cursor:pointer;">🔍</button>
+                    </div>
+                    <div id="paginationControls" style="color:var(--text-secondary);"></div>
+                  </div>
               </div>
           <div>
             <label><input type="checkbox" id="hideDeleted" checked /> Ocultar registros excluídos</label>
@@ -451,6 +454,8 @@
       // Pagination + filter state
       let currentPage = 1;
       const PAGE_SIZE = 20;
+      // currentFilter is applied when the user clicks the search button or presses Enter
+      let currentFilter = '';
 
       function renderPagination(totalPages) {
         const ctrl = document.getElementById('paginationControls');
@@ -458,7 +463,12 @@
         if (totalPages <= 1) { ctrl.innerHTML = ''; return; }
         const prevDisabled = currentPage <= 1 ? 'disabled' : '';
         const nextDisabled = currentPage >= totalPages ? 'disabled' : '';
-        ctrl.innerHTML = `<button id="prevPage" ${prevDisabled} style="margin-right:6px;">◀</button><span style="margin-right:6px;">Página ${currentPage} de ${totalPages}</span><button id="nextPage" ${nextDisabled}>▶</button>`;
+        // force no line-breaks and keep controls inline
+        ctrl.style.whiteSpace = 'nowrap';
+        ctrl.style.display = 'inline-flex';
+        ctrl.style.alignItems = 'center';
+        ctrl.style.gap = '6px';
+        ctrl.innerHTML = `<button id="prevPage" ${prevDisabled} style="margin-right:0;padding:4px 8px;">◀</button><span style="margin-right:0;">Página ${currentPage} de ${totalPages}</span><button id="nextPage" ${nextDisabled} style="padding:4px 8px;">▶</button>`;
         const prev = document.getElementById('prevPage');
         const next = document.getElementById('nextPage');
         if (prev) prev.addEventListener('click', function(){ if (currentPage>1) { currentPage--; renderTable(); } });
@@ -471,7 +481,7 @@
         const all = loadPeople();
         const hideDeleted = document.getElementById('hideDeleted').checked;
         const events = getEvents();
-        const filter = (document.getElementById('nameFilter') && document.getElementById('nameFilter').value || '').toLowerCase().trim();
+        const filter = currentFilter;
 
         // Apply hidden and filter
         const filtered = all.filter(p => {
@@ -513,6 +523,27 @@
 
         renderPagination(totalPages);
       }
+
+      // Search button / Enter key behavior: apply filter independently and reset to page 1
+      (function(){
+        const btn = document.getElementById('nameSearchBtn');
+        const input = document.getElementById('nameFilter');
+        if (btn && input) {
+          btn.addEventListener('click', function(){
+            currentFilter = (input.value || '').toLowerCase().trim();
+            currentPage = 1;
+            renderTable();
+          });
+          input.addEventListener('keydown', function(e){
+            if (e.key === 'Enter'){
+              e.preventDefault();
+              currentFilter = (input.value || '').toLowerCase().trim();
+              currentPage = 1;
+              renderTable();
+            }
+          });
+        }
+      })();
 
       function escapeHtml(s){ return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 

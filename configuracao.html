@@ -28,6 +28,7 @@
         </div>
 
         <div class="card" style="max-width:760px;">
+          <h2 style="margin:0 0 8px 0;">Biblioteca de Fotos</h2>
           <p style="color:var(--text-secondary);margin-top:6px;">Defina a pasta base que contém o repositório de fotografias. Selecione a pasta (diretório) no seu sistema usando o seletor abaixo. Nota: a seleção de pastas usa o atributo <em>webkitdirectory</em> — disponível na maioria dos navegadores Chromium.</p>
 
           <div style="display:flex;gap:12px;align-items:center;margin-top:12px;flex-direction:column;align-items:flex-start;">
@@ -39,6 +40,25 @@
               <button class="btn" id="clearBaseBtn">Remover configuração</button>
             </div>
             <div id="currentBase" style="margin-top:10px;color:var(--text-secondary);font-size:0.95rem;"></div>
+          </div>
+        </div>
+
+        <div class="card" style="max-width:760px; margin-top:16px;">
+          <h2 style="margin:0 0 8px 0;">Pessoa em Foco</h2>
+          <p style="color:var(--text-secondary);margin-top:6px;">Pesquise pessoas e defina uma como foco principal. A seleção será salva nas configurações locais.</p>
+
+          <div style="display:flex;gap:12px;align-items:center;margin-top:12px;flex-direction:column;align-items:flex-start;">
+            <label style="font-weight:600;color:var(--text-secondary);">Pesquisar pessoa</label>
+            <input list="peopleList" type="search" id="personSearch" placeholder="Pesquisar pessoa..." style="width:100%;max-width:420px;padding:8px;border:1px solid var(--border);border-radius:4px;" />
+            <datalist id="peopleList"></datalist>
+            <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+              <button class="btn" id="setFocusBtn">Definir como foco</button>
+            </div>
+
+            <div style="margin-top:8px;color:var(--text-secondary);font-size:0.95rem;">Pessoa em foco atual: <span id="currentFocus" style="font-weight:600"></span></div>
+            <div style="display:flex;gap:8px;margin-top:6px;">
+              <button class="btn" id="clearFocusBtn">Remover foco</button>
+            </div>
           </div>
         </div>
 
@@ -81,6 +101,40 @@
 
         saveBtn.addEventListener('click', function(){ if(!lastFolder) return alert('Nenhuma pasta detectada.'); saveBase({ folder: lastFolder, files: lastCount, when: nowISO() }); showCurrent(); alert('Pasta base salva.'); });
         clearBtn.addEventListener('click', function(){ if(!confirm('Remover a configuração da pasta base?')) return; clearBase(); showCurrent(); alert('Configuração removida.'); });
+
+        // --- Pessoa em Foco: pesquisa e foco principal (combobox/datalist) ---
+        const PERSON_KEY = 'people:xpto';
+        const FOCUS_KEY = 'focusedPerson:xpto';
+        const search = document.getElementById('personSearch');
+        const peopleList = document.getElementById('peopleList');
+        const setFocusBtn = document.getElementById('setFocusBtn');
+        const currentFocusEl = document.getElementById('currentFocus');
+        const clearFocusBtn = document.getElementById('clearFocusBtn');
+
+        function loadPeople(){ try{ return JSON.parse(localStorage.getItem(PERSON_KEY)||'[]'); }catch(e){ return []; } }
+        function personName(p){ if(!p) return ''; if(typeof p === 'string') return p; // prefer explicit first/last name fields as "nome completo"
+          if((p.firstName || p.lastName)) return ((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim();
+          if(p.fullName) return p.fullName;
+          if(p.name) return p.name;
+          if(p.nome) return p.nome;
+          if(p.displayName) return p.displayName;
+          // fallback: find first string prop
+          for(const k in p){ if(typeof p[k] === 'string' && p[k].trim()) return p[k]; } return JSON.stringify(p); }
+        function saveFocus(name){ localStorage.setItem(FOCUS_KEY, JSON.stringify({ name: name, when: nowISO() })); showCurrentFocus(); }
+        function clearFocus(){ localStorage.removeItem(FOCUS_KEY); showCurrentFocus(); }
+        function showCurrentFocus(){ const v = JSON.parse(localStorage.getItem(FOCUS_KEY)||'null'); currentFocusEl.textContent = v ? v.name : '—'; }
+
+        function renderMatches(q){ const people = loadPeople(); const ql = (q||'').trim().toLowerCase(); const matches = ql ? people.filter(p => personName(p).toLowerCase().includes(ql)) : people.slice(0,200); peopleList.innerHTML = matches.map(p => `<option value="${escapeHtml(personName(p))}"></option>`).join(''); }
+
+        function setFromInput(){ const val = (search.value||'').trim(); if(!val){ return alert('Escreva ou selecione uma pessoa.'); } const people = loadPeople(); const found = people.find(p => personName(p).toLowerCase() === val.toLowerCase()); if(!found){ return alert('Pessoa não encontrada. Verifique se o nome corresponde a uma pessoa existente.'); } saveFocus(personName(found)); alert('Pessoa definida como foco principal.'); }
+
+        search.addEventListener('input', function(){ renderMatches(this.value); });
+        search.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); setFromInput(); } });
+        setFocusBtn.addEventListener('click', setFromInput);
+        clearFocusBtn.addEventListener('click', function(){ if(!confirm('Remover pessoa em foco?')) return; clearFocus(); alert('Foco removido.'); });
+
+        showCurrentFocus();
+        renderMatches('');
       });
     </script>
   </body>

@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pessoas — Gráfico</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+      body { background:#f4f7fb; font-family:'Segoe UI','Arial',sans-serif; }
+      .menu-bar { background:#fff; padding:0 24px; margin-bottom:24px; box-shadow:0 2px 8px #0001; display:flex; align-items:center; height:56px; }
+      .menu-bar a { margin-right:24px; font-weight:600; text-decoration:none; color:#2a4d8f; font-size:1.05em; }
+      .menu-bar a.active, .menu-bar a:hover { color:#1a2a4d; text-decoration:underline; }
+      .container { max-width:1100px; margin:0 auto; padding:24px 16px 48px; }
+      .card { background:#fff; border-radius:12px; padding:18px; box-shadow:0 6px 18px #0001; }
+      #graph { width:100%; height:520px; }
+      .legend { display:flex; gap:12px; margin-top:12px; align-items:center; }
+      .legend div { display:flex; gap:8px; align-items:center; color:#444; }
+      .avatar { width:18px; height:18px; border-radius:50%; display:inline-block; }
+      @media (max-width:700px) { #graph { height:360px; } }
+    </style>
+  </head>
+  <body>
+    <nav class="menu-bar">
+      <a href="index.html">Cadastro</a>
+      <a href="indicadores.html">Indicadores</a>
+      <a href="pessoas.html" class="active">Pessoas</a>
+    </nav>
+    <div class="container">
+      <div class="card">
+        <h1 style="margin-top:0;">Visualização gráfica de Pessoas</h1>
+        <p style="color:#555;margin-top:6px;">Nós representam pessoas. Clique em um nó para ver detalhes.</p>
+        <svg id="graph" viewBox="0 0 1000 520" preserveAspectRatio="xMidYMid meet"></svg>
+        <div class="legend">
+          <div><span class="avatar" style="background:#4a90e2"></span> Masculino</div>
+          <div><span class="avatar" style="background:#e26aa6"></span> Feminino</div>
+          <div><span class="avatar" style="background:#9aa0a6"></span> Outro</div>
+        </div>
+      </div>
+    </div>
+    <script>
+      function getPeople() {
+        try { const raw = localStorage.getItem('people:xpto'); return raw ? JSON.parse(raw) : []; } catch(e){ return []; }
+      }
+      function getEvents() {
+        try { const raw = localStorage.getItem('events:xpto'); return raw ? JSON.parse(raw) : []; } catch(e){ return []; }
+      }
+      function formatDate(d){ if(!d) return ''; const t=new Date(d); if(isNaN(t)) return d; return t.getDate().toString().padStart(2,'0') + '-' + (t.getMonth()+1).toString().padStart(2,'0') + '-' + t.getFullYear(); }
+
+      function renderGraph(){
+        const people = getPeople().filter(p => !p.deletedAt);
+        const events = getEvents();
+        const svg = document.getElementById('graph');
+        svg.innerHTML = '';
+        if(people.length === 0){
+          const msg = document.createElementNS('http://www.w3.org/2000/svg','text');
+          msg.setAttribute('x','50%'); msg.setAttribute('y','50%'); msg.setAttribute('text-anchor','middle'); msg.setAttribute('fill','#888'); msg.setAttribute('font-size','18'); msg.textContent = 'Nenhuma pessoa cadastrada.';
+          svg.appendChild(msg); return;
+        }
+        const w = 1000, h = 500, cx = w/2, cy = h/2, r = Math.min(w,h)/2 - 80;
+        const n = people.length;
+        people.forEach((p,i)=>{
+          const angle = (i / n) * Math.PI * 2 - Math.PI/2;
+          const x = cx + r * Math.cos(angle);
+          const y = cy + r * Math.sin(angle);
+          const gender = (p.gender||'').toLowerCase();
+          const fill = gender === 'male' ? '#4a90e2' : (gender === 'female' ? '#e26aa6' : '#9aa0a6');
+          // circle
+          const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+          c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', 28); c.setAttribute('fill', fill); c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width','3'); c.setAttribute('style','cursor:pointer;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.08))');
+          c.addEventListener('click', ()=>{
+            const evs = events.filter(ev=>ev.personId === p.id && !ev.deletedAt);
+            const birth = evs.find(e => e.type === 'BIRTH');
+            const death = evs.find(e => e.type === 'DEATH');
+            const info = `${p.firstName || ''} ${p.lastName || ''}\nNascimento: ${birth && birth.date ? formatDate(birth.date) : '—'}\nÓbito: ${death && death.date ? formatDate(death.date) : '—'}`;
+            alert(info);
+          });
+          svg.appendChild(c);
+          // initials
+          const initials = ((p.firstName||'').charAt(0) || '') + ((p.lastName||'').charAt(0) || '');
+          const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+          t.setAttribute('x', x); t.setAttribute('y', y+6); t.setAttribute('text-anchor','middle'); t.setAttribute('fill','#fff'); t.setAttribute('font-size','14'); t.setAttribute('font-weight','700'); t.textContent = initials.toUpperCase();
+          svg.appendChild(t);
+          // label
+          const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+          lbl.setAttribute('x', x); lbl.setAttribute('y', y + 48); lbl.setAttribute('text-anchor','middle'); lbl.setAttribute('fill','#333'); lbl.setAttribute('font-size','12'); lbl.textContent = `${p.firstName || ''} ${p.lastName || ''}`.trim();
+          svg.appendChild(lbl);
+        });
+      }
+
+      // Rerender on storage change (same-tab) and on load
+      window.addEventListener('storage', renderGraph);
+      document.addEventListener('DOMContentLoaded', renderGraph);
+    </script>
+  </body>
+</html>

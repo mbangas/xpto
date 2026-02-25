@@ -29,14 +29,16 @@
 
         <div class="card" style="max-width:760px;">
           <h2 style="margin:0 0 8px 0;">Biblioteca de Fotos</h2>
-          <p style="color:var(--text-secondary);margin-top:6px;">Defina a pasta base que contém o repositório de fotografias. Selecione a pasta (diretório) no seu sistema usando o seletor abaixo. Nota: a seleção de pastas usa o atributo <em>webkitdirectory</em> — disponível na maioria dos navegadores Chromium.</p>
+          <p style="color:var(--text-secondary);margin-top:6px;">Defina a pasta base que contém o repositório de fotografias. Use o botão para abrir o seletor de pastas (File System Access API) quando disponível, ou selecione uma pasta via o seletor de ficheiros com <em>webkitdirectory</em> como fallback (navegadores Chromium).</p>
 
           <div style="display:flex;gap:12px;align-items:center;margin-top:12px;flex-direction:column;align-items:flex-start;">
             <label style="font-weight:600;color:var(--text-secondary);">Selecionar pasta de fotografias</label>
-            <input type="file" id="dirPicker" webkitdirectory directory multiple accept="image/*" />
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn" id="openDirBtn">Selecionar pasta...</button>
+              <input type="file" id="dirPicker" webkitdirectory directory multiple accept="image/*" style="display:none;" />
+            </div>
             <div id="selectionInfo" style="color:var(--text-secondary);font-size:0.95rem;min-height:36px;"></div>
             <div style="display:flex;gap:8px;margin-top:6px;">
-              <button class="btn" id="saveBaseBtn" disabled>Salvar como base</button>
               <button class="btn" id="clearBaseBtn">Remover configuração</button>
             </div>
             <div id="currentBase" style="margin-top:10px;color:var(--text-secondary);font-size:0.95rem;"></div>
@@ -69,6 +71,36 @@
       function nowISO(){ return new Date().toISOString(); }
       const KEY = 'photoBase:xpto';
 
+      // Persist directory handle in IndexedDB so other pages can write into it
+      function saveDirHandleToDB(handle){
+        try{
+          const req = indexedDB.open('xpto-db', 1);
+          req.onupgradeneeded = function(e){ const db = e.target.result; if(!db.objectStoreNames.contains('handles')) db.createObjectStore('handles'); };
+          return new Promise((resolve, reject)=>{
+            req.onsuccess = function(e){
+              const db = e.target.result;
+              const tx = db.transaction('handles', 'readwrite');
+              const store = tx.objectStore('handles');
+              store.put(handle, 'photoBaseHandle');
+              tx.oncomplete = function(){ db.close(); resolve(true); };
+              tx.onerror = function(ev){ db.close(); reject(ev); };
+            };
+            req.onerror = function(){ reject(req.error); };
+          });
+        }catch(e){ return Promise.reject(e); }
+      }
+
+      function getDirHandleFromDB(){
+        try{
+          const req = indexedDB.open('xpto-db', 1);
+          return new Promise((resolve, reject)=>{
+            req.onupgradeneeded = function(e){ const db = e.target.result; if(!db.objectStoreNames.contains('handles')) db.createObjectStore('handles'); };
+            req.onsuccess = function(e){ const db = e.target.result; const tx = db.transaction('handles','readonly'); const store = tx.objectStore('handles'); const g = store.get('photoBaseHandle'); g.onsuccess = function(){ resolve(g.result || null); db.close(); }; g.onerror = function(){ resolve(null); db.close(); }; };
+            req.onerror = function(){ resolve(null); };
+          });
+        }catch(e){ return Promise.resolve(null); }
+      }
+
       function readSaved(){ try{ return JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){ return null; } }
       function saveBase(obj){ localStorage.setItem(KEY, JSON.stringify(obj)); }
       function clearBase(){ localStorage.removeItem(KEY); }
@@ -80,24 +112,63 @@
       function commonPrefix(paths){ if(!paths || paths.length===0) return ''; const split = paths.map(p => (p || '').split('/')); const first = split[0] || []; let prefix = []; for(let i=0;i<first.length;i++){ const seg = first[i]; if(split.every(s => s[i] === seg)) prefix.push(seg); else break; } return prefix.join('/'); }
 
       document.addEventListener('DOMContentLoaded', function(){
-        const picker = document.getElementById('dirPicker');
+        const fileInput = document.getElementById('dirPicker');
+        const openBtn = document.getElementById('openDirBtn');
         const info = document.getElementById('selectionInfo');
-        const saveBtn = document.getElementById('saveBaseBtn');
         const clearBtn = document.getElementById('clearBaseBtn');
         let lastFolder = null; let lastCount = 0;
 
         showCurrent();
 
-        picker.addEventListener('change', function(e){
-          const files = Array.from(this.files || []);
-          if(!files.length){ info.textContent = 'Nenhum ficheiro selecionado.'; saveBtn.disabled = true; return; }
+        async function countFilesInDir(dirHandle){
+          let count = 0;
+          for await (const [name, handle] of dirHandle.entries()){
+            if(handle.kind === 'file') count++;
+            else if(handle.kind === 'directory') count += await countFilesInDir(handle);
+          }
+          return count;
+        }
+
+        function handleFilesArray(files){
+          if(!files || files.length===0){ info.textContent = 'Nenhum ficheiro selecionado.'; return; }
           const paths = files.map(f => f.webkitRelativePath || f.name);
-          const root = commonPrefix(paths) || paths[0].split('/')[0] || '';
+          const root = commonPrefix(paths) || (paths[0] ? paths[0].split('/')[0] : '');
           lastFolder = root;
           lastCount = files.length;
           info.innerHTML = `<div>Detectado: <b>${escapeHtml(root)}</b> — ${files.length} ficheiros</div>`;
-          saveBtn.disabled = false;
-        });
+          // salvar automaticamente
+          saveBase({ folder: lastFolder, files: lastCount, when: nowISO() });
+          showCurrent();
+          alert('Pasta base salva.');
+        }
+
+        if(window.showDirectoryPicker){
+          fileInput.style.display = 'none';
+          openBtn.addEventListener('click', async function(){
+            try{
+              const dir = await window.showDirectoryPicker();
+              const count = await countFilesInDir(dir);
+              lastFolder = dir.name;
+              lastCount = count;
+              info.innerHTML = `<div>Detectado: <b>${escapeHtml(dir.name)}</b> — ${count} ficheiros</div>`;
+              // salvar automaticamente
+              saveBase({ folder: lastFolder, files: lastCount, when: nowISO() });
+              // persist directory handle so other pages can write into it
+              try{ await saveDirHandleToDB(dir); }catch(err){ console.warn('Não foi possível salvar handle do diretório:', err); }
+              showCurrent();
+              alert('Pasta base salva.');
+            }catch(err){
+              console.error(err);
+              alert('Não foi possível abrir o seletor de pastas.');
+            }
+          });
+        } else {
+          openBtn.style.display = 'none';
+          fileInput.addEventListener('change', function(e){
+            const files = Array.from(this.files || []);
+            handleFilesArray(files);
+          });
+        }
 
         saveBtn.addEventListener('click', function(){ if(!lastFolder) return alert('Nenhuma pasta detectada.'); saveBase({ folder: lastFolder, files: lastCount, when: nowISO() }); showCurrent(); alert('Pasta base salva.'); });
         clearBtn.addEventListener('click', function(){ if(!confirm('Remover a configuração da pasta base?')) return; clearBase(); showCurrent(); alert('Configuração removida.'); });

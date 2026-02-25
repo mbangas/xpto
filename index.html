@@ -43,103 +43,111 @@
         </table>
       </div>
       <div class="form-panel card" id="formPanel" style="display:none;">
-        <div class="folders">
-          <div class="folder" id="folderDados">
-                      <div class="folder" id="folderEventos" style="margin-top:24px;">
-                        <h2>Eventos</h2>
-                        <form id="eventForm">
-                          <div>
-                            <label for="eventType">Tipo de evento</label>
-                            <select id="eventType" name="eventType" required>
-                              <option value="">-- selecione --</option>
-                              <option value="BIRTH">Nascimento</option>
-                              <option value="BAPTISM">Batismo</option>
-                              <option value="DEATH">Óbito</option>
-                              <option value="MARRIAGE">Casamento</option>
-                              <option value="DIVORCE">Divórcio</option>
-                              <option value="ADOPTION">Adoção</option>
-                              <option value="CUSTOM">Outro</option>
-                            </select>
-                          </div>
-                          <div>
-                            <label for="eventDate">Data</label>
-                            <input type="date" id="eventDate" name="eventDate" />
-                          </div>
-                          <div>
-                            <label for="eventLocation">Local</label>
-                            <input type="text" id="eventLocation" name="eventLocation" />
-                          </div>
-                          <div>
-                            <label for="eventNotes">Notas</label>
-                            <textarea id="eventNotes" name="eventNotes"></textarea>
-                          </div>
-                          <div class="full">
-                            <button type="button" id="addEventBtn">Adicionar Evento</button>
-                          </div>
-                        </form>
-                        <div id="eventsList"></div>
-                      </div>
-            <h2>Dados Pessoais</h2>
-            <form id="personForm">
-              <input type="hidden" id="id" name="id" />
-              <input type="hidden" id="createdAt" name="createdAt" />
-              <input type="hidden" id="updatedAt" name="updatedAt" />
-              <input type="hidden" id="deletedAt" name="deletedAt" />
-              <div>
-                <label for="firstName">First Name</label>
-                <input type="text" id="firstName" name="firstName" required />
-              </div>
-              <div>
-                <label for="lastName">Last Name</label>
-                <input type="text" id="lastName" name="lastName" required />
-              </div>
-              <div>
-                <label for="gender">Gender</label>
-                <select id="gender" name="gender">
-                  <option value="">-- selecione --</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
-              </div>
-              <div class="full">
-                <label for="notes">Notes</label>
-                <textarea id="notes" name="notes"></textarea>
-              </div>
-              <div class="full">
-                <button type="submit" id="saveBtn">Salvar</button>
-                <button type="button" id="resetBtn">Limpar</button>
-              </div>
-            </form>
+        <div class="accordion">
+          <div class="accordion-card" id="cardDados">
+            <button type="button" class="accordion-header" data-target="contentDados"><span>Dados Pessoais</span><span class="accordion-arrow">▾</span></button>
+            <div class="accordion-content" id="contentDados">
+              <form id="personForm">
+                <input type="hidden" id="id" name="id" />
+                <input type="hidden" id="createdAt" name="createdAt" />
+                <input type="hidden" id="updatedAt" name="updatedAt" />
+                <input type="hidden" id="deletedAt" name="deletedAt" />
+                <div>
+                  <label for="firstName">First Name</label>
+                  <input type="text" id="firstName" name="firstName" required />
+                </div>
+                <div>
+                  <label for="lastName">Last Name</label>
+                  <input type="text" id="lastName" name="lastName" required />
+                </div>
+                <div>
+                  <label for="gender">Gender</label>
+                  <select id="gender" name="gender">
+                    <option value="">-- selecione --</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div class="full">
+                  <label for="notes">Notes</label>
+                  <textarea id="notes" name="notes"></textarea>
+                </div>
+                <div class="full">
+                  <button type="submit" id="saveBtn">Salvar</button>
+                  <button type="button" id="resetBtn">Limpar</button>
+                </div>
+              </form>
+            </div>
           </div>
-          <div class="folder" id="folderRelacoes" style="margin-top:24px;">
-            <h2>Relações</h2>
-            <form id="relationForm">
-              <div>
-                <label for="relationType">Tipo de relação</label>
-                <select id="relationType" name="relationType">
-                  <option value="">-- selecione --</option>
-                  <option value="siblin">Siblin</option>
-                  <option value="ancestor">Ancestor</option>
-                  <option value="child">Child</option>
-                  <option value="mate">Mate</option>
-                </select>
-              </div>
-              <div>
-                <label for="relationPerson">Pessoa relacionada</label>
-                <select id="relationPerson" name="relationPerson">
-                  <option value="">-- selecione --</option>
-                </select>
-              </div>
-              <div class="full">
-                <button type="button" id="addRelationBtn">Adicionar Relação</button>
-              </div>
-            </form>
-            <div id="relationsList"></div>
+
+          <div class="accordion-card" id="cardEventos">
+            <button type="button" class="accordion-header" data-target="contentEventos"><span>Eventos</span><span class="accordion-arrow">▾</span></button>
+            <div class="accordion-content" id="contentEventos">
+              <form id="eventForm">
+                <div>
+                  <label for="eventType">Tipo de evento</label>
+                  <select id="eventType" name="eventType" required>
+                    <option value="">-- selecione --</option>
+                    <option value="BIRTH">Nascimento</option>
+                    <option value="BAPTISM">Batismo</option>
+                    <option value="DEATH">Óbito</option>
+                    <option value="MARRIAGE">Casamento</option>
+                    <option value="DIVORCE">Divórcio</option>
+                    <option value="ADOPTION">Adoção</option>
+                    <option value="CUSTOM">Outro</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="eventDate">Data</label>
+                  <input type="date" id="eventDate" name="eventDate" />
+                </div>
+                <div>
+                  <label for="eventLocation">Local</label>
+                  <input type="text" id="eventLocation" name="eventLocation" />
+                </div>
+                <div>
+                  <label for="eventNotes">Notas</label>
+                  <textarea id="eventNotes" name="eventNotes"></textarea>
+                </div>
+                <div class="full">
+                  <button type="button" id="addEventBtn">Adicionar Evento</button>
+                </div>
+              </form>
+              <div id="eventsList"></div>
+            </div>
+          </div>
+
+          <div class="accordion-card" id="cardRelacoes">
+            <button type="button" class="accordion-header" data-target="contentRelacoes"><span>Relações</span><span class="accordion-arrow">▾</span></button>
+            <div class="accordion-content" id="contentRelacoes">
+              <form id="relationForm">
+                <div>
+                  <label for="relationType">Tipo de relação</label>
+                  <select id="relationType" name="relationType">
+                    <option value="">-- selecione --</option>
+                    <option value="siblin">Siblin</option>
+                    <option value="ancestor">Ancestor</option>
+                    <option value="child">Child</option>
+                    <option value="mate">Mate</option>
+                  </select>
+                </div>
+                <div>
+                  <label for="relationPerson">Pessoa relacionada</label>
+                  <select id="relationPerson" name="relationPerson">
+                    <option value="">-- selecione --</option>
+                  </select>
+                </div>
+                <div class="full">
+                  <button type="button" id="addRelationBtn">Adicionar Relação</button>
+                </div>
+              </form>
+              <div id="relationsList"></div>
+            </div>
           </div>
         </div>
         <div id="datesInfo" style="font-size:0.85em;color:#666;margin-top:16px;text-align:right;"></div>
-          </div>
+      </div>
         </div>
       </main>
     </div>
@@ -151,12 +159,38 @@
             function showFormPanel(show = true) {
               formPanel.style.display = show ? 'block' : 'none';
             }
+            // Accordion helpers
+            function openAccordion(id) {
+              const el = document.getElementById(id);
+              if (!el) return;
+              el.style.display = 'block';
+              if (el.parentElement) el.parentElement.classList.add('open');
+            }
+            function closeAccordion(id) {
+              const el = document.getElementById(id);
+              if (!el) return;
+              el.style.display = 'none';
+              if (el.parentElement) el.parentElement.classList.remove('open');
+            }
+            function toggleAccordion(id) {
+              const el = document.getElementById(id);
+              if (!el) return;
+              if (el.style.display === 'block') closeAccordion(id); else openAccordion(id);
+            }
+            // Wire accordion headers
+            document.addEventListener('click', function(e){
+              const btn = e.target.closest && e.target.closest('.accordion-header');
+              if (btn && btn.dataset && btn.dataset.target) {
+                toggleAccordion(btn.dataset.target);
+              }
+            });
             addPersonBtn.addEventListener('click', function() {
               resetForm();
               showFormPanel(true);
-              // Oculta folders de relações e eventos na criação
-              document.getElementById('folderRelacoes').style.display = 'none';
-              document.getElementById('folderEventos').style.display = 'none';
+              // Fecha Events/Relations e abre Dados ao criar nova pessoa
+              closeAccordion('contentEventos');
+              closeAccordion('contentRelacoes');
+              openAccordion('contentDados');
               // Limpa listas de eventos e relações para nova ficha
               if (typeof renderEventsList === 'function') renderEventsList('');
               if (typeof renderRelationsList === 'function') renderRelationsList('');
@@ -177,10 +211,10 @@
               // Exibe datas no rodapé
               showDatesInfo(p);
               showFormPanel(true);
-              // Exibe folder de relações
-              document.getElementById('folderRelacoes').style.display = 'block';
-              // Exibe folder de eventos
-              document.getElementById('folderEventos').style.display = 'block';
+              // Abre panels de relações e eventos na edição
+              openAccordion('contentRelacoes');
+              openAccordion('contentEventos');
+              openAccordion('contentDados');
               // Preenche pessoas para relação
               fillRelationPersonSelect(id);
               // Renderiza lista de relações
@@ -226,20 +260,23 @@
               resetForm();
               showDatesInfo();
               showFormPanel(false);
-              document.getElementById('folderRelacoes').style.display = 'none';
-              document.getElementById('folderEventos').style.display = 'none';
+              closeAccordion('contentRelacoes');
+              closeAccordion('contentEventos');
+              closeAccordion('contentDados');
             });
             document.getElementById('resetBtn').addEventListener('click', function(){
               resetForm();
               showDatesInfo();
               showFormPanel(false);
-              document.getElementById('folderRelacoes').style.display = 'none';
-              document.getElementById('folderEventos').style.display = 'none';
+              closeAccordion('contentRelacoes');
+              closeAccordion('contentEventos');
+              closeAccordion('contentDados');
             });
             // Oculta ficha ao iniciar
             showFormPanel(false);
-            document.getElementById('folderRelacoes').style.display = 'none';
-            document.getElementById('folderEventos').style.display = 'none';
+            closeAccordion('contentRelacoes');
+            closeAccordion('contentEventos');
+            closeAccordion('contentDados');
             // Eventos
             function getEvents() {
               try {

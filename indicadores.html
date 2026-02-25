@@ -1,0 +1,183 @@
+    .indicador-card {
+      min-width: 180px;
+      text-align: center;
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px #0001;
+      padding: 24px 12px 16px 12px;
+      margin-bottom: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .indicador-num {
+      font-size: 2.4em;
+      font-weight: bold;
+      color: #2a4d8f;
+      margin-bottom: 6px;
+      letter-spacing: 1px;
+      text-shadow: 0 1px 0 #fff, 0 2px 8px #0001;
+    }
+    .indicador-label {
+      color: #666;
+      font-size: 1.1em;
+    }
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Indicadores</title>
+    <link rel="stylesheet" href="style.css">
+    <style>
+      body {
+        background: #f4f7fb;
+        font-family: 'Segoe UI', 'Arial', sans-serif;
+      }
+      .menu-bar {
+        background: #fff;
+        padding: 0 0 0 24px;
+        margin-bottom: 32px;
+        box-shadow: 0 2px 8px #0001;
+        display: flex;
+        align-items: center;
+        height: 56px;
+      }
+      .menu-bar a {
+        margin-right: 32px;
+        font-weight: 600;
+        text-decoration: none;
+        color: #2a4d8f;
+        font-size: 1.1em;
+        transition: color 0.2s;
+      }
+      .menu-bar a.active, .menu-bar a:hover {
+        color: #1a2a4d;
+        text-decoration: underline;
+      }
+      .indicadores-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 0 16px 32px 16px;
+      }
+      .indicadores-title {
+        font-size: 2.1em;
+        font-weight: 700;
+        color: #2a4d8f;
+        margin-bottom: 32px;
+        letter-spacing: 1px;
+        text-align: left;
+      }
+      .indicadores-cards {
+        display: flex;
+        gap: 32px;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+      }
+      .indicador-card {
+        flex: 1 1 220px;
+        min-width: 220px;
+        max-width: 300px;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 2px 16px #0002;
+        padding: 32px 24px 24px 24px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 24px;
+        position: relative;
+        transition: box-shadow 0.2s;
+      }
+      .indicador-card:hover {
+        box-shadow: 0 4px 24px #0003;
+      }
+      .indicador-icon {
+        font-size: 2.6em;
+        margin-bottom: 12px;
+        color: #2a4d8f;
+        filter: drop-shadow(0 2px 4px #0001);
+      }
+      .indicador-num {
+        font-size: 2.6em;
+        font-weight: bold;
+        color: #1a2a4d;
+        margin-bottom: 8px;
+        letter-spacing: 1px;
+        text-shadow: 0 1px 0 #fff, 0 2px 8px #0001;
+      }
+      .indicador-label {
+        color: #666;
+        font-size: 1.15em;
+        font-weight: 500;
+        letter-spacing: 0.5px;
+      }
+      @media (max-width: 700px) {
+        .indicadores-cards {
+          flex-direction: column;
+          gap: 18px;
+        }
+        .indicador-card {
+          min-width: 0;
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="menu-bar">
+      <a href="index.html">Cadastro</a>
+      <a href="indicadores.html" class="active">Indicadores</a>
+    </nav>
+    <div class="indicadores-container">
+      <div class="indicadores-title">Indicadores Gerais</div>
+      <div class="indicadores-cards">
+        <div class="indicador-card">
+          <div class="indicador-icon" title="Pessoas">👤</div>
+          <div class="indicador-num" id="totalPessoas">0</div>
+          <div class="indicador-label">Pessoas</div>
+        </div>
+        <div class="indicador-card">
+          <div class="indicador-icon" title="Eventos">📅</div>
+          <div class="indicador-num" id="totalEventos">0</div>
+          <div class="indicador-label">Eventos</div>
+        </div>
+        <div class="indicador-card">
+          <div class="indicador-icon" title="Relações">🔗</div>
+          <div class="indicador-num" id="totalRelacoes">0</div>
+          <div class="indicador-label">Relações</div>
+        </div>
+      </div>
+    </div>
+    <script>
+      function getPeople() {
+        try {
+          const raw = localStorage.getItem('people:xpto');
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) { return []; }
+      }
+      function getEvents() {
+        try {
+          const raw = localStorage.getItem('events:xpto');
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) { return []; }
+      }
+      function getRelations() {
+        try {
+          const raw = localStorage.getItem('relations:xpto');
+          return raw ? JSON.parse(raw) : [];
+        } catch (e) { return []; }
+      }
+      function updateIndicadores() {
+        const pessoas = getPeople().filter(p => !p.deletedAt);
+        const eventos = getEvents().filter(ev => !ev.deletedAt);
+        const relacoes = getRelations();
+        document.getElementById('totalPessoas').textContent = pessoas.length;
+        document.getElementById('totalEventos').textContent = eventos.length;
+        document.getElementById('totalRelacoes').textContent = relacoes.length;
+      }
+      updateIndicadores();
+    </script>
+  </body>
+</html>

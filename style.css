@@ -396,6 +396,12 @@ th {
 .layout-controls .lc-row input[type=range] { flex:1 1 auto; }
 .layout-controls .lc-row.buttons { justify-content:flex-end; }
 
+/* Hidden state for layout controls (toggled via JS) */
+.layout-controls.hidden { display: none !important; }
+
+/* Small modifier for the toggle button when placed in the topbar */
+.lc-toggle { padding: 8px 14px; border-radius: 10px; font-size: 0.95rem; padding-left:12px; padding-right:12px; }
+
 @media (max-width:900px){ .layout-controls{ right:12px; top:72px; width:260px; } }
 
 @media (max-width: 600px) {

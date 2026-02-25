@@ -24,7 +24,9 @@
       <main class="content">
         <div class="topbar">
           <div><h1 style="margin:0;font-size:1.25rem;">Visualização gráfica de Pessoas</h1></div>
-          <div></div>
+          <div>
+            <button id="toggleLayoutControls" class="btn lc-toggle" aria-pressed="false" aria-controls="layout-controls">Layout</button>
+          </div>
         </div>
         <div class="card">
           <svg id="graph" viewBox="0 0 1000 520" preserveAspectRatio="xMidYMid meet"></svg>
@@ -43,6 +45,9 @@
           <div class="lc-row"><label>Child vertical per</label><input type="range" id="childDyPer" min="10" max="60" step="2"><span id="childDyPerVal" class="lc-val"></span></div>
           <div class="lc-row"><label>Sibling radius base</label><input type="range" id="siblingRadiusBase" min="60" max="220" step="5"><span id="siblingRadiusBaseVal" class="lc-val"></span></div>
           <div class="lc-row"><label>Sibling radius per</label><input type="range" id="siblingRadiusPer" min="8" max="80" step="2"><span id="siblingRadiusPerVal" class="lc-val"></span></div>
+          <div class="lc-row"><label>Other column gap</label><input type="range" id="otherColGap" min="40" max="400" step="5"><span id="otherColGapVal" class="lc-val"></span></div>
+          <div class="lc-row"><label>Other column base</label><input type="range" id="otherColBase" min="0" max="600" step="5"><span id="otherColBaseVal" class="lc-val"></span></div>
+          <div class="lc-row"><label>Other row gap</label><input type="range" id="otherRowGap" min="20" max="240" step="2"><span id="otherRowGapVal" class="lc-val"></span></div>
           <div class="lc-row buttons"><button id="resetLayout" class="btn">Reset</button></div>
         </div>
       </main>
@@ -58,7 +63,8 @@
           const map = {
             parentSpacingBase: 'parentSpacingBase', parentDyPer: 'parentDyPer',
             childSpacingBase: 'childSpacingBase', childDyPer: 'childDyPer',
-            siblingRadiusBase: 'siblingRadiusBase', siblingRadiusPer: 'siblingRadiusPer'
+            siblingRadiusBase: 'siblingRadiusBase', siblingRadiusPer: 'siblingRadiusPer',
+            otherColGap: 'otherColGap', otherRowGap: 'otherRowGap', otherColBase: 'otherColBase'
           };
           Object.keys(map).forEach(id => {
             const el = document.getElementById(id);
@@ -100,7 +106,7 @@
         childSpacingBase: 200, childSpacingDecay: 10, childSpacingMin: 90,
         childDyBase: 120, childDyPer: 30, childDyMax: 360,
         siblingRadiusBase: 110, siblingRadiusPer: 36, siblingRadiusMin: 140, siblingRadiusMax: 520,
-        otherColGap: 140, otherRowGap: 80
+        otherColGap: 140, otherRowGap: 80, otherColBase: 200
       };
 
       const LAYOUT_KEY = 'layoutSettings:xpto';
@@ -122,15 +128,20 @@
           svg.appendChild(msg); return;
         }
 
-        // pick root person: prefer configured focused person, else first person
+        // pick root person: prefer configured focused person (by id or name), else first person
         function fullname(p){ return ((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim(); }
         let root = null;
         try{
           const FOCUS_KEY = 'focusedPerson:xpto';
           const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
-          if(saved && saved.name){
-            const targetName = (saved.name || '').trim().toLowerCase();
-            root = all.find(p => fullname(p).toLowerCase() === targetName || ((p.fullName||'').toLowerCase() === targetName) || ((p.name||'').toLowerCase() === targetName));
+          if(saved){
+            if(saved.id !== undefined && saved.id !== null){
+              root = all.find(p => String(p.id) === String(saved.id));
+            }
+            if(!root && saved.name){
+              const targetName = (saved.name || '').trim().toLowerCase();
+              root = all.find(p => fullname(p).toLowerCase() === targetName || ((p.fullName||'').toLowerCase() === targetName) || ((p.name||'').toLowerCase() === targetName));
+            }
           }
         }catch(e){ /* ignore */ }
         if(!root) root = all[0];
@@ -160,6 +171,12 @@
             </div>
             <div class="relations-container" aria-hidden="false"></div>
           `;
+
+          // persist focused person (id + name) so re-renders keep the same focus
+          try{
+            const FOCUS_KEY = 'focusedPerson:xpto';
+            localStorage.setItem(FOCUS_KEY, JSON.stringify({ id: person.id, name: fullName }));
+          }catch(e){ /* ignore */ }
 
           // render related person cards around the focus card using relations stored in localStorage ('relations:xpto')
           const relWrap = focusEl.querySelector('.relations-container');
@@ -307,12 +324,12 @@
             if(others.length){
               const colGap = layout.otherColGap;
               const rowGap = layout.otherRowGap;
-              others.forEach((t, i) => {
+            others.forEach((t, i) => {
                 const related = all.find(x => String(x.id) === String(t.id)); if(!related) return;
                 const relLabel = typeDesc[t.type] || t.type || '';
                 const side = (i % 2 === 0) ? -1 : 1; // alternate left/right
                 const idx = Math.floor(i / 2);
-                const dx = side * (200 + idx * colGap);
+                const dx = side * (layout.otherColBase + idx * colGap);
                 const dy = (idx % 2 === 0) ? -40 - idx * Math.round(idx * 6) : 40 + idx * Math.round(idx * 6);
                 const card = makeCard(related, relLabel);
                 placeCard(card, dx, dy);
@@ -326,9 +343,13 @@
         try {
           const FOCUS_KEY = 'focusedPerson:xpto';
           const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
-          if(saved && saved.name){
-            const targetName = (saved.name || '').trim().toLowerCase();
-            const person = all.find(p => (((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim().toLowerCase() === targetName) || ((p.fullName||'') .toLowerCase() === targetName) || ((p.name||'').toLowerCase() === targetName));
+          if(saved){
+            let person = null;
+            if(saved.id !== undefined && saved.id !== null) person = all.find(p => String(p.id) === String(saved.id));
+            if(!person && saved.name){
+              const targetName = (saved.name || '').trim().toLowerCase();
+              person = all.find(p => (((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim().toLowerCase() === targetName) || ((p.fullName||'') .toLowerCase() === targetName) || ((p.name||'').toLowerCase() === targetName));
+            }
             if(person) renderPersonCard(person);
           }
         } catch(e){ console.warn('Erro ao carregar pessoa em foco das configurações:', e); }
@@ -448,7 +469,47 @@
       }
 
       window.addEventListener('storage', renderGraph);
-      document.addEventListener('DOMContentLoaded', function(){ renderGraph(); try{ wireLayoutControls(); }catch(e){} });
+      // Persisted visibility key for layout controls
+      const LAYOUT_VISIBLE_KEY = 'layoutControlsVisible:xpto';
+
+      function setLayoutControlsVisible(visible){
+        try{
+          const el = document.getElementById('layout-controls');
+          const btn = document.getElementById('toggleLayoutControls');
+          if(!el) return;
+          if(visible){
+            el.classList.remove('hidden');
+            el.setAttribute('aria-hidden','false');
+            if(btn) btn.setAttribute('aria-pressed','true');
+          } else {
+            el.classList.add('hidden');
+            el.setAttribute('aria-hidden','true');
+            if(btn) btn.setAttribute('aria-pressed','false');
+          }
+          try{ localStorage.setItem(LAYOUT_VISIBLE_KEY, visible ? '1' : '0'); }catch(e){}
+        }catch(e){ console.warn('Failed to set layout controls visibility', e); }
+      }
+
+      // delegate click for the toggle button to avoid ordering issues
+      document.addEventListener('click', function(e){
+        const t = e.target;
+        if(!t) return;
+        if(t.id === 'toggleLayoutControls'){
+          const lc = document.getElementById('layout-controls');
+          const currentlyHidden = lc && lc.classList.contains('hidden');
+          setLayoutControlsVisible(currentlyHidden);
+        }
+      });
+      document.addEventListener('DOMContentLoaded', function(){
+        renderGraph();
+        try{ wireLayoutControls(); }catch(e){}
+        // initialize layout controls visibility from localStorage (default: visible)
+        try{
+          const saved = localStorage.getItem(LAYOUT_VISIBLE_KEY);
+          const visible = saved === null ? true : (saved === '1');
+          setLayoutControlsVisible(visible);
+        }catch(e){}
+      });
     </script>
   </body>
 </html>

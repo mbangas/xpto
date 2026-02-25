@@ -277,6 +277,38 @@
             function makeCard(related, relLabel){
               const name = (((related.firstName||'') + ' ' + (related.lastName||'')).trim()) || (related.name||related.fullName||related.displayName||'');
               const short = name.length > 20 ? name.slice(0,17) + '…' : name;
+              // determine gendered label for child relations
+              try{
+                const tlabel = ('' + (relLabel || '')).toLowerCase();
+                if(tlabel.includes('filho')){
+                  const g = (related.gender || related.sex || '').toString().toLowerCase();
+                  if(g === 'female' || g === 'feminino' || g === 'f') relLabel = 'Filha';
+                  else if(g === 'male' || g === 'masculino' || g === 'm') relLabel = 'Filho';
+                  else relLabel = 'Filho(a)';
+                }
+                // handle generic parent label "Pai / Mãe"
+                if(tlabel.includes('pai') || tlabel.includes('mãe') || tlabel.includes('pai/mãe') || tlabel.includes('pai / mãe')){
+                  const g = (related.gender || related.sex || '').toString().toLowerCase();
+                  if(g === 'female' || g === 'feminino' || g === 'f') relLabel = 'Mãe';
+                  else if(g === 'male' || g === 'masculino' || g === 'm') relLabel = 'Pai';
+                  else relLabel = 'Pai / Mãe';
+                }
+                // handle companion/partner label "Companheiro(a)"
+                if(tlabel.includes('compan') || tlabel.includes('parceiro') || tlabel.includes('côn') || tlabel.includes('conjuge') || tlabel.includes('mate') || tlabel.includes('spouse') || tlabel.includes('partner')){
+                  const g = (related.gender || related.sex || '').toString().toLowerCase();
+                  if(g === 'female' || g === 'feminino' || g === 'f') relLabel = 'Companheira';
+                  else if(g === 'male' || g === 'masculino' || g === 'm') relLabel = 'Companheiro';
+                  else relLabel = 'Companheiro(a)';
+                }
+                // handle siblings label "Irmão / Irmã"
+                if(tlabel.includes('irm') || tlabel.includes('siblin') || tlabel.includes('sibling')){
+                  const g = (related.gender || related.sex || '').toString().toLowerCase();
+                  if(g === 'female' || g === 'feminino' || g === 'f') relLabel = 'Irmã';
+                  else if(g === 'male' || g === 'masculino' || g === 'm') relLabel = 'Irmão';
+                  else relLabel = 'Irmão / Irmã';
+                }
+              }catch(e){ /* ignore */ }
+
               const card = document.createElement('div');
               card.className = 'relation-card';
               card.setAttribute('role','button');
@@ -490,11 +522,46 @@
           svg.appendChild(c);
         });
 
-        // draw relation lines afterwards
+        // draw relation lines afterwards (label may be adjusted based on related person's gender)
         edges.forEach(e=>{
           const from = positions[e.from]; const to = positions[e.to];
           if(!from || !to) return;
-          drawLine(from.x, from.y, to.x, to.y, e.label);
+          let label = e.label || '';
+          try{
+            const labLow = (label || '').toString().toLowerCase();
+            if(labLow.includes('filho')){
+              const target = nodes[e.to];
+              const g = (target && (target.gender || target.sex)) ? String(target.gender || target.sex).toLowerCase() : '';
+              if(g === 'female' || g === 'feminino' || g === 'f') label = 'Filha';
+              else if(g === 'male' || g === 'masculino' || g === 'm') label = 'Filho';
+              else label = 'Filho(a)';
+            }
+            // adjust parent edge labels (Pai / Mãe)
+            if(labLow.includes('pai') || labLow.includes('mãe') || labLow.includes('pai/mãe') || labLow.includes('pai / mãe')){
+              const target = nodes[e.to];
+              const g = (target && (target.gender || target.sex)) ? String(target.gender || target.sex).toLowerCase() : '';
+              if(g === 'female' || g === 'feminino' || g === 'f') label = 'Mãe';
+              else if(g === 'male' || g === 'masculino' || g === 'm') label = 'Pai';
+              else label = 'Pai / Mãe';
+            }
+            // adjust companion/partner edge labels (Companheiro(a))
+            if(labLow.includes('compan') || labLow.includes('parceiro') || labLow.includes('côn') || labLow.includes('conjuge') || labLow.includes('mate') || labLow.includes('spouse') || labLow.includes('partner')){
+              const target = nodes[e.to];
+              const g = (target && (target.gender || target.sex)) ? String(target.gender || target.sex).toLowerCase() : '';
+              if(g === 'female' || g === 'feminino' || g === 'f') label = 'Companheira';
+              else if(g === 'male' || g === 'masculino' || g === 'm') label = 'Companheiro';
+              else label = 'Companheiro(a)';
+            }
+            // adjust sibling edge labels (Irmão / Irmã)
+            if(labLow.includes('irm') || labLow.includes('siblin') || labLow.includes('sibling')){
+              const target = nodes[e.to];
+              const g = (target && (target.gender || target.sex)) ? String(target.gender || target.sex).toLowerCase() : '';
+              if(g === 'female' || g === 'feminino' || g === 'f') label = 'Irmã';
+              else if(g === 'male' || g === 'masculino' || g === 'm') label = 'Irmão';
+              else label = 'Irmão / Irmã';
+            }
+          }catch(e){ /* ignore */ }
+          drawLine(from.x, from.y, to.x, to.y, label);
         });
       }
 

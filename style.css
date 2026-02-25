@@ -5,6 +5,11 @@
   --bg-card: rgba(45, 51, 77, 0.85);
   --glass-blur: 18px;
   --text-main: #f3f4f6;
+  /* slightly less bright variant for UI accents in sidebar */
+  --text-main-soft: #e6e8ec;
+  /* menu colors: 20% darker variants for dark mode sidebar */
+  --menu-text: #8c8f9f; /* 20% darker from --text-secondary */
+  --menu-text-active: #b8b9bd; /* 20% darker from --text-main-soft */
   --text-secondary: #b0b3c7;
   --text-disabled: #7a7c8a;
   --accent-blue: #3b82f6;
@@ -264,18 +269,26 @@ th {
   margin-top: 6px;
 }
 .sidebar a {
-  color: var(--text-secondary);
+  color: var(--menu-text);
   text-decoration: none;
   padding: 10px 12px;
   border-radius: 10px;
   font-weight: 700;
   display: flex;
-  gap: 10px;
+  gap: 14px;
   align-items: center;
+}
+
+/* Ensure all non-selected nav links match the footer 'Definições' (non-active) style */
+.sidebar nav a:not(.active) {
+  color: var(--menu-text);
+  background: transparent;
+  text-decoration: none;
 }
 .sidebar a.active, .sidebar a:hover {
   background: linear-gradient(90deg, rgba(59,130,246,0.12), rgba(167,139,250,0.06));
-  color: var(--text-main);
+  color: var(--menu-text-active);
+  text-decoration: none;
 }
 .content {
   margin-left: 240px;
@@ -484,13 +497,15 @@ a:hover, a:focus, a:active {
   padding-top: 8px;
 }
 .sidebar .sidebar-footer a {
-  color: var(--text-secondary);
+  color: var(--menu-text);
   text-decoration: none;
   padding: 10px 12px;
   border-radius: 10px;
   font-weight: 700;
   display: flex;
-  gap: 10px;
+  gap: 14px;
+  width: 100%;
+  justify-content: flex-start;
 }
-.sidebar .sidebar-footer a:hover { color: var(--text-main); background: linear-gradient(90deg, rgba(59,130,246,0.06), rgba(167,139,250,0.03)); }
+.sidebar .sidebar-footer a:hover { color: var(--menu-text-active); background: linear-gradient(90deg, rgba(59,130,246,0.06), rgba(167,139,250,0.03)); text-decoration: none; }
 

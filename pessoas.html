@@ -26,6 +26,7 @@
           <div><h1 style="margin:0;font-size:1.25rem;">Visualização gráfica de Pessoas</h1></div>
           <div>
             <button id="toggleLayoutControls" class="btn lc-toggle" aria-pressed="false" aria-controls="layout-controls">Layout</button>
+            <button id="resetFocusBtn" class="btn lc-toggle" title="Resetar pessoa em foco para a definida nas configurações">Reset foco</button>
           </div>
         </div>
         <div class="card">
@@ -116,6 +117,8 @@
       function saveLayoutSettings(obj){ try{ localStorage.setItem(LAYOUT_KEY, JSON.stringify(obj)); }catch(e){}
       }
       let LayoutSettings = loadLayoutSettings();
+      // Runtime-only focused person (does not overwrite configured focus in settings)
+      let RuntimeFocus = null;
 
       // Render only Miguel and direct relations in a simple family-tree layout
       function renderGraph(){
@@ -128,19 +131,22 @@
           svg.appendChild(msg); return;
         }
 
-        // pick root person: prefer configured focused person (by id or name), else first person
+        // pick root person: prefer runtime focus (navigating) then configured focused person (settings), else first person
         function fullname(p){ return ((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim(); }
         let root = null;
         try{
-          const FOCUS_KEY = 'focusedPerson:xpto';
-          const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
-          if(saved){
-            if(saved.id !== undefined && saved.id !== null){
-              root = all.find(p => String(p.id) === String(saved.id));
-            }
-            if(!root && saved.name){
-              const targetName = (saved.name || '').trim().toLowerCase();
-              root = all.find(p => fullname(p).toLowerCase() === targetName || ((p.fullName||'').toLowerCase() === targetName) || ((p.name||'').toLowerCase() === targetName));
+          // 1) runtime focus (set when user navigates between people) — does NOT overwrite user settings
+          if(RuntimeFocus){
+            if(RuntimeFocus.id !== undefined && RuntimeFocus.id !== null){ root = all.find(p => String(p.id) === String(RuntimeFocus.id)); }
+            if(!root && RuntimeFocus.name){ const targetName = (RuntimeFocus.name || '').trim().toLowerCase(); root = all.find(p => fullname(p).toLowerCase() === targetName || ((p.fullName||'').toLowerCase() === targetName) || ((p.name||'').toLowerCase() === targetName)); }
+          }
+          // 2) configured focus from settings (persisted)
+          if(!root){
+            const FOCUS_KEY = 'focusedPerson:xpto';
+            const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
+            if(saved){
+              if(saved.id !== undefined && saved.id !== null){ root = all.find(p => String(p.id) === String(saved.id)); }
+              if(!root && saved.name){ const targetName = (saved.name || '').trim().toLowerCase(); root = all.find(p => fullname(p).toLowerCase() === targetName || ((p.fullName||'').toLowerCase() === targetName) || ((p.name||'').toLowerCase() === targetName)); }
             }
           }
         }catch(e){ /* ignore */ }
@@ -172,10 +178,9 @@
             <div class="relations-container" aria-hidden="false"></div>
           `;
 
-          // persist focused person (id + name) so re-renders keep the same focus
+          // set runtime focus (do not overwrite user's configured focus in settings)
           try{
-            const FOCUS_KEY = 'focusedPerson:xpto';
-            localStorage.setItem(FOCUS_KEY, JSON.stringify({ id: person.id, name: fullName }));
+            RuntimeFocus = { id: person.id, name: fullName };
           }catch(e){ /* ignore */ }
 
           // render related person cards around the focus card using relations stored in localStorage ('relations:xpto')
@@ -339,18 +344,20 @@
           }
         }
 
-        // read configured focused person from settings and render automatically if present
+        // only render configured focused person automatically if there is no runtime focus
         try {
-          const FOCUS_KEY = 'focusedPerson:xpto';
-          const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
-          if(saved){
-            let person = null;
-            if(saved.id !== undefined && saved.id !== null) person = all.find(p => String(p.id) === String(saved.id));
-            if(!person && saved.name){
-              const targetName = (saved.name || '').trim().toLowerCase();
-              person = all.find(p => (((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim().toLowerCase() === targetName) || ((p.fullName||'') .toLowerCase() === targetName) || ((p.name||'').toLowerCase() === targetName));
+          if(!RuntimeFocus){
+            const FOCUS_KEY = 'focusedPerson:xpto';
+            const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
+            if(saved){
+              let person = null;
+              if(saved.id !== undefined && saved.id !== null) person = all.find(p => String(p.id) === String(saved.id));
+              if(!person && saved.name){
+                const targetName = (saved.name || '').trim().toLowerCase();
+                person = all.find(p => (((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim().toLowerCase() === targetName) || ((p.fullName||'') .toLowerCase() === targetName) || ((p.name||'').toLowerCase() === targetName));
+              }
+              if(person) renderPersonCard(person);
             }
-            if(person) renderPersonCard(person);
           }
         } catch(e){ console.warn('Erro ao carregar pessoa em foco das configurações:', e); }
 
@@ -490,7 +497,7 @@
         }catch(e){ console.warn('Failed to set layout controls visibility', e); }
       }
 
-      // delegate click for the toggle button to avoid ordering issues
+      // delegate click for the topbar buttons to avoid ordering issues
       document.addEventListener('click', function(e){
         const t = e.target;
         if(!t) return;
@@ -498,6 +505,14 @@
           const lc = document.getElementById('layout-controls');
           const currentlyHidden = lc && lc.classList.contains('hidden');
           setLayoutControlsVisible(currentlyHidden);
+        }
+        if(t.id === 'resetFocusBtn'){
+          try{
+            // clear runtime focus (so the configured focus in settings is used)
+            RuntimeFocus = null;
+            // reload the page so renderGraph picks up the configured focus from localStorage
+            location.reload();
+          }catch(e){ console.warn('Reset focus failed', e); }
         }
       });
       document.addEventListener('DOMContentLoaded', function(){

@@ -19,7 +19,7 @@
   <body>
     <div class="app-shell">
       <aside class="sidebar">
-        <div class="logo">XPTO</div>
+        <div class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></div>
         <nav>
           <a href="index.html">Cadastro</a>
           <a href="indicadores.html">Indicadores</a>
@@ -205,16 +205,16 @@
       function toggleAccordion(id) { const el = document.getElementById(id); if (!el) return; if (el.style.display === 'block') closeAccordion(id); else openAccordion(id); }
       document.addEventListener('click', function(e){ const btn = e.target.closest && e.target.closest('.accordion-header'); if (btn && btn.dataset && btn.dataset.target) toggleAccordion(btn.dataset.target); });
 
-      const STORAGE_KEY = 'people:xpto';
+      const STORAGE_KEY = 'people:myLineage';
       function nowISO() { return new Date().toISOString(); }
       function generateUUID() { if (crypto && crypto.randomUUID) return crypto.randomUUID(); const bytes = crypto.getRandomValues(new Uint8Array(16)); bytes[6] = (bytes[6] & 0x0f) | 0x40; bytes[8] = (bytes[8] & 0x3f) | 0x80; const b2h = b => Array.from(b).map(x => x.toString(16).padStart(2,'0')).join(''); const s = b2h(bytes); return s.slice(0,8)+'-'+s.slice(8,12)+'-'+s.slice(12,16)+'-'+s.slice(16,20)+'-'+s.slice(20); }
       function loadPeople() { try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; } catch(e) { return []; } }
       function savePeople(people) { localStorage.setItem(STORAGE_KEY, JSON.stringify(people)); }
 
-      function getEvents() { try { const raw = localStorage.getItem('events:xpto'); return raw ? JSON.parse(raw) : []; } catch (e) { return []; } }
-      function saveEvents(events) { localStorage.setItem('events:xpto', JSON.stringify(events)); }
-      function getRelations() { try { const raw = localStorage.getItem('relations:xpto'); return raw ? JSON.parse(raw) : []; } catch (e) { return []; } }
-      function saveRelations(rel) { localStorage.setItem('relations:xpto', JSON.stringify(rel)); }
+      function getEvents() { try { const raw = localStorage.getItem('events:myLineage'); return raw ? JSON.parse(raw) : []; } catch (e) { return []; } }
+      function saveEvents(events) { localStorage.setItem('events:myLineage', JSON.stringify(events)); }
+      function getRelations() { try { const raw = localStorage.getItem('relations:myLineage'); return raw ? JSON.parse(raw) : []; } catch (e) { return []; } }
+      function saveRelations(rel) { localStorage.setItem('relations:myLineage', JSON.stringify(rel)); }
 
       function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
       function formatDate(dateStr){ if(!dateStr) return ''; const d=new Date(dateStr); if(isNaN(d)) return escapeHtml(dateStr); const pad=n=>n.toString().padStart(2,'0'); return `${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()}`; }
@@ -316,14 +316,14 @@
       }
 
       // --- Photos: storage and rendering ---
-      const PHOTO_BASE_KEY = 'photoBase:xpto';
-      const PHOTOS_KEY = 'photos:xpto';
-      const PHOTO_REL_KEY = 'photoRelations:xpto';
+      const PHOTO_BASE_KEY = 'photoBase:myLineage';
+      const PHOTOS_KEY = 'photos:myLineage';
+      const PHOTO_REL_KEY = 'photoRelations:myLineage';
 
       // IndexedDB helpers to read saved directory handle (saved in configuracao.html)
       function getDirHandleFromDB_local(){
         try{
-          const req = indexedDB.open('xpto-db', 1);
+          const req = indexedDB.open('myLineage-db', 1);
           return new Promise((resolve)=>{
             req.onupgradeneeded = function(e){ const db = e.target.result; if(!db.objectStoreNames.contains('handles')) db.createObjectStore('handles'); };
             req.onsuccess = function(e){ const db = e.target.result; const tx = db.transaction('handles','readonly'); const store = tx.objectStore('handles'); const g = store.get('photoBaseHandle'); g.onsuccess = function(){ resolve(g.result || null); db.close(); }; g.onerror = function(){ resolve(null); db.close(); }; };

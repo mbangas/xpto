@@ -10,7 +10,7 @@
   <body>
     <div class="app-shell">
       <aside class="sidebar">
-        <div class="logo">XPTO</div>
+        <div class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></div>
         <nav>
           <a href="index.html">Cadastro</a>
           <a href="indicadores.html">Indicadores</a>
@@ -52,8 +52,8 @@
       function nowISO(){ return new Date().toISOString(); }
       function showLog(msg){ document.getElementById('importLog').textContent = msg; }
 
-      function getImportHistory(){ try{ return JSON.parse(localStorage.getItem('importHistory:xpto')||'[]'); }catch(e){ return []; } }
-      function saveImportHistory(hist){ localStorage.setItem('importHistory:xpto', JSON.stringify(hist)); }
+      function getImportHistory(){ try{ return JSON.parse(localStorage.getItem('importHistory:myLineage')||'[]'); }catch(e){ return []; } }
+      function saveImportHistory(hist){ localStorage.setItem('importHistory:myLineage', JSON.stringify(hist)); }
       function renderImportHistory(){
         const container = document.getElementById('importHistory');
         const hist = getImportHistory() || [];
@@ -92,9 +92,9 @@
         if(!confirm('Confirma substituição de TODOS os dados existentes com os do ficheiro GEDCOM?')) return;
 
         // counts of existing records (to report as "apagados")
-        const prevPeople = JSON.parse(localStorage.getItem('people:xpto')||'[]');
-        const prevEvents = JSON.parse(localStorage.getItem('events:xpto')||'[]');
-        const prevRelations = JSON.parse(localStorage.getItem('relations:xpto')||'[]');
+        const prevPeople = JSON.parse(localStorage.getItem('people:myLineage')||'[]');
+        const prevEvents = JSON.parse(localStorage.getItem('events:myLineage')||'[]');
+        const prevRelations = JSON.parse(localStorage.getItem('relations:myLineage')||'[]');
         const deletedCount = (prevPeople.length || 0) + (prevEvents.length || 0) + (prevRelations.length || 0);
 
         const reader = new FileReader();
@@ -103,9 +103,9 @@
             const txt = e.target.result;
             const {people, events, relations, report} = parseGedcom(txt);
             // write to localStorage (overwrite)
-            localStorage.setItem('people:xpto', JSON.stringify(people));
-            localStorage.setItem('events:xpto', JSON.stringify(events));
-            localStorage.setItem('relations:xpto', JSON.stringify(relations));
+            localStorage.setItem('people:myLineage', JSON.stringify(people));
+            localStorage.setItem('events:myLineage', JSON.stringify(events));
+            localStorage.setItem('relations:myLineage', JSON.stringify(relations));
 
             const insertedCount = (people.length || 0) + (events.length || 0) + (relations.length || 0);
 

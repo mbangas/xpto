@@ -10,7 +10,7 @@
   <body>
     <div class="app-shell">
       <aside class="sidebar">
-        <div class="logo">XPTO</div>
+        <div class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></div>
         <nav>
           <a href="index.html">Cadastro</a>
           <a href="indicadores.html">Indicadores</a>
@@ -52,10 +52,12 @@
 
           <div style="display:flex;gap:12px;align-items:center;margin-top:12px;flex-direction:column;align-items:flex-start;">
             <label style="font-weight:600;color:var(--text-secondary);">Pesquisar pessoa</label>
-            <input list="peopleList" type="search" id="personSearch" placeholder="Pesquisar pessoa..." style="width:100%;max-width:420px;padding:8px;border:1px solid var(--border);border-radius:4px;" />
-            <datalist id="peopleList"></datalist>
+            <div style="position:relative;width:100%;max-width:420px;">
+              <input type="search" id="personSearch" placeholder="Pesquisar pessoa (nome)" style="width:220px;padding:8px;border:1px solid var(--border);border-radius:4px;" />
+              <div id="peopleSuggestions" style="position:absolute;left:8px;top:38px;background:var(--bg-card);border:1px solid rgba(0,0,0,0.06);max-height:160px;overflow:auto;width:220px;z-index:230;display:none;"></div>
+            </div>
             <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
-              <button class="btn" id="setFocusBtn">Definir como foco</button>
+              <button class="btn" id="setFocusBtn">Definir Pessoa</button>
             </div>
 
             <div style="margin-top:8px;color:var(--text-secondary);font-size:0.95rem;">Pessoa em foco atual: <span id="currentFocus" style="font-weight:600"></span></div>
@@ -70,12 +72,12 @@
 
     <script>
       function nowISO(){ return new Date().toISOString(); }
-      const KEY = 'photoBase:xpto';
+      const KEY = 'photoBase:myLineage';
 
       // Persist directory handle in IndexedDB so other pages can write into it
       function saveDirHandleToDB(handle){
         try{
-          const req = indexedDB.open('xpto-db', 1);
+          const req = indexedDB.open('myLineage-db', 1);
           req.onupgradeneeded = function(e){ const db = e.target.result; if(!db.objectStoreNames.contains('handles')) db.createObjectStore('handles'); };
           return new Promise((resolve, reject)=>{
             req.onsuccess = function(e){
@@ -93,7 +95,7 @@
 
       function getDirHandleFromDB(){
         try{
-          const req = indexedDB.open('xpto-db', 1);
+          const req = indexedDB.open('myLineage-db', 1);
           return new Promise((resolve, reject)=>{
             req.onupgradeneeded = function(e){ const db = e.target.result; if(!db.objectStoreNames.contains('handles')) db.createObjectStore('handles'); };
             req.onsuccess = function(e){ const db = e.target.result; const tx = db.transaction('handles','readonly'); const store = tx.objectStore('handles'); const g = store.get('photoBaseHandle'); g.onsuccess = function(){ resolve(g.result || null); db.close(); }; g.onerror = function(){ resolve(null); db.close(); }; };
@@ -171,14 +173,13 @@
           });
         }
 
-        saveBtn.addEventListener('click', function(){ if(!lastFolder) return alert('Nenhuma pasta detectada.'); saveBase({ folder: lastFolder, files: lastCount, when: nowISO() }); showCurrent(); alert('Pasta base salva.'); });
+        // Note: there is no explicit "save" button in the markup; directory is saved automatically
         clearBtn.addEventListener('click', function(){ if(!confirm('Remover a configuração da pasta base?')) return; clearBase(); showCurrent(); alert('Configuração removida.'); });
 
         // --- Pessoa em Foco: pesquisa e foco principal (combobox/datalist) ---
-        const PERSON_KEY = 'people:xpto';
-        const FOCUS_KEY = 'focusedPerson:xpto';
+        const PERSON_KEY = 'people:myLineage';
+        const FOCUS_KEY = 'focusedPerson:myLineage';
         const search = document.getElementById('personSearch');
-        const peopleList = document.getElementById('peopleList');
         const setFocusBtn = document.getElementById('setFocusBtn');
         const currentFocusEl = document.getElementById('currentFocus');
         const clearFocusBtn = document.getElementById('clearFocusBtn');
@@ -192,22 +193,56 @@
           if(p.displayName) return p.displayName;
           // fallback: find first string prop
           for(const k in p){ if(typeof p[k] === 'string' && p[k].trim()) return p[k]; } return JSON.stringify(p); }
-        function saveFocus(name){ localStorage.setItem(FOCUS_KEY, JSON.stringify({ name: name, when: nowISO() })); showCurrentFocus(); }
+        function saveFocus(name, id){ const obj = { name: name, when: nowISO() }; if(id) obj.id = id; localStorage.setItem(FOCUS_KEY, JSON.stringify(obj)); showCurrentFocus(); }
         function clearFocus(){ localStorage.removeItem(FOCUS_KEY); showCurrentFocus(); }
         function showCurrentFocus(){ const v = JSON.parse(localStorage.getItem(FOCUS_KEY)||'null'); currentFocusEl.textContent = v ? v.name : '—'; }
 
-        function renderMatches(q){ const people = loadPeople(); const ql = (q||'').trim().toLowerCase(); const matches = ql ? people.filter(p => personName(p).toLowerCase().includes(ql)) : people.slice(0,200); peopleList.innerHTML = matches.map(p => `<option value="${escapeHtml(personName(p))}"></option>`).join(''); }
+        const suggestions = document.getElementById('peopleSuggestions');
+        let selectedPersonId = null;
 
-        function setFromInput(){ const val = (search.value||'').trim(); if(!val){ return alert('Escreva ou selecione uma pessoa.'); } const people = loadPeople(); const found = people.find(p => personName(p).toLowerCase() === val.toLowerCase()); if(!found){ return alert('Pessoa não encontrada. Verifique se o nome corresponde a uma pessoa existente.'); } saveFocus(personName(found)); alert('Pessoa definida como foco principal.'); }
+        function renderSuggestions(filter){ const q = (filter||'').toLowerCase().trim(); // do not show full list when empty — only show on user input
+          if(!q){ suggestions.innerHTML = ''; suggestions.style.display = 'none'; return; }
+          const people = loadPeople(); const list = people.filter(p=>{ const full = personName(p).toLowerCase(); return full.includes(q); }).slice(0,30);
+          suggestions.innerHTML = '';
+          if(list.length===0){ suggestions.style.display='none'; return; }
+          list.forEach(p=>{ const row = document.createElement('div'); row.style.padding='6px'; row.style.cursor='pointer'; row.style.borderBottom='1px solid rgba(255,255,255,0.03)'; const label = personName(p); row.textContent = label; row.addEventListener('click', function(){ search.value = label; selectedPersonId = p.id; suggestions.style.display='none'; search.focus(); }); suggestions.appendChild(row); }); suggestions.style.display='block'; }
 
-        search.addEventListener('input', function(){ renderMatches(this.value); });
-        search.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); setFromInput(); } });
+        function setFromInput(){ const val = (search.value||'').trim(); if(!val){ return alert('Escreva ou selecione uma pessoa.'); } const people = loadPeople(); let found = null; if(selectedPersonId){ found = people.find(p => p.id === selectedPersonId); }
+          if(!found){ found = people.find(p => personName(p).toLowerCase() === val.toLowerCase()); }
+          if(!found){ return alert('Pessoa não encontrada. Verifique se o nome corresponde a uma pessoa existente.'); }
+          // save id and name for robustness
+          saveFocus(personName(found), found.id || null); alert('Pessoa definida como foco principal.'); }
+
+        search.addEventListener('input', function(){ selectedPersonId = null; renderSuggestions(this.value); });
+        search.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); setFocusBtn.click(); } });
+        // clicking the button will save the person entered/selected
         setFocusBtn.addEventListener('click', setFromInput);
         clearFocusBtn.addEventListener('click', function(){ if(!confirm('Remover pessoa em foco?')) return; clearFocus(); alert('Foco removido.'); });
 
         showCurrentFocus();
-        renderMatches('');
       });
+
+      function openPersonModal(){
+        const people = loadPeople();
+        const overlay = document.createElement('div'); overlay.style.position='fixed'; overlay.style.left='0'; overlay.style.top='0'; overlay.style.width='100%'; overlay.style.height='100%'; overlay.style.background='rgba(0,0,0,0.15)'; overlay.style.zIndex='220';
+        const form = document.createElement('div'); form.className='tag-form'; form.style.position='fixed'; form.style.left='50%'; form.style.top='50%'; form.style.transform='translate(-50%,-50%)'; form.style.zIndex='230'; form.innerHTML = `<div style="font-weight:600;margin-bottom:6px;">Selecionar pessoa</div>`;
+        const input = document.createElement('input'); input.placeholder = 'Pesquisar pessoa (nome)'; input.style.width = '220px';
+        const suggestions = document.createElement('div'); suggestions.style.position='absolute'; suggestions.style.left='8px'; suggestions.style.top='38px'; suggestions.style.background='var(--bg-card)'; suggestions.style.border='1px solid rgba(0,0,0,0.06)'; suggestions.style.maxHeight='160px'; suggestions.style.overflow='auto'; suggestions.style.width='220px'; suggestions.style.zIndex='230'; suggestions.style.display='none';
+        const saveBtn = document.createElement('button'); saveBtn.textContent='Salvar'; saveBtn.className='btn';
+        const cancelBtn = document.createElement('button'); cancelBtn.textContent='Cancelar'; cancelBtn.className='btn';
+        form.appendChild(input); form.appendChild(suggestions); const br = document.createElement('div'); br.style.marginTop='6px'; form.appendChild(br); form.appendChild(saveBtn); form.appendChild(cancelBtn);
+        overlay.appendChild(form); document.body.appendChild(overlay);
+
+        form.addEventListener('pointerdown', function(ev){ ev.stopPropagation(); });
+        let selectedPersonIdModal = null;
+        function renderSuggestions(filter){ const q = (filter||'').toLowerCase().trim(); const list = people.filter(p=>{ const full = ((p.firstName||'') + ' ' + (p.lastName||'')).toLowerCase(); return full.includes(q); }).slice(0,30); suggestions.innerHTML = ''; if(list.length===0){ suggestions.style.display='none'; return; } list.forEach(p=>{ const row = document.createElement('div'); row.style.padding='6px'; row.style.cursor='pointer'; row.style.borderBottom='1px solid rgba(255,255,255,0.03)'; row.textContent = p.firstName + ' ' + p.lastName; row.addEventListener('click', function(){ input.value = row.textContent; selectedPersonIdModal = p.id; suggestions.style.display='none'; input.focus(); }); suggestions.appendChild(row); }); suggestions.style.display='block'; }
+        input.addEventListener('input', function(){ selectedPersonIdModal = null; renderSuggestions(this.value); });
+        input.addEventListener('keydown', function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); saveBtn.click(); } });
+        cancelBtn.addEventListener('click', function(){ if(overlay && overlay.parentElement) overlay.parentElement.removeChild(overlay); });
+        saveBtn.addEventListener('click', function(){ const name = input.value.trim(); if(!name) return alert('Insira ou selecione uma pessoa.'); let found = null; if(selectedPersonIdModal){ found = people.find(p=>p.id===selectedPersonIdModal); } if(!found){ found = people.find(p => ((p.firstName||'') + ' ' + (p.lastName||'')).toLowerCase() === name.toLowerCase()); } if(!found) return alert('Pessoa não encontrada. Selecione na lista.'); saveFocus(((found.firstName||'') + ' ' + (found.lastName||'')).trim(), found.id); if(overlay && overlay.parentElement) overlay.parentElement.removeChild(overlay); alert('Pessoa definida como foco principal.'); });
+        setTimeout(()=>{ try{ input.focus(); }catch(e){} },50);
+        renderSuggestions('');
+      }
     </script>
   </body>
 </html>

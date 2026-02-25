@@ -10,7 +10,7 @@
   <body>
     <div class="app-shell">
       <aside class="sidebar">
-        <div class="logo">XPTO</div>
+        <div class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></div>
         <nav>
           <a href="index.html" class="active">Cadastro</a>
           <a href="indicadores.html">Indicadores</a>
@@ -278,12 +278,12 @@
             // Eventos
             function getEvents() {
               try {
-                const raw = localStorage.getItem('events:xpto');
+                const raw = localStorage.getItem('events:myLineage');
                 return raw ? JSON.parse(raw) : [];
               } catch (e) { return []; }
             }
             function saveEvents(events) {
-              localStorage.setItem('events:xpto', JSON.stringify(events));
+              localStorage.setItem('events:myLineage', JSON.stringify(events));
             }
             function renderEventsList(personId) {
               // Always show the list view by default when rendering
@@ -401,12 +401,12 @@
 
             function getRelations() {
               try {
-                const raw = localStorage.getItem('relations:xpto');
+                const raw = localStorage.getItem('relations:myLineage');
                 return raw ? JSON.parse(raw) : [];
               } catch (e) { return []; }
             }
             function saveRelations(relations) {
-              localStorage.setItem('relations:xpto', JSON.stringify(relations));
+              localStorage.setItem('relations:myLineage', JSON.stringify(relations));
             }
             function renderRelationsList(personId) {
               // Ensure relation form is closed and the list is visible
@@ -465,7 +465,7 @@
               const relPersonEl = document.getElementById('relationPerson'); if (relPersonEl) relPersonEl.value = '';
               showRelationForm(false);
             });
-      const STORAGE_KEY = 'people:xpto';
+      const STORAGE_KEY = 'people:myLineage';
 
       function nowISO() { return new Date().toISOString(); }
 

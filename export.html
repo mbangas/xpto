@@ -10,7 +10,7 @@
   <body>
     <div class="app-shell">
       <aside class="sidebar">
-        <div class="logo">XPTO</div>
+        <div class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></div>
         <nav>
           <a href="index.html">Cadastro</a>
           <a href="indicadores.html">Indicadores</a>
@@ -50,13 +50,13 @@
       function loadJSON(key){ try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : []; } catch(e){ return []; } }
 
       function buildGedcom(){
-        const people = loadJSON('people:xpto');
-        const events = loadJSON('events:xpto');
-        const relations = loadJSON('relations:xpto');
+        const people = loadJSON('people:myLineage');
+        const events = loadJSON('events:myLineage');
+        const relations = loadJSON('relations:myLineage');
 
         const lines = [];
         lines.push('0 HEAD');
-        lines.push('1 SOUR XPTO');
+        lines.push('1 SOUR myLineage');
         lines.push('1 DATE ' + (new Date()).toISOString().slice(0,10));
         lines.push('1 CHAR UTF-8');
 
@@ -80,7 +80,7 @@
           const famId = 'F' + famIndex++;
           lines.push(`0 @${famId}@ FAM`);
           // Assume symmetric relations exist; set HUSB/WIFE by gender where possible
-          const peopleList = loadJSON('people:xpto');
+          const peopleList = loadJSON('people:myLineage');
           const a = peopleList.find(pp => pp.id === r.from);
           const b = peopleList.find(pp => pp.id === r.to);
           if (a && b) {
@@ -95,8 +95,8 @@
           const famId = 'F' + famIndex++;
           lines.push(`0 @${famId}@ FAM`);
           // parent
-          const parent = loadJSON('people:xpto').find(pp => pp.id === r.to);
-          const child = loadJSON('people:xpto').find(pp => pp.id === r.from);
+          const parent = loadJSON('people:myLineage').find(pp => pp.id === r.to);
+          const child = loadJSON('people:myLineage').find(pp => pp.id === r.from);
           if (parent) {
             if (parent.gender === 'male') lines.push(`1 HUSB @${parent.id}@`);
             else if (parent.gender === 'female') lines.push(`1 WIFE @${parent.id}@`);
@@ -120,7 +120,7 @@
 
       document.getElementById('exportBtn').addEventListener('click', function(){
         const ged = buildGedcom();
-        const name = 'xpto_export_' + (new Date()).toISOString().slice(0,10) + '.ged';
+        const name = 'myLineage_export_' + (new Date()).toISOString().slice(0,10) + '.ged';
         download(name, ged);
         showLog('GEDCOM gerado: ' + name + '\nTamanho: ' + ged.length + ' bytes');
       });

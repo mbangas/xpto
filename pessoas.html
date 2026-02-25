@@ -10,7 +10,7 @@
   <body>
     <div class="app-shell">
       <aside class="sidebar">
-        <div class="logo">XPTO</div>
+        <div class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></div>
         <nav>
           <a href="index.html">Cadastro</a>
           <a href="indicadores.html">Indicadores</a>
@@ -56,7 +56,7 @@
     </div>
     <script>
       function getPeople() {
-        try { const raw = localStorage.getItem('people:xpto'); return raw ? JSON.parse(raw) : []; } catch(e){ return []; }
+        try { const raw = localStorage.getItem('people:myLineage'); return raw ? JSON.parse(raw) : []; } catch(e){ return []; }
       }
 
       // connect layout-controls sliders to LayoutSettings
@@ -96,12 +96,12 @@
         }catch(e){ console.warn('Layout controls wiring failed', e); }
       }
       function getEvents() {
-        try { const raw = localStorage.getItem('events:xpto'); return raw ? JSON.parse(raw) : []; } catch(e){ return []; }
+        try { const raw = localStorage.getItem('events:myLineage'); return raw ? JSON.parse(raw) : []; } catch(e){ return []; }
       }
       function formatDate(d){ if(!d) return ''; const t=new Date(d); if(isNaN(t)) return d; return t.getDate().toString().padStart(2,'0') + '-' + (t.getMonth()+1).toString().padStart(2,'0') + '-' + t.getFullYear(); }
       function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-      // Runtime layout settings (editable by UI sliders). Persisted in localStorage under 'layoutSettings:xpto'
+      // Runtime layout settings (editable by UI sliders). Persisted in localStorage under 'layoutSettings:myLineage'
       const DEFAULT_LayoutSettings = {
         parentSpacingBase: 200, parentSpacingDecay: 10, parentSpacingMin: 90,
         parentDyBase: 120, parentDyPer: 30, parentDyMax: 360,
@@ -111,7 +111,7 @@
         otherColGap: 140, otherRowGap: 80, otherColBase: 200
       };
 
-      const LAYOUT_KEY = 'layoutSettings:xpto';
+      const LAYOUT_KEY = 'layoutSettings:myLineage';
       function loadLayoutSettings(){
         try{ const raw = localStorage.getItem(LAYOUT_KEY); if(!raw) return {...DEFAULT_LayoutSettings}; const obj = JSON.parse(raw); return Object.assign({}, DEFAULT_LayoutSettings, obj); }catch(e){ return {...DEFAULT_LayoutSettings}; }
       }
@@ -143,7 +143,7 @@
           }
           // 2) configured focus from settings (persisted)
           if(!root){
-            const FOCUS_KEY = 'focusedPerson:xpto';
+            const FOCUS_KEY = 'focusedPerson:myLineage';
             const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
             if(saved){
               if(saved.id !== undefined && saved.id !== null){ root = all.find(p => String(p.id) === String(saved.id)); }
@@ -189,7 +189,7 @@
             RuntimeFocus = { id: person.id, name: fullName };
           }catch(e){ /* ignore */ }
 
-          // render related person cards around the focus card using relations stored in localStorage ('relations:xpto')
+          // render related person cards around the focus card using relations stored in localStorage ('relations:myLineage')
           const relWrap = focusEl.querySelector('.relations-container');
           // use runtime LayoutSettings (modifiable via UI)
           const layout = LayoutSettings;
@@ -244,7 +244,7 @@
             // apply back
             nodes.forEach(n => { n.el.dataset.x = Math.round(n.x); n.el.dataset.y = Math.round(n.y); n.el.style.transform = `translate(${Math.round(n.x)}px, ${Math.round(n.y)}px)`; });
           }
-          function getRelationsStore(){ try { const raw = localStorage.getItem('relations:xpto'); return raw ? JSON.parse(raw) : []; } catch(e){ return []; } }
+          function getRelationsStore(){ try { const raw = localStorage.getItem('relations:myLineage'); return raw ? JSON.parse(raw) : []; } catch(e){ return []; } }
           const typeDesc = { siblin: 'Irmão / Irmã', ancestor: 'Pai / Mãe', child: 'Filho(a)', mate: 'Companheiro(a)' };
           if(relWrap){
             relWrap.innerHTML = '';
@@ -395,7 +395,7 @@
         // only render configured focused person automatically if there is no runtime focus
         try {
           if(!RuntimeFocus){
-            const FOCUS_KEY = 'focusedPerson:xpto';
+            const FOCUS_KEY = 'focusedPerson:myLineage';
             const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
             if(saved){
               let person = null;
@@ -573,7 +573,7 @@
 
       window.addEventListener('storage', renderGraph);
       // Persisted visibility key for layout controls
-      const LAYOUT_VISIBLE_KEY = 'layoutControlsVisible:xpto';
+      const LAYOUT_VISIBLE_KEY = 'layoutControlsVisible:myLineage';
 
       function setLayoutControlsVisible(visible){
         try{

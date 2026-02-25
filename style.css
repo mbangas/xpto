@@ -1,4 +1,4 @@
-/* XPTO - Dark Mode Moderno */
+/* myLineage - Dark Mode Moderno */
 /* Modern Glassmorphism & Neon UI */
 :root {
   --bg-main: linear-gradient(120deg, #23283a 0%, #23283a 60%, #2d334d 100%);
@@ -249,6 +249,13 @@ th {
   align-items: center;
   gap: 10px;
   padding: 6px 4px;
+}
+
+/* Ícone do logotipo na barra lateral */
+.sidebar .logo .mdi {
+  font-size: 1.25rem;
+  color: var(--accent-green);
+  display: inline-block;
 }
 .sidebar nav {
   display: flex;

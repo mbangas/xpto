@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Exportar GEDCOM</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="logo">XPTO</div>
+        <nav>
+          <a href="index.html">Cadastro</a>
+          <a href="indicadores.html">Indicadores</a>
+          <a href="pessoas.html">Pessoas</a>
+          <a href="import.html">Importar</a>
+          <a href="export.html" class="active">Exportar</a>
+        </nav>
+      </aside>
+      <main class="content">
+        <div class="topbar">
+          <div><h1 style="margin:0;font-size:1.25rem;">Exportar GEDCOM</h1></div>
+          <div></div>
+        </div>
+
+        <div class="card" style="max-width:760px;">
+          <p style="color:var(--text-secondary);margin-top:6px;">
+            Exporta os dados atuais (Pessoas, Eventos e Relações) para um ficheiro GEDCOM (.ged). O ficheiro gerado será compatível com ferramentas básicas de genealogia; por limitações deste exportador, apenas campos principais e eventos de nascimento/óbito são incluídos.
+          </p>
+
+          <div style="display:flex;gap:12px;align-items:center;margin-top:12px;">
+            <button class="btn" id="exportBtn">Exportar GEDCOM</button>
+          </div>
+
+          <div id="exportLog" style="margin-top:16px;color:var(--text-secondary);font-size:0.95rem;white-space:pre-wrap;"></div>
+        </div>
+
+      </main>
+    </div>
+
+    <script>
+      function nowISO(){ return new Date().toISOString(); }
+      function showLog(msg){ document.getElementById('exportLog').textContent = msg; }
+
+      function loadJSON(key){ try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : []; } catch(e){ return []; } }
+
+      function buildGedcom(){
+        const people = loadJSON('people:xpto');
+        const events = loadJSON('events:xpto');
+        const relations = loadJSON('relations:xpto');
+
+        const lines = [];
+        lines.push('0 HEAD');
+        lines.push('1 SOUR XPTO');
+        lines.push('1 DATE ' + (new Date()).toISOString().slice(0,10));
+        lines.push('1 CHAR UTF-8');
+
+        // Individuals
+        people.forEach(p => {
+          const id = p.id || ('I' + Math.random().toString(36).slice(2,10));
+          const name = ((p.firstName||'') + ' /' + (p.lastName||'') + '/').trim();
+          lines.push(`0 @${id}@ INDI`);
+          lines.push(`1 NAME ${name}`);
+          if (p.gender) lines.push(`1 SEX ${p.gender === 'male' ? 'M' : (p.gender === 'female' ? 'F' : 'U')}`);
+          // Add birth/death events if present in events list
+          const birth = events.find(ev => ev.personId === p.id && ev.type === 'BIRTH' && !ev.deletedAt);
+          const death = events.find(ev => ev.personId === p.id && ev.type === 'DEATH' && !ev.deletedAt);
+          if (birth && birth.date) { lines.push('1 BIRT'); lines.push('2 DATE ' + birth.date); }
+          if (death && death.date) { lines.push('1 DEAT'); lines.push('2 DATE ' + death.date); }
+        });
+
+        // Families from mate relations
+        let famIndex = 1;
+        relations.filter(r => r.type === 'mate').forEach(r => {
+          const famId = 'F' + famIndex++;
+          lines.push(`0 @${famId}@ FAM`);
+          // Assume symmetric relations exist; set HUSB/WIFE by gender where possible
+          const peopleList = loadJSON('people:xpto');
+          const a = peopleList.find(pp => pp.id === r.from);
+          const b = peopleList.find(pp => pp.id === r.to);
+          if (a && b) {
+            if (a.gender === 'male') lines.push(`1 HUSB @${a.id}@`); else if (a.gender === 'female') lines.push(`1 WIFE @${a.id}@`); else lines.push(`1 CHIL @${a.id}@`);
+            if (b.gender === 'male') lines.push(`1 HUSB @${b.id}@`); else if (b.gender === 'female') lines.push(`1 WIFE @${b.id}@`); else lines.push(`1 CHIL @${b.id}@`);
+          }
+        });
+
+        // Parent/child relations -> families
+        relations.filter(r => r.type === 'ancestor').forEach((r, idx) => {
+          // r.from is child, r.to is parent
+          const famId = 'F' + famIndex++;
+          lines.push(`0 @${famId}@ FAM`);
+          // parent
+          const parent = loadJSON('people:xpto').find(pp => pp.id === r.to);
+          const child = loadJSON('people:xpto').find(pp => pp.id === r.from);
+          if (parent) {
+            if (parent.gender === 'male') lines.push(`1 HUSB @${parent.id}@`);
+            else if (parent.gender === 'female') lines.push(`1 WIFE @${parent.id}@`);
+            else lines.push(`1 _PARENT @${parent.id}@`);
+          }
+          if (child) lines.push(`1 CHIL @${child.id}@`);
+        });
+
+        lines.push('0 TRLR');
+        return lines.join('\n');
+      }
+
+      function download(filename, text){
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([text], {type: 'text/plain;charset=utf-8'}));
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      }
+
+      document.getElementById('exportBtn').addEventListener('click', function(){
+        const ged = buildGedcom();
+        const name = 'xpto_export_' + (new Date()).toISOString().slice(0,10) + '.ged';
+        download(name, ged);
+        showLog('GEDCOM gerado: ' + name + '\nTamanho: ' + ged.length + ' bytes');
+      });
+    </script>
+  </body>
+</html>

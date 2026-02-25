@@ -6,6 +6,15 @@
     <title>Detalhe da Pessoa</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
+    <style>
+      .photo-area{position:relative;display:inline-block;}
+      .tag-overlay{position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:none}
+      .tag-rect{position:absolute;border:2px solid rgba(59,130,246,0.9);background:rgba(59,130,246,0.12);pointer-events:auto;cursor:pointer;border-radius:6px;box-sizing:border-box}
+      .tag-label{position:absolute;background:rgba(0,0,0,0.6);color:#fff;padding:2px 6px;border-radius:6px;font-size:12px;transform:translateY(-120%);white-space:nowrap}
+      .tag-form{position:absolute;background:var(--bg-card);padding:8px;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.4);z-index:220}
+      .tag-form select,.tag-form input{margin-bottom:6px;width:200px}
+      #photoTaggedPeople{margin-top:8px;font-size:0.95rem;color:var(--text-main)}
+    </style>
   </head>
   <body>
     <div class="app-shell">
@@ -171,10 +180,15 @@
             <div style="font-weight:700">Visualizar Foto</div>
             <div><button id="closeModalBtn" class="btn">Fechar</button></div>
           </div>
-          <div id="modalImageWrapper" style="display:flex;align-items:center;justify-content:center;text-align:center;margin-bottom:16px;padding:8px;"></div>
+          <div id="modalImageWrapper" style="display:flex;align-items:center;justify-content:center;text-align:center;margin-bottom:16px;padding:8px;">
+            <div id="modalImageArea" style="max-width:100%;max-height:80vh;overflow:auto;">
+              <!-- image + overlays inserted here -->
+            </div>
+          </div>
           <div style="margin-bottom:8px;">
             <label style="font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Notas da Foto</label>
             <textarea id="photoNotes" style="width:100%;min-height:100px;padding:8px;border-radius:8px;border:1px solid rgba(163,163,255,0.08);background:rgba(35,40,58,0.7);color:var(--text-main);"></textarea>
+            <div id="photoTaggedPeople"></div>
           </div>
           <div style="display:flex;gap:8px;justify-content:flex-end;">
             <button id="deletePhotoBtn" class="btn" style="background:linear-gradient(90deg,#fb7185,#f43f5e);">Remover Foto</button>
@@ -445,20 +459,44 @@
 
       // Photo modal behaviour: open, close, save notes, delete photo record
       let _currentModalPhotoId = null;
-      function openPhotoModal(photoId){
+      // drawing state
+      let _isDrawing = false;
+      let _drawStart = null;
+      let _currentDrawEl = null;
+
+      async function openPhotoModal(photoId){
         try{
           const photos = getPhotos();
           const ph = photos.find(p=>p.id===photoId);
           if(!ph) return;
           _currentModalPhotoId = photoId;
-          const wrapper = document.getElementById('modalImageWrapper');
+          const wrapper = document.getElementById('modalImageArea');
           wrapper.innerHTML = '';
+          wrapper.style.display = 'flex';
+          wrapper.style.alignItems = 'center';
+          wrapper.style.justifyContent = 'center';
+
+          const area = document.createElement('div');
+          area.className = 'photo-area';
+          area.style.maxWidth = '100%';
+          area.style.maxHeight = '80vh';
+          area.style.overflow = 'hidden';
+
           const img = document.createElement('img');
+          img.id = 'modalImage';
+          img.style.display = 'block';
           img.style.maxWidth = '100%';
           img.style.maxHeight = '80vh';
           img.style.borderRadius = '8px';
           img.style.boxShadow = '0 8px 24px rgba(0,0,0,0.5)';
-          // prefer base copy when available
+
+          // overlay container (absolute over image)
+          const overlay = document.createElement('div');
+          overlay.className = 'tag-overlay';
+          overlay.style.position = 'absolute';
+          overlay.style.left = '0'; overlay.style.top = '0'; overlay.style.right = '0'; overlay.style.bottom = '0';
+
+          // load image source (prefer base copy)
           (async ()=>{
             const dir = await getDirHandleFromDB_local();
             const canAccess = dir ? await ensureWritePermission(dir) : false;
@@ -466,24 +504,144 @@
               try{ const fh = await dir.getFileHandle(ph.baseCopyName); const file = await fh.getFile(); img.src = URL.createObjectURL(file); }catch(e){ img.src = ph.originalDataUrl || ph.dataUrl || ''; }
             } else { img.src = ph.originalDataUrl || ph.dataUrl || ''; }
           })();
-          wrapper.appendChild(img);
+
+          // container needed to position overlay on top of image
+          const container = document.createElement('div');
+          container.style.position = 'relative';
+          container.appendChild(img);
+          container.appendChild(overlay);
+          area.appendChild(container);
+          wrapper.appendChild(area);
+
+          // notes
           const notesEl = document.getElementById('photoNotes'); notesEl.value = ph.notes || '';
+          renderPhotoTags(ph);
+
+          // drawing handlers attached to overlay (pointer events enabled for drawing)
+          overlay.style.pointerEvents = 'auto';
+          overlay.addEventListener('pointerdown', function(ev){ ev.preventDefault(); startDraw(ev, img, overlay); });
+          overlay.addEventListener('pointermove', function(ev){ if(_isDrawing) updateDraw(ev, img, overlay); });
+          overlay.addEventListener('pointerup', function(ev){ if(_isDrawing) finishDraw(ev, img, overlay); });
+
           document.getElementById('photoModal').style.display = 'flex';
         }catch(e){ console.error(e); }
       }
 
-      function closePhotoModal(){ _currentModalPhotoId = null; document.getElementById('photoModal').style.display = 'none'; const wrapper = document.getElementById('modalImageWrapper'); wrapper.innerHTML = ''; }
+      function closePhotoModal(){ _currentModalPhotoId = null; _isDrawing = false; _drawStart = null; _currentDrawEl = null; document.getElementById('photoModal').style.display = 'none'; const wrapper = document.getElementById('modalImageArea'); if(wrapper) wrapper.innerHTML = ''; }
 
       document.getElementById('closeModalBtn').addEventListener('click', function(){ closePhotoModal(); });
 
       document.getElementById('savePhotoNotesBtn').addEventListener('click', function(){
-        if(!_currentModalPhotoId) return; const notes = document.getElementById('photoNotes').value || ''; const photos = getPhotos(); const idx = photos.findIndex(p=>p.id===_currentModalPhotoId); if(idx<0) return alert('Foto não encontrada'); photos[idx].notes = notes; photos[idx].updatedAt = nowISO(); savePhotos(photos); alert('Notas salvas'); renderPhotos(document.getElementById('id').value); closePhotoModal();
-      });
+        if(!_currentModalPhotoId) return; const notes = document.getElementById('photoNotes').value || ''; const photos = getPhotos(); const idx = photos.findIndex(p=>p.id===_currentModalPhotoId); if(idx<0) return alert('Foto não encontrada'); photos[idx].notes = notes; photos[idx].updatedAt = nowISO(); savePhotos(photos); alert('Notas salvas'); renderPhotos(document.getElementById('id').value); });
 
       document.getElementById('deletePhotoBtn').addEventListener('click', function(){
         if(!_currentModalPhotoId) return; if(!confirm('Remover a foto do sistema? Isso irá apagar as notas e desvincular de todas as pessoas. O ficheiro físico em B não será removido.')) return; const photos = getPhotos(); const newPhotos = photos.filter(p=>p.id!==_currentModalPhotoId); savePhotos(newPhotos); // remove from relations
         const rels = getPhotoRelations(); for(const k of Object.keys(rels)){ rels[k] = rels[k].filter(id=>id!==_currentModalPhotoId); if(rels[k].length===0) delete rels[k]; } savePhotoRelations(rels); renderPhotos(document.getElementById('id').value); closePhotoModal(); alert('Foto removida (registro).');
       });
+
+      // Drawing helpers: coordinates saved as percentages relative to image natural/display size
+      function getRelativeRect(img, x1, y1, x2, y2){
+        const rect = img.getBoundingClientRect();
+        const left = Math.min(x1,x2) - rect.left; const top = Math.min(y1,y2) - rect.top; const w = Math.abs(x2-x1); const h = Math.abs(y2-y1);
+        const rx = Math.max(0, Math.min(1, left / rect.width));
+        const ry = Math.max(0, Math.min(1, top / rect.height));
+        const rw = Math.max(0, Math.min(1, w / rect.width));
+        const rh = Math.max(0, Math.min(1, h / rect.height));
+        return { x: rx, y: ry, w: rw, h: rh };
+      }
+
+      function startDraw(ev, img, overlay){ _isDrawing = true; _drawStart = { x: ev.clientX, y: ev.clientY }; _currentDrawEl = document.createElement('div'); _currentDrawEl.className = 'tag-rect'; _currentDrawEl.style.left='0'; _currentDrawEl.style.top='0'; _currentDrawEl.style.width='0'; _currentDrawEl.style.height='0'; overlay.appendChild(_currentDrawEl); }
+
+      function updateDraw(ev, img, overlay){ if(!_isDrawing || !_currentDrawEl || !_drawStart) return; const rect = img.getBoundingClientRect(); const x1 = _drawStart.x; const y1 = _drawStart.y; const x2 = ev.clientX; const y2 = ev.clientY; const left = Math.min(x1,x2) - rect.left; const top = Math.min(y1,y2) - rect.top; const w = Math.abs(x2-x1); const h = Math.abs(y2-y1); _currentDrawEl.style.left = (left / rect.width * 100) + '%'; _currentDrawEl.style.top = (top / rect.height * 100) + '%'; _currentDrawEl.style.width = (w / rect.width * 100) + '%'; _currentDrawEl.style.height = (h / rect.height * 100) + '%'; }
+
+      function finishDraw(ev, img, overlay){ if(!_isDrawing) return; _isDrawing = false; const rect = img.getBoundingClientRect(); const r = getRelativeRect(img, _drawStart.x, _drawStart.y, ev.clientX, ev.clientY); // remove temp element and open form
+        if(_currentDrawEl && _currentDrawEl.parentElement) _currentDrawEl.parentElement.removeChild(_currentDrawEl);
+        _currentDrawEl = null; _drawStart = null; showTagFormForRect(r, img, overlay); }
+
+      function renderPhotoTags(photo){ try{
+          const overlay = (document.querySelector('#modalImageArea .tag-overlay'));
+          if(!overlay) return; overlay.innerHTML = '';
+          const tags = (photo.tags || []);
+          const img = document.getElementById('modalImage');
+          tags.forEach(t=>{
+            const el = document.createElement('div'); el.className = 'tag-rect';
+            el.style.left = (t.bbox.x * 100) + '%'; el.style.top = (t.bbox.y * 100) + '%'; el.style.width = (t.bbox.w * 100) + '%'; el.style.height = (t.bbox.h * 100) + '%';
+            el.title = t.personName || t.name || 'Identificado';
+            el.addEventListener('click', function(ev){ ev.stopPropagation(); openEditTagForm(t, img, overlay); });
+            const label = document.createElement('div'); label.className='tag-label'; label.textContent = t.personName || t.name || 'Pessoa'; el.appendChild(label);
+            overlay.appendChild(el);
+          });
+          // update tagged people list
+          const peopleDiv = document.getElementById('photoTaggedPeople'); if(!peopleDiv) return; const unique = Array.from(new Map((tags||[]).map(t=>[t.personId||t.personName, t])).values()); if(unique.length===0){ peopleDiv.innerHTML = '<span style="color:#888">Nenhuma pessoa identificada.</span>'; } else { peopleDiv.innerHTML = '<strong>Pessoas identificadas:</strong> ' + unique.map(t=>escapeHtml(t.personName||t.name||'')).join(', '); }
+      }catch(e){ console.error(e); } }
+
+      function showTagFormForRect(bbox, img, overlay){ // bbox: {x,y,w,h} percentages
+        const form = document.createElement('div'); form.className='tag-form';
+        // position form near top-left of bbox in overlay coords
+        const left = (bbox.x * 100); const top = (bbox.y * 100);
+        form.style.left = left + '%'; form.style.top = top + '%';
+        form.innerHTML = `<div style="font-weight:600;margin-bottom:6px;">Identificar pessoa</div>`;
+
+        const people = loadPeople();
+        const input = document.createElement('input'); input.placeholder = 'Pesquisar pessoa (nome)'; input.style.width = '220px';
+        const suggestions = document.createElement('div'); suggestions.style.position='absolute'; suggestions.style.left='8px'; suggestions.style.top='38px'; suggestions.style.background='var(--bg-card)'; suggestions.style.border='1px solid rgba(0,0,0,0.06)'; suggestions.style.maxHeight='160px'; suggestions.style.overflow='auto'; suggestions.style.width='220px'; suggestions.style.zIndex='230'; suggestions.style.display='none';
+        const saveBtn = document.createElement('button'); saveBtn.textContent='Salvar'; saveBtn.className='btn';
+        const cancelBtn = document.createElement('button'); cancelBtn.textContent='Cancelar'; cancelBtn.className='btn';
+        form.appendChild(input); form.appendChild(suggestions); const br = document.createElement('div'); br.style.marginTop='6px'; form.appendChild(br); form.appendChild(saveBtn); form.appendChild(cancelBtn);
+
+        // prevent overlay from receiving pointer events when interacting with form
+        form.addEventListener('pointerdown', function(ev){ ev.stopPropagation(); });
+
+        let selectedPersonId = null;
+        function renderSuggestions(filter){ const q = (filter||'').toLowerCase().trim(); const list = people.filter(p=>{ const full = ((p.firstName||'') + ' ' + (p.lastName||'')).toLowerCase(); return full.includes(q); }).slice(0,30); suggestions.innerHTML = ''; if(list.length===0){ suggestions.style.display='none'; return; } list.forEach(p=>{ const row = document.createElement('div'); row.style.padding='6px'; row.style.cursor='pointer'; row.style.borderBottom='1px solid rgba(255,255,255,0.03)'; row.textContent = p.firstName + ' ' + p.lastName; row.addEventListener('click', function(){ input.value = row.textContent; selectedPersonId = p.id; suggestions.style.display='none'; input.focus(); }); suggestions.appendChild(row); }); suggestions.style.display='block'; }
+        input.addEventListener('input', function(){ selectedPersonId = null; renderSuggestions(this.value); });
+        input.addEventListener('keydown', function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); saveBtn.click(); } });
+        cancelBtn.addEventListener('click', function(){ if(form && form.parentElement) form.parentElement.removeChild(form); });
+        saveBtn.addEventListener('click', function(){ const name = input.value.trim(); const pid = selectedPersonId || null; if(!name) return alert('Insira um nome ou selecione uma pessoa.'); saveTagForCurrentPhoto({ personId: pid, personName: name, bbox }); if(form && form.parentElement) form.parentElement.removeChild(form); });
+        // auto-focus input
+        setTimeout(()=>{ try{ input.focus(); }catch(e){} },50);
+        overlay.appendChild(form);
+
+        select.addEventListener('change', function(){ const v=this.value; if(v){ const p = people.find(x=>x.id===v); if(p) input.value = p.firstName+' '+p.lastName; } });
+        cancelBtn.addEventListener('click', function(){ if(form && form.parentElement) form.parentElement.removeChild(form); });
+        saveBtn.addEventListener('click', function(){ const name = input.value.trim(); const pid = select.value || null; if(!name) return alert('Insira um nome ou selecione uma pessoa.'); saveTagForCurrentPhoto({ personId: pid, personName: name, bbox }); if(form && form.parentElement) form.parentElement.removeChild(form); });
+      }
+
+      function openEditTagForm(tag, img, overlay){ // allow delete or change name
+        const form = document.createElement('div'); form.className='tag-form'; form.style.left = (tag.bbox.x*100)+'%'; form.style.top = (tag.bbox.y*100)+'%';
+        form.innerHTML = `<div style="font-weight:600;margin-bottom:6px;">Editar identificação</div>`;
+        const people = loadPeople();
+        const input = document.createElement('input'); input.value = tag.personName || tag.name || ''; input.style.width='220px';
+        const suggestions = document.createElement('div'); suggestions.style.position='absolute'; suggestions.style.left='8px'; suggestions.style.top='38px'; suggestions.style.background='var(--bg-card)'; suggestions.style.border='1px solid rgba(0,0,0,0.06)'; suggestions.style.maxHeight='160px'; suggestions.style.overflow='auto'; suggestions.style.width='220px'; suggestions.style.zIndex='230'; suggestions.style.display='none';
+        const saveBtn = document.createElement('button'); saveBtn.textContent='Salvar'; saveBtn.className='btn';
+        const deleteBtn = document.createElement('button'); deleteBtn.textContent='Remover'; deleteBtn.className='btn';
+        const cancelBtn = document.createElement('button'); cancelBtn.textContent='Cancelar'; cancelBtn.className='btn';
+        form.appendChild(input); form.appendChild(suggestions); const br=document.createElement('div'); br.style.marginTop='6px'; form.appendChild(br); form.appendChild(saveBtn); form.appendChild(deleteBtn); form.appendChild(cancelBtn);
+        overlay.appendChild(form);
+
+        form.addEventListener('pointerdown', function(ev){ ev.stopPropagation(); });
+        let selectedPersonId = tag.personId || null;
+        function renderSuggestions(filter){ const q = (filter||'').toLowerCase().trim(); const list = people.filter(p=>{ const full = ((p.firstName||'') + ' ' + (p.lastName||'')).toLowerCase(); return full.includes(q); }).slice(0,30); suggestions.innerHTML = ''; if(list.length===0){ suggestions.style.display='none'; return; } list.forEach(p=>{ const row = document.createElement('div'); row.style.padding='6px'; row.style.cursor='pointer'; row.style.borderBottom='1px solid rgba(255,255,255,0.03)'; row.textContent = p.firstName + ' ' + p.lastName; row.addEventListener('click', function(){ input.value = row.textContent; selectedPersonId = p.id; suggestions.style.display='none'; input.focus(); }); suggestions.appendChild(row); }); suggestions.style.display='block'; }
+        input.addEventListener('input', function(){ selectedPersonId = null; renderSuggestions(this.value); });
+        input.addEventListener('keydown', function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); saveBtn.click(); } });
+        saveBtn.addEventListener('click', function(){ const name = input.value.trim(); const pid = selectedPersonId || tag.personId || null; if(!name) return alert('Nome obrigatório'); const photos = getPhotos(); const idx = photos.findIndex(p=>p.id===_currentModalPhotoId); if(idx<0) return; const tIdx = (photos[idx].tags||[]).findIndex(x=>x.id===tag.id); if(tIdx<0) return; photos[idx].tags[tIdx].personName = name; photos[idx].tags[tIdx].personId = pid; photos[idx].tags[tIdx].updatedAt = nowISO(); savePhotos(photos); // ensure relation
+          if(pid){ const rels = getPhotoRelations(); rels[pid] = rels[pid] || []; if(!rels[pid].includes(_currentModalPhotoId)) rels[pid].push(_currentModalPhotoId); savePhotoRelations(rels); }
+          renderPhotoTags(photos[idx]); if(form && form.parentElement) form.parentElement.removeChild(form); renderPhotos(document.getElementById('id').value);
+        });
+        deleteBtn.addEventListener('click', function(){ if(!confirm('Remover esta identificação?')) return; const photos = getPhotos(); const idx = photos.findIndex(p=>p.id===_currentModalPhotoId); if(idx<0) return; photos[idx].tags = (photos[idx].tags||[]).filter(x=>x.id!==tag.id); savePhotos(photos); renderPhotoTags(photos[idx]); if(form && form.parentElement) form.parentElement.removeChild(form); renderPhotos(document.getElementById('id').value); });
+        cancelBtn.addEventListener('click', function(){ if(form && form.parentElement) form.parentElement.removeChild(form); });
+        setTimeout(()=>{ try{ input.focus(); }catch(e){} },50);
+      }
+
+      function saveTagForCurrentPhoto({ personId, personName, bbox }){
+        try{
+          const photos = getPhotos(); const idx = photos.findIndex(p=>p.id===_currentModalPhotoId); if(idx<0) return; const tag = { id: generateUUID(), personId: personId || null, personName: personName || '', bbox: bbox, createdAt: nowISO() };
+          photos[idx].tags = photos[idx].tags || []; photos[idx].tags.push(tag); photos[idx].updatedAt = nowISO(); savePhotos(photos);
+          // ensure association: if personId provided, add relation
+          if(personId){ const rels = getPhotoRelations(); rels[personId] = rels[personId] || []; if(!rels[personId].includes(photos[idx].id)) rels[personId].push(photos[idx].id); savePhotoRelations(rels); }
+          renderPhotoTags(photos[idx]); renderPhotos(document.getElementById('id').value);
+        }catch(e){ console.error(e); }
+      }
 
       function fillRelationPersonSelect(currentId){ const people = loadPeople(); const select = document.getElementById('relationPerson'); select.innerHTML = '<option value="">-- selecione --</option>'; people.forEach(p=>{ if(p.id !== currentId && !p.deletedAt) select.innerHTML += `<option value="${p.id}">${escapeHtml(p.firstName)} ${escapeHtml(p.lastName)}</option>`; }); }
 

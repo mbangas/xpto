@@ -4,99 +4,159 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Cadastro de Pessoas</title>
-    <style>
-      body { font-family: Arial, sans-serif; max-width: 1000px; margin: 24px auto; padding: 0 16px; }
-      form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
-      form .full { grid-column: 1 / -1; }
-      label { display:block; font-size: 13px; margin-bottom: 4px; }
-      input[type=text], select, textarea { width:100%; padding:8px; box-sizing:border-box; }
-      textarea { min-height:64px; }
-      table { width:100%; border-collapse: collapse; margin-top: 8px; }
-      th, td { border:1px solid #ddd; padding:8px; font-size:13px; }
-      th { background:#f5f5f5; text-align:left; }
-      .actions button { margin-right:6px; }
-      .deleted { background: #ffecec; }
-    </style>
+    <link rel="stylesheet" href="style.css">
   </head>
   <body>
-    <h1>Cadastro de Pessoas</h1>
-
-    <form id="personForm">
-      <div class="full">
-        <label for="id">ID (UUID)</label>
-        <input type="text" id="id" name="id" readonly />
+    <div class="main-grid">
+      <div class="table-panel card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <h1 style="font-size:1.5rem;margin:0;">Cadastro de Pessoas</h1>
+          <button class="btn" id="addPersonBtn">Adicionar Pessoa</button>
+        </div>
+        <div>
+          <label><input type="checkbox" id="hideDeleted" /> Ocultar registros excluídos</label>
+        </div>
+        <table id="peopleTable">
+          <thead>
+            <tr>
+              <th>First Name</th>
+              <th>Last Name</th>
+              <th>Gender</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
-
-      <div>
-        <label for="firstName">First Name</label>
-        <input type="text" id="firstName" name="firstName" required />
+      <div class="form-panel card" id="formPanel" style="display:none;">
+        <form id="personForm">
+          <input type="hidden" id="id" name="id" />
+          <div>
+            <label for="firstName">First Name</label>
+            <input type="text" id="firstName" name="firstName" required />
+          </div>
+          <div>
+            <label for="lastName">Last Name</label>
+            <input type="text" id="lastName" name="lastName" required />
+          </div>
+          <div>
+            <label for="gender">Gender</label>
+            <select id="gender" name="gender">
+              <option value="">-- selecione --</option>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div class="full">
+            <label for="notes">Notes</label>
+            <textarea id="notes" name="notes"></textarea>
+          </div>
+          <!-- Datas serão exibidas no rodapé do card -->
+          <div class="full">
+            <button type="submit" id="saveBtn">Salvar</button>
+            <button type="button" id="resetBtn">Limpar</button>
+          </div>
+        </form>
+        <div id="datesInfo" style="font-size:0.85em;color:#666;margin-top:16px;text-align:right;"></div>
       </div>
-
-      <div>
-        <label for="lastName">Last Name</label>
-        <input type="text" id="lastName" name="lastName" required />
-      </div>
-
-      <div>
-        <label for="gender">Gender</label>
-        <select id="gender" name="gender">
-          <option value="">-- selecione --</option>
-          <option value="male">Male</option>
-          <option value="female">Female</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-
-      <div class="full">
-        <label for="notes">Notes</label>
-        <textarea id="notes" name="notes"></textarea>
-      </div>
-
-      <div>
-        <label for="createdAt">Created At</label>
-        <input type="text" id="createdAt" name="createdAt" readonly />
-      </div>
-
-      <div>
-        <label for="updatedAt">Updated At</label>
-        <input type="text" id="updatedAt" name="updatedAt" readonly />
-      </div>
-
-      <div>
-        <label for="deletedAt">Deleted At</label>
-        <input type="text" id="deletedAt" name="deletedAt" readonly />
-      </div>
-
-      <div class="full">
-        <button type="submit" id="saveBtn">Salvar</button>
-        <button type="button" id="resetBtn">Limpar</button>
-      </div>
-    </form>
-
-    <hr />
-
-    <div>
-      <label><input type="checkbox" id="hideDeleted" /> Ocultar registros excluídos</label>
     </div>
-
-    <table id="peopleTable">
-      <thead>
-        <tr>
-          <th>ID</th>
-          <th>First Name</th>
-          <th>Last Name</th>
-          <th>Gender</th>
-          <th>Notes</th>
-          <th>Created At</th>
-          <th>Updated At</th>
-          <th>Deleted At</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
+      .main-grid {
+        display: grid;
+        grid-template-columns: 1.2fr 1fr;
+        gap: 32px;
+        width: 100%;
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 0;
+      }
+      .table-panel {
+        min-width: 0;
+      }
+      .form-panel {
+        min-width: 0;
+      }
+      @media (max-width: 900px) {
+        .main-grid {
+          grid-template-columns: 1fr;
+        }
+        .form-panel {
+          margin-top: 24px;
+        }
+      }
 
     <script>
+            // Novo controle de exibição da ficha
+            const formPanel = document.getElementById('formPanel');
+            const addPersonBtn = document.getElementById('addPersonBtn');
+            function showFormPanel(show = true) {
+              formPanel.style.display = show ? 'block' : 'none';
+            }
+            addPersonBtn.addEventListener('click', function() {
+              resetForm();
+              showFormPanel(true);
+            });
+            // Modifica editPerson para mostrar ficha
+            const originalEditPerson = editPerson;
+            editPerson = function(id) {
+              const people = loadPeople();
+              const p = people.find(x => x.id === id);
+              if (!p) return alert('Registro não encontrado');
+              document.getElementById('id').value = p.id;
+              document.getElementById('firstName').value = p.firstName || '';
+              document.getElementById('lastName').value = p.lastName || '';
+              document.getElementById('gender').value = p.gender || '';
+              document.getElementById('notes').value = p.notes || '';
+              // Exibe datas no rodapé
+              showDatesInfo(p);
+              showFormPanel(true);
+            }
+            // Oculta ficha ao salvar ou limpar
+            document.getElementById('personForm').addEventListener('submit', function(e){
+              e.preventDefault();
+              const id = document.getElementById('id').value || generateUUID();
+              const firstName = document.getElementById('firstName').value.trim();
+              const lastName = document.getElementById('lastName').value.trim();
+              const gender = document.getElementById('gender').value;
+              const notes = document.getElementById('notes').value;
+              const people = loadPeople();
+              const existingIndex = people.findIndex(x => x.id === id);
+              const now = nowISO();
+              let createdAt = now;
+              let deletedAt = null;
+              if (existingIndex >= 0) {
+                createdAt = people[existingIndex].createdAt || now;
+                deletedAt = people[existingIndex].deletedAt || null;
+                people[existingIndex] = {
+                  ...people[existingIndex],
+                  firstName, lastName, gender, notes,
+                  updatedAt: now
+                };
+              } else {
+                people.push({
+                  id,
+                  firstName,
+                  lastName,
+                  gender,
+                  notes,
+                  createdAt: now,
+                  updatedAt: now,
+                  deletedAt: null
+                });
+              }
+              savePeople(people);
+              renderTable();
+              resetForm();
+              showDatesInfo();
+              showFormPanel(false);
+            });
+            document.getElementById('resetBtn').addEventListener('click', function(){
+              resetForm();
+              showDatesInfo();
+              showFormPanel(false);
+            });
+            // Oculta ficha ao iniciar
+            showFormPanel(false);
       const STORAGE_KEY = 'people:xpto';
 
       function nowISO() { return new Date().toISOString(); }
@@ -133,14 +193,9 @@
           const tr = document.createElement('tr');
           if (p.deletedAt) tr.classList.add('deleted');
           tr.innerHTML = `
-            <td>${p.id}</td>
             <td>${escapeHtml(p.firstName)}</td>
             <td>${escapeHtml(p.lastName)}</td>
             <td>${p.gender || ''}</td>
-            <td>${escapeHtml(p.notes || '')}</td>
-            <td>${p.createdAt || ''}</td>
-            <td>${p.updatedAt || ''}</td>
-            <td>${p.deletedAt || ''}</td>
             <td class="actions">
               <button data-id="${p.id}" class="edit">Editar</button>
               <button data-id="${p.id}" class="del">Excluir</button>
@@ -155,9 +210,33 @@
       function resetForm() {
         document.getElementById('personForm').reset();
         document.getElementById('id').value = '';
-        document.getElementById('createdAt').value = '';
-        document.getElementById('updatedAt').value = '';
-        document.getElementById('deletedAt').value = '';
+      }
+
+      function formatDate(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d)) return escapeHtml(dateStr);
+        const pad = n => n.toString().padStart(2, '0');
+        const day = pad(d.getDate());
+        const month = pad(d.getMonth() + 1);
+        const year = d.getFullYear();
+        const hour = pad(d.getHours());
+        const min = pad(d.getMinutes());
+        return `${day}-${month}-${year} ${hour}:${min}`;
+      }
+
+      function showDatesInfo(person) {
+        const el = document.getElementById('datesInfo');
+        if (!el) return;
+        if (!person) {
+          el.innerHTML = '';
+          return;
+        }
+        let html = '';
+        if (person.createdAt) html += `<div>Criado em: <span>${formatDate(person.createdAt)}</span></div>`;
+        if (person.updatedAt) html += `<div>Atualizado em: <span>${formatDate(person.updatedAt)}</span></div>`;
+        if (person.deletedAt) html += `<div>Excluído em: <span>${formatDate(person.deletedAt)}</span></div>`;
+        el.innerHTML = html;
       }
 
       document.getElementById('personForm').addEventListener('submit', function(e){

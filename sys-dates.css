@@ -1,0 +1,17 @@
+.sys-dates {
+  margin-top: 12px;
+  font-size: 0.95em;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sys-label {
+  font-weight: 500;
+  opacity: 0.7;
+  margin-right: 6px;
+}
+.sys-value {
+  font-weight: 400;
+  opacity: 0.8;
+}

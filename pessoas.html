@@ -43,48 +43,153 @@
       }
       function formatDate(d){ if(!d) return ''; const t=new Date(d); if(isNaN(t)) return d; return t.getDate().toString().padStart(2,'0') + '-' + (t.getMonth()+1).toString().padStart(2,'0') + '-' + t.getFullYear(); }
 
+      // Render only Miguel and direct relations in a simple family-tree layout
       function renderGraph(){
-        const people = getPeople().filter(p => !p.deletedAt);
-        const events = getEvents();
+        const all = getPeople().filter(p => !p.deletedAt);
         const svg = document.getElementById('graph');
         svg.innerHTML = '';
-        if(people.length === 0){
+        if(all.length === 0){
           const msg = document.createElementNS('http://www.w3.org/2000/svg','text');
           msg.setAttribute('x','50%'); msg.setAttribute('y','50%'); msg.setAttribute('text-anchor','middle'); msg.setAttribute('fill','#888'); msg.setAttribute('font-size','18'); msg.textContent = 'Nenhuma pessoa cadastrada.';
           svg.appendChild(msg); return;
         }
-        const w = 1000, h = 500, cx = w/2, cy = h/2, r = Math.min(w,h)/2 - 80;
-        const n = people.length;
-        people.forEach((p,i)=>{
-          const angle = (i / n) * Math.PI * 2 - Math.PI/2;
-          const x = cx + r * Math.cos(angle);
-          const y = cy + r * Math.sin(angle);
+
+        // find Miguel by full name (normalized)
+        function fullname(p){ return ((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim(); }
+        const targetName = 'Miguel Filipe do Amaral Bangueses';
+        const root = all.find(p => fullname(p).toLowerCase() === targetName.toLowerCase());
+        if(!root){
+          const msg = document.createElementNS('http://www.w3.org/2000/svg','text');
+          msg.setAttribute('x','50%'); msg.setAttribute('y','50%'); msg.setAttribute('text-anchor','middle'); msg.setAttribute('fill','#888'); msg.setAttribute('font-size','16'); msg.textContent = 'Pessoa "Miguel Filipe do Amaral Bangueses" não encontrada.';
+          svg.appendChild(msg); return;
+        }
+
+        // detect direct relations
+        const nodes = {};
+        const edges = [];
+
+        function addNode(p){ if(!nodes[p.id]) nodes[p.id] = p; }
+        addNode(root);
+
+        // broaden relation detection: check any field / array / nested object that references the root id
+        function containsId(value, id, seen){
+          if(value == null) return false;
+          if(seen === undefined) seen = new Set();
+          if(typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') return value == id;
+          if(Array.isArray(value)) return value.some(v => containsId(v, id, seen));
+          if(typeof value === 'object'){
+            if(seen.has(value)) return false; seen.add(value);
+            return Object.values(value).some(v => containsId(v, id, seen));
+          }
+          return false;
+        }
+
+        function detectLabelByKey(p, id){
+          // try to infer relation label by common key names
+          if(p.fatherId == id || p.father == id || p.paiId == id) return 'Pai';
+          if(p.motherId == id || p.mother == id || p.maeId == id) return 'Mãe';
+          if(p.spouseId == id || p.partnerId == id || p.conjugeId == id) return 'Cônjuge';
+          if(Array.isArray(p.parents) && p.parents.includes(id)) return 'Pai/Mãe';
+          return null;
+        }
+
+        all.forEach(p => {
+          if(p.id === root.id) return;
+          let rel = null;
+
+          // direct known keys
+          rel = detectLabelByKey(p, root.id) || detectLabelByKey(root, p.id);
+
+          // if any nested field in p references root.id
+          if(!rel && containsId(p, root.id)) rel = 'Parente';
+
+          // if root references p
+          if(!rel && containsId(root, p.id)) rel = 'Relacionado';
+
+          // special: relations array with typed relations
+          if(!rel && Array.isArray(p.relations)){
+            for(const r of p.relations){
+              if(r == null) continue;
+              if(r.personId == root.id || r.to == root.id || r.targetId == root.id){ rel = r.type || r.label || 'Parente'; break; }
+              if(r.personId == p.id && (r.to == root.id || r.targetId == root.id)) { rel = r.type || r.label || 'Parente'; break; }
+            }
+          }
+
+          if(rel){ addNode(p); edges.push({from: root.id, to: p.id, label: rel}); }
+        });
+
+        // Basic layout: root at top-center, parents above, spouses to right, children below, others left
+        const w = 1000, h = 520;
+        const positions = {};
+        positions[root.id] = {x: w/2, y: 80};
+
+        const parents = [], spouses = [], children = [], others = [];
+        Object.values(nodes).forEach(p => { if(p.id === root.id) return; });
+        edges.forEach(e=>{
+          const p = nodes[e.to];
+          if(!p) return;
+          const label = (e.label||'').toLowerCase();
+          if(label.includes('pai') || label.includes('mãe') || label.includes('pai/mãe')) parents.push(p);
+          else if(label.includes('côn') || label.includes('cônjuge') || label.includes('parceiro')) spouses.push(p);
+          else if(label.includes('filho')) children.push(p);
+          else others.push(p);
+        });
+
+        function placeRow(arr, y, startX, spacing){
+          const total = arr.length; const base = startX - ((total-1) * spacing)/2;
+          arr.forEach((p,i)=> positions[p.id] = {x: base + i*spacing, y: y});
+        }
+
+        if(parents.length) placeRow(parents, 20, w/2, 160);
+        if(spouses.length) placeRow(spouses, 100, (w/2)+220, 120);
+        if(children.length) placeRow(children, 260, w/2, 160);
+        if(others.length) placeRow(others, 180, (w/2)-260, 140);
+
+        // draw edges
+        function drawLine(x1,y1,x2,y2, label){
+          const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+          line.setAttribute('x1', x1); line.setAttribute('y1', y1); line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+          line.setAttribute('stroke', '#777'); line.setAttribute('stroke-width', '2'); svg.appendChild(line);
+          if(label){
+            const mx = (x1+x2)/2; const my = (y1+y2)/2;
+            const lab = document.createElementNS('http://www.w3.org/2000/svg','text');
+            lab.setAttribute('x', mx); lab.setAttribute('y', my - 8); lab.setAttribute('text-anchor','middle'); lab.setAttribute('fill','#444'); lab.setAttribute('font-size','12'); lab.textContent = label;
+            svg.appendChild(lab);
+          }
+        }
+
+        // draw nodes
+        Object.values(nodes).forEach(p=>{
+          const pos = positions[p.id] || {x: w/2, y: 120};
           const gender = (p.gender||'').toLowerCase();
           const fill = gender === 'male' ? '#4a90e2' : (gender === 'female' ? '#e26aa6' : '#9aa0a6');
-          // circle
           const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
-          c.setAttribute('cx', x); c.setAttribute('cy', y); c.setAttribute('r', 28); c.setAttribute('fill', fill); c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width','3'); c.setAttribute('style','cursor:pointer;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.08))');
+          c.setAttribute('cx', pos.x); c.setAttribute('cy', pos.y); c.setAttribute('r', 30); c.setAttribute('fill', fill); c.setAttribute('stroke','#fff'); c.setAttribute('stroke-width','3'); c.setAttribute('style','filter:drop-shadow(0 4px 8px rgba(0,0,0,0.08));cursor:pointer');
           c.addEventListener('click', ()=>{
-            const evs = events.filter(ev=>ev.personId === p.id && !ev.deletedAt);
+            const evs = getEvents().filter(ev=>ev.personId === p.id && !ev.deletedAt);
             const birth = evs.find(e => e.type === 'BIRTH');
             const death = evs.find(e => e.type === 'DEATH');
             const info = `${p.firstName || ''} ${p.lastName || ''}\nNascimento: ${birth && birth.date ? formatDate(birth.date) : '—'}\nÓbito: ${death && death.date ? formatDate(death.date) : '—'}`;
             alert(info);
           });
           svg.appendChild(c);
-          // initials
           const initials = ((p.firstName||'').charAt(0) || '') + ((p.lastName||'').charAt(0) || '');
           const t = document.createElementNS('http://www.w3.org/2000/svg','text');
-          t.setAttribute('x', x); t.setAttribute('y', y+6); t.setAttribute('text-anchor','middle'); t.setAttribute('fill','#fff'); t.setAttribute('font-size','14'); t.setAttribute('font-weight','700'); t.textContent = initials.toUpperCase();
+          t.setAttribute('x', pos.x); t.setAttribute('y', pos.y+6); t.setAttribute('text-anchor','middle'); t.setAttribute('fill','#fff'); t.setAttribute('font-size','14'); t.setAttribute('font-weight','700'); t.textContent = initials.toUpperCase();
           svg.appendChild(t);
-          // label
           const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
-          lbl.setAttribute('x', x); lbl.setAttribute('y', y + 48); lbl.setAttribute('text-anchor','middle'); lbl.setAttribute('fill','#333'); lbl.setAttribute('font-size','12'); lbl.textContent = `${p.firstName || ''} ${p.lastName || ''}`.trim();
+          lbl.setAttribute('x', pos.x); lbl.setAttribute('y', pos.y + 48); lbl.setAttribute('text-anchor','middle'); lbl.setAttribute('fill','#333'); lbl.setAttribute('font-size','12'); lbl.textContent = `${p.firstName || ''} ${p.lastName || ''}`.trim();
           svg.appendChild(lbl);
+        });
+
+        // draw relation lines afterwards
+        edges.forEach(e=>{
+          const from = positions[e.from]; const to = positions[e.to];
+          if(!from || !to) return;
+          drawLine(from.x, from.y, to.x, to.y, e.label);
         });
       }
 
-      // Rerender on storage change (same-tab) and on load
       window.addEventListener('storage', renderGraph);
       document.addEventListener('DOMContentLoaded', renderGraph);
     </script>

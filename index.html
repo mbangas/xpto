@@ -82,6 +82,7 @@
                   <label for="notes">Notes</label>
                   <textarea id="notes" name="notes"></textarea>
                 </div>
+                <div id="ageInfo"></div>
                 <div class="full">
                   <button type="submit" id="saveBtn">Salvar</button>
                   <button type="button" id="resetBtn">Limpar</button>
@@ -219,6 +220,20 @@
               document.getElementById('notes').value = p.notes || '';
               // Exibe datas no rodapé
               showDatesInfo(p);
+              // Calcula e exibe idade (ou idade ao falecer)
+              try {
+                const evs = getEvents();
+                const birth = evs.find(e => e.personId === p.id && e.type === 'BIRTH' && !e.deletedAt);
+                const death = evs.find(e => e.personId === p.id && e.type === 'DEATH' && !e.deletedAt);
+                const ageEl = document.getElementById('ageInfo');
+                if (birth && birth.date) {
+                  const ref = death && death.date ? death.date : new Date().toISOString();
+                  const age = computeAge(birth.date, ref);
+                  ageEl.textContent = age == null ? '' : (death ? 'Idade ao falecer: ' + age + ' anos' : 'Idade: ' + age + ' anos');
+                } else if (ageEl) {
+                  ageEl.textContent = '';
+                }
+              } catch (e) { /* ignore */ }
               showFormPanel(true);
               // Abre panels de relações e eventos na edição
               openAccordion('contentRelacoes');
@@ -368,6 +383,44 @@
               });
             }
 
+            // Abre a ficha de uma pessoa (usado para navegação por relações)
+            function showPersonDetail(id) {
+              const people = loadPeople();
+              const p = people.find(x => x.id === id);
+              if (!p) return alert('Registro não encontrado');
+              document.getElementById('id').value = p.id;
+              document.getElementById('firstName').value = p.firstName || '';
+              document.getElementById('lastName').value = p.lastName || '';
+              document.getElementById('gender').value = p.gender || '';
+              document.getElementById('notes').value = p.notes || '';
+              if (document.getElementById('createdAt')) document.getElementById('createdAt').value = p.createdAt || '';
+              if (document.getElementById('updatedAt')) document.getElementById('updatedAt').value = p.updatedAt || '';
+              if (document.getElementById('deletedAt')) document.getElementById('deletedAt').value = p.deletedAt || '';
+              showDatesInfo(p);
+              // Calcula e exibe idade (ou idade ao falecer)
+              try {
+                const evs = getEvents();
+                const birth = evs.find(e => e.personId === p.id && e.type === 'BIRTH' && !e.deletedAt);
+                const death = evs.find(e => e.personId === p.id && e.type === 'DEATH' && !e.deletedAt);
+                const ageEl = document.getElementById('ageInfo');
+                if (birth && birth.date) {
+                  const ref = death && death.date ? death.date : new Date().toISOString();
+                  const age = computeAge(birth.date, ref);
+                  ageEl.textContent = age == null ? '' : (death ? 'Idade ao falecer: ' + age + ' anos' : 'Idade: ' + age + ' anos');
+                } else if (ageEl) {
+                  ageEl.textContent = '';
+                }
+              } catch (e) { /* ignore */ }
+              showFormPanel(true);
+              openAccordion('contentRelacoes');
+              openAccordion('contentEventos');
+              openAccordion('contentDados');
+              fillRelationPersonSelect(id);
+              renderRelationsList(id);
+              renderEventsList(id);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+
             function getRelations() {
               try {
                 const raw = localStorage.getItem('relations:xpto');
@@ -396,10 +449,15 @@
               rels.forEach((r, idx) => {
                 const p = people.find(x => x.id === r.to);
                 const desc = typeDesc[r.type] || r.type;
-                html += `<li>${desc}: ${p ? escapeHtml(p.firstName + ' ' + p.lastName) : r.to} <button class="remove-relation" data-index="${idx}" title="Remover relação" style="background:none;border:none;cursor:pointer;padding:0;margin-left:8px;"><span style="font-size:1.2em;">🗑️</span></button></li>`;
+                  const nameHtml = p ? `<a href="#" class="relation-link" data-id="${p.id}">${escapeHtml(p.firstName + ' ' + p.lastName)}</a>` : escapeHtml(r.to);
+                  html += `<li>${desc}: ${nameHtml} <button class="remove-relation" data-index="${idx}" title="Remover relação" style="background:none;border:none;cursor:pointer;padding:0;margin-left:8px;"><span style="font-size:1.2em;">🗑️</span></button></li>`;
               });
               html += '</ul>';
               list.innerHTML = html;
+                // add click handlers for relation links (navigate to related person's detail)
+                document.querySelectorAll('.relation-link').forEach(a => {
+                  a.addEventListener('click', function(ev){ ev.preventDefault(); const id = this.getAttribute('data-id'); if(id) showPersonDetail(id); });
+                });
               // Adiciona handler para remover relação
               document.querySelectorAll('.remove-relation').forEach(btn => {
                 btn.addEventListener('click', function(){
@@ -509,12 +567,11 @@
           const deathDate = deathEv && deathEv.date ? formatDate(deathEv.date) : '';
           tr.innerHTML = `
             <td style="width:32px;text-align:center;">${genderIcon}</td>
-            <td>${escapeHtml(p.firstName)}</td>
+            <td><a href="#" class="person-link" data-id="${p.id}">${escapeHtml(p.firstName)}</a></td>
             <td>${escapeHtml(p.lastName)}</td>
             <td>${birthDate}</td>
             <td>${deathDate}</td>
             <td class="actions">
-              <button data-id="${p.id}" class="edit" title="Editar" style="background:none;border:none;cursor:pointer;padding:0 6px 0 0;"><span style="font-size:1.2em;">✏️</span></button>
               <button data-id="${p.id}" class="del" title="Excluir" style="background:none;border:none;cursor:pointer;padding:0;"><span style="font-size:1.2em;">🗑️</span></button>
             </td>
           `;
@@ -554,6 +611,7 @@
         if (document.getElementById('createdAt')) document.getElementById('createdAt').value = '';
         if (document.getElementById('updatedAt')) document.getElementById('updatedAt').value = '';
         if (document.getElementById('deletedAt')) document.getElementById('deletedAt').value = '';
+          const ageEl = document.getElementById('ageInfo'); if (ageEl) ageEl.textContent = '';
       }
 
       function formatDate(dateStr) {
@@ -565,6 +623,17 @@
         const month = pad(d.getMonth() + 1);
         const year = d.getFullYear();
         return `${day}-${month}-${year}`;
+      }
+
+      function computeAge(birthStr, refStr) {
+        if (!birthStr) return null;
+        const b = new Date(birthStr);
+        const r = refStr ? new Date(refStr) : new Date();
+        if (isNaN(b) || isNaN(r)) return null;
+        let years = r.getFullYear() - b.getFullYear();
+        const m = r.getMonth() - b.getMonth();
+        if (m < 0 || (m === 0 && r.getDate() < b.getDate())) years--;
+        return years;
       }
 
       function showDatesInfo(person) {
@@ -623,17 +692,17 @@
       document.getElementById('resetBtn').addEventListener('click', function(){ resetForm(); });
 
       document.getElementById('peopleTable').addEventListener('click', function(e){
-        // Garante que o clique no ícone dentro do botão também funcione
-        let btn = e.target;
-        // Se clicou no <span>, sobe para o <button>
-        if (btn.tagName === 'SPAN' && btn.parentElement && btn.parentElement.tagName === 'BUTTON') {
-          btn = btn.parentElement;
-        }
-        const id = btn.getAttribute('data-id');
+        // Prevent default navigation for links
+        if (e.target && e.target.tagName === 'A') e.preventDefault();
+        // Find the closest element that carries a data-id
+        const el = e.target.closest && e.target.closest('[data-id]');
+        if (!el) return;
+        const id = el.getAttribute('data-id');
         if (!id) return;
-        if (btn.classList.contains('edit')) {
+        // If it's the person link or previously the edit button, open edit/detail
+        if (el.classList.contains('edit') || el.classList.contains('person-link')) {
           editPerson(id);
-        } else if (btn.classList.contains('del')) {
+        } else if (el.classList.contains('del')) {
           softDeletePerson(id);
         }
       });

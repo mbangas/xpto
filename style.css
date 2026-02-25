@@ -326,3 +326,16 @@ th {
 .accordion-content { display: none; padding: 12px 16px 18px 16px; border-top: 1px solid rgba(163,163,255,0.03); }
 .accordion-content > form > div { margin-bottom: 8px; }
 
+/* Age display in personal data card */
+#ageInfo {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, rgba(59,130,246,0.12), rgba(167,139,250,0.06));
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 1rem;
+  box-shadow: 0 6px 20px rgba(17,24,39,0.45);
+}
+

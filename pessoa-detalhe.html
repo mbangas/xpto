@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Detalhe da Pessoa</title>
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="logo">XPTO</div>
+        <nav>
+          <a href="index.html">Cadastro</a>
+          <a href="indicadores.html">Indicadores</a>
+          <a href="pessoas.html">Pessoas</a>
+          <a href="import.html">Importar</a>
+          <a href="export.html">Exportar</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="configuracao.html">Configuração</a>
+        </div>
+      </aside>
+      <main class="content">
+        <div class="topbar">
+          <div style="display:flex;align-items:center;gap:12px"><h1 style="margin:0;font-size:1.25rem;">Detalhe da Pessoa</h1></div>
+          <div><a class="btn" href="index.html">Voltar</a></div>
+        </div>
+        <div class="main-grid">
+          <div class="form-panel card" id="formPanel">
+            <div class="accordion">
+              <div class="accordion-card" id="cardDados">
+                <button type="button" class="accordion-header" data-target="contentDados"><span>Dados Pessoais</span><span class="accordion-arrow">▾</span></button>
+                <div class="accordion-content" id="contentDados">
+                  <form id="personForm">
+                    <input type="hidden" id="id" name="id" />
+                    <input type="hidden" id="createdAt" name="createdAt" />
+                    <input type="hidden" id="updatedAt" name="updatedAt" />
+                    <input type="hidden" id="deletedAt" name="deletedAt" />
+                    <div>
+                      <label for="firstName">First Name</label>
+                      <input type="text" id="firstName" name="firstName" required />
+                    </div>
+                    <div>
+                      <label for="lastName">Last Name</label>
+                      <input type="text" id="lastName" name="lastName" required />
+                    </div>
+                    <div>
+                      <label for="gender">Gender</label>
+                      <select id="gender" name="gender">
+                        <option value="">-- selecione --</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </div>
+                    <div class="full">
+                      <label for="notes">Notes</label>
+                      <textarea id="notes" name="notes"></textarea>
+                    </div>
+                    <div id="ageInfo"></div>
+                    <div class="full">
+                      <button type="submit" id="saveBtn">Salvar</button>
+                      <button type="button" id="resetBtn">Limpar</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+
+              <div class="accordion-card" id="cardEventos">
+                <button type="button" class="accordion-header" data-target="contentEventos"><span>Eventos</span><span class="accordion-arrow">▾</span></button>
+                <div class="accordion-content" id="contentEventos">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <div style="font-weight:600;color:var(--text-main);">Eventos</div>
+                    <div><button type="button" id="openEventFormBtn" class="btn">Adicionar Evento</button></div>
+                  </div>
+                  <div id="eventFormWrapper" style="display:none;">
+                    <form id="eventForm">
+                      <div>
+                        <label for="eventType">Tipo de evento</label>
+                        <select id="eventType" name="eventType" required>
+                          <option value="">-- selecione --</option>
+                          <option value="BIRTH">Nascimento</option>
+                          <option value="BAPTISM">Batismo</option>
+                          <option value="DEATH">Óbito</option>
+                          <option value="MARRIAGE">Casamento</option>
+                          <option value="DIVORCE">Divórcio</option>
+                          <option value="ADOPTION">Adoção</option>
+                          <option value="CUSTOM">Outro</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label for="eventDate">Data</label>
+                        <input type="date" id="eventDate" name="eventDate" />
+                      </div>
+                      <div>
+                        <label for="eventLocation">Local</label>
+                        <input type="text" id="eventLocation" name="eventLocation" />
+                      </div>
+                      <div>
+                        <label for="eventNotes">Notas</label>
+                        <textarea id="eventNotes" name="eventNotes"></textarea>
+                      </div>
+                      <div class="full" style="display:flex;gap:8px;">
+                        <button type="button" id="addEventBtn">Salvar Evento</button>
+                        <button type="button" id="cancelEventBtn">Cancelar</button>
+                      </div>
+                    </form>
+                  </div>
+                  <div id="eventsList"></div>
+                </div>
+              </div>
+
+              <div class="accordion-card" id="cardRelacoes">
+                <button type="button" class="accordion-header" data-target="contentRelacoes"><span>Relações</span><span class="accordion-arrow">▾</span></button>
+                <div class="accordion-content" id="contentRelacoes">
+                  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                    <div style="font-weight:600;color:var(--text-main);">Relações</div>
+                    <div><button type="button" id="openRelationFormBtn" class="btn">Adicionar Relação</button></div>
+                  </div>
+                  <div id="relationFormWrapper" style="display:none;">
+                    <form id="relationForm">
+                      <div>
+                        <label for="relationType">Tipo de relação</label>
+                        <select id="relationType" name="relationType">
+                          <option value="">-- selecione --</option>
+                          <option value="siblin">Siblin</option>
+                          <option value="ancestor">Ancestor</option>
+                          <option value="child">Child</option>
+                          <option value="mate">Mate</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label for="relationPerson">Pessoa relacionada</label>
+                        <select id="relationPerson" name="relationPerson">
+                          <option value="">-- selecione --</option>
+                        </select>
+                      </div>
+                      <div class="full" style="display:flex;gap:8px;">
+                        <button type="button" id="addRelationBtn">Salvar Relação</button>
+                        <button type="button" id="cancelRelationBtn">Cancelar</button>
+                      </div>
+                    </form>
+                  </div>
+                  <div id="relationsList"></div>
+                </div>
+              </div>
+            </div>
+            <div id="datesInfo" style="font-size:0.85em;color:#666;margin-top:16px;text-align:right;"></div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      // Accordion helpers
+      function openAccordion(id) { const el = document.getElementById(id); if (!el) return; el.style.display = 'block'; if (el.parentElement) el.parentElement.classList.add('open'); }
+      function closeAccordion(id) { const el = document.getElementById(id); if (!el) return; el.style.display = 'none'; if (el.parentElement) el.parentElement.classList.remove('open'); }
+      function toggleAccordion(id) { const el = document.getElementById(id); if (!el) return; if (el.style.display === 'block') closeAccordion(id); else openAccordion(id); }
+      document.addEventListener('click', function(e){ const btn = e.target.closest && e.target.closest('.accordion-header'); if (btn && btn.dataset && btn.dataset.target) toggleAccordion(btn.dataset.target); });
+
+      const STORAGE_KEY = 'people:xpto';
+      function nowISO() { return new Date().toISOString(); }
+      function generateUUID() { if (crypto && crypto.randomUUID) return crypto.randomUUID(); const bytes = crypto.getRandomValues(new Uint8Array(16)); bytes[6] = (bytes[6] & 0x0f) | 0x40; bytes[8] = (bytes[8] & 0x3f) | 0x80; const b2h = b => Array.from(b).map(x => x.toString(16).padStart(2,'0')).join(''); const s = b2h(bytes); return s.slice(0,8)+'-'+s.slice(8,12)+'-'+s.slice(12,16)+'-'+s.slice(16,20)+'-'+s.slice(20); }
+      function loadPeople() { try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : []; } catch(e) { return []; } }
+      function savePeople(people) { localStorage.setItem(STORAGE_KEY, JSON.stringify(people)); }
+
+      function getEvents() { try { const raw = localStorage.getItem('events:xpto'); return raw ? JSON.parse(raw) : []; } catch (e) { return []; } }
+      function saveEvents(events) { localStorage.setItem('events:xpto', JSON.stringify(events)); }
+      function getRelations() { try { const raw = localStorage.getItem('relations:xpto'); return raw ? JSON.parse(raw) : []; } catch (e) { return []; } }
+      function saveRelations(rel) { localStorage.setItem('relations:xpto', JSON.stringify(rel)); }
+
+      function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+      function formatDate(dateStr){ if(!dateStr) return ''; const d=new Date(dateStr); if(isNaN(d)) return escapeHtml(dateStr); const pad=n=>n.toString().padStart(2,'0'); return `${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()}`; }
+      function computeAge(birthStr, refStr){ if(!birthStr) return null; const b=new Date(birthStr); const r= refStr ? new Date(refStr) : new Date(); if(isNaN(b)||isNaN(r)) return null; let years = r.getFullYear()-b.getFullYear(); const m = r.getMonth()-b.getMonth(); if (m<0 || (m===0 && r.getDate()<b.getDate())) years--; return years; }
+
+      function showDatesInfo(person){ const el = document.getElementById('datesInfo'); if(!el) return; if(!person){ el.innerHTML=''; return; } let html=''; if(person.createdAt) html += `<div>Criado em: <span>${formatDate(person.createdAt)}</span></div>`; if(person.updatedAt) html += `<div>Atualizado em: <span>${formatDate(person.updatedAt)}</span></div>`; if(person.deletedAt) html += `<div>Excluído em: <span>${formatDate(person.deletedAt)}</span></div>`; el.innerHTML = html; }
+
+      function renderEventsList(personId){ try{ const evsAll = getEvents(); const list = document.getElementById('eventsList'); const evs = evsAll.filter(ev => ev.personId === personId && !ev.deletedAt); if(evs.length===0){ list.innerHTML = '<div style="color:#888">Nenhum evento cadastrado.</div>'; return; } let html='<ul>'; evs.forEach((ev, idx)=>{ html += `<li><b>${ev.type}</b> - ${ev.date || 'Sem data'}${ev.location ? ', ' + escapeHtml(ev.location) : ''} <br><small>${escapeHtml(ev.notes)}</small> <button class="remove-event" data-index="${idx}" style="background:none;border:none;cursor:pointer;padding:0;margin-left:8px;"><span style="font-size:1.2em;">🗑️</span></button></li>`; }); html += '</ul>'; list.innerHTML = html; document.querySelectorAll('.remove-event').forEach(btn=>{ btn.addEventListener('click', function(){ const idx = parseInt(this.getAttribute('data-index')); let events = getEvents(); const evs = events.filter(ev => ev.personId === personId && !ev.deletedAt); const eventToRemove = evs[idx]; events = events.map(ev => ev.id === eventToRemove.id ? { ...ev, deletedAt: nowISO(), updatedAt: nowISO() } : ev); saveEvents(events); renderEventsList(personId); }); }); }catch(e){} }
+
+      function renderRelationsList(personId){ try{ const relAll = getRelations(); const people = loadPeople(); const list = document.getElementById('relationsList'); const rels = relAll.filter(r => r.from === personId); if(rels.length===0){ list.innerHTML = '<div style="color:#888">Nenhuma relação cadastrada.</div>'; return; } const typeDesc = { siblin: 'Irmão / Irmã', ancestor: 'Pai / Mãe', child: 'Filho(a)', mate: 'Companheiro(a)' }; let html='<ul>'; rels.forEach((r, idx)=>{ const p = people.find(x=>x.id===r.to); const desc = typeDesc[r.type] || r.type; const nameHtml = p ? `<a href="#" class="relation-link" data-id="${p.id}">${escapeHtml(p.firstName+' '+p.lastName)}</a>` : escapeHtml(r.to); html += `<li>${desc}: ${nameHtml} <button class="remove-relation" data-index="${idx}" style="background:none;border:none;cursor:pointer;padding:0;margin-left:8px;"><span style="font-size:1.2em;">🗑️</span></button></li>`; }); html += '</ul>'; list.innerHTML = html; document.querySelectorAll('.relation-link').forEach(a=>{ a.addEventListener('click', function(ev){ ev.preventDefault(); const id=this.getAttribute('data-id'); if(id) loadPageForPerson(id); }); }); document.querySelectorAll('.remove-relation').forEach(btn=>{ btn.addEventListener('click', function(){ const idx = parseInt(this.getAttribute('data-index')); let relations = getRelations(); const rels = relations.filter(r => r.from === personId); const relToRemove = rels[idx]; relations = relations.filter(r => !(r.from === personId && r.to === relToRemove.to && r.type === relToRemove.type)); saveRelations(relations); renderRelationsList(personId); }); }); }catch(e){} }
+
+      function fillRelationPersonSelect(currentId){ const people = loadPeople(); const select = document.getElementById('relationPerson'); select.innerHTML = '<option value="">-- selecione --</option>'; people.forEach(p=>{ if(p.id !== currentId && !p.deletedAt) select.innerHTML += `<option value="${p.id}">${escapeHtml(p.firstName)} ${escapeHtml(p.lastName)}</option>`; }); }
+
+      function loadPageForPerson(id){ window.location.href = 'pessoa-detalhe.html?id=' + encodeURIComponent(id); }
+
+      function showPersonDetail(id){ const people = loadPeople(); const p = people.find(x=>x.id===id); if(!p) { alert('Registro não encontrado'); window.location.href='index.html'; return; } document.getElementById('id').value = p.id; document.getElementById('firstName').value = p.firstName || ''; document.getElementById('lastName').value = p.lastName || ''; document.getElementById('gender').value = p.gender || ''; document.getElementById('notes').value = p.notes || ''; if(document.getElementById('createdAt')) document.getElementById('createdAt').value = p.createdAt || ''; if(document.getElementById('updatedAt')) document.getElementById('updatedAt').value = p.updatedAt || ''; if(document.getElementById('deletedAt')) document.getElementById('deletedAt').value = p.deletedAt || ''; showDatesInfo(p); try{ const evs = getEvents(); const birth = evs.find(e=>e.personId===p.id && e.type==='BIRTH' && !e.deletedAt); const death = evs.find(e=>e.personId===p.id && e.type==='DEATH' && !e.deletedAt); const ageEl = document.getElementById('ageInfo'); if(birth && birth.date){ const ref = death && death.date ? death.date : new Date().toISOString(); const age = computeAge(birth.date, ref); ageEl.textContent = age == null ? '' : (death ? 'Idade ao falecer: ' + age + ' anos' : 'Idade: ' + age + ' anos'); } else if(ageEl) ageEl.textContent = ''; }catch(e){}
+      openAccordion('contentDados'); openAccordion('contentEventos'); openAccordion('contentRelacoes'); fillRelationPersonSelect(id); renderRelationsList(id); renderEventsList(id); }
+
+      (function(){ // Small form toggles and wiring
+        function showEventForm(show){ const w=document.getElementById('eventFormWrapper'); const list=document.getElementById('eventsList'); if(!w||!list) return; w.style.display = show ? 'block' : 'none'; list.style.display = show ? 'none' : 'block'; }
+        function showRelationForm(show){ const w=document.getElementById('relationFormWrapper'); const list=document.getElementById('relationsList'); if(!w||!list) return; w.style.display = show ? 'block' : 'none'; list.style.display = show ? 'none' : 'block'; }
+        const openEventBtn = document.getElementById('openEventFormBtn'); if(openEventBtn) openEventBtn.addEventListener('click', function(){ showEventForm(true); openAccordion('contentEventos'); });
+        const cancelEventBtn = document.getElementById('cancelEventBtn'); if(cancelEventBtn) cancelEventBtn.addEventListener('click', function(){ const f=document.getElementById('eventForm'); if(f) f.reset(); showEventForm(false); });
+        const openRelationBtn = document.getElementById('openRelationFormBtn'); if(openRelationBtn) openRelationBtn.addEventListener('click', function(){ showRelationForm(true); openAccordion('contentRelacoes'); });
+        const cancelRelationBtn = document.getElementById('cancelRelationBtn'); if(cancelRelationBtn) cancelRelationBtn.addEventListener('click', function(){ const f=document.getElementById('relationForm'); if(f) f.reset(); showRelationForm(false); });
+      })();
+
+      document.getElementById('addEventBtn').addEventListener('click', function(){ const personId = document.getElementById('id').value; if(!personId) return alert('Pessoa não selecionada'); const type = document.getElementById('eventType').value; const date = document.getElementById('eventDate').value || null; const location = document.getElementById('eventLocation').value || null; const notes = document.getElementById('eventNotes').value || ''; if(!type) return alert('Tipo de evento obrigatório'); const events = getEvents(); const now = nowISO(); events.push({ id: generateUUID(), personId, type, date, location, notes, createdAt: now, updatedAt: now, deletedAt: null }); saveEvents(events); renderEventsList(personId); document.getElementById('eventForm').reset(); showEventForm(false); });
+
+      document.getElementById('addRelationBtn').addEventListener('click', function(){ const type = document.getElementById('relationType').value; const to = document.getElementById('relationPerson').value; const from = document.getElementById('id').value; if(!type||!to||!from) return alert('Selecione tipo e pessoa relacionada.'); const relations = getRelations(); relations.push({ from,to,type }); saveRelations(relations); renderRelationsList(from); document.getElementById('relationType').value=''; document.getElementById('relationPerson').value=''; showRelationForm(false); });
+
+      document.getElementById('personForm').addEventListener('submit', function(e){ e.preventDefault(); const id = document.getElementById('id').value || generateUUID(); const firstName = document.getElementById('firstName').value.trim(); const lastName = document.getElementById('lastName').value.trim(); const gender = document.getElementById('gender').value; const notes = document.getElementById('notes').value; const createdAtField = document.getElementById('createdAt').value; const deletedAtField = document.getElementById('deletedAt').value || null; const people = loadPeople(); const existingIndex = people.findIndex(x=>x.id===id); const now = nowISO(); if(existingIndex>=0){ people[existingIndex] = { ...people[existingIndex], firstName, lastName, gender, notes, updatedAt: now, deletedAt: deletedAtField || null }; } else { people.push({ id, firstName, lastName, gender, notes, createdAt: createdAtField || now, updatedAt: now, deletedAt: deletedAtField || null }); } savePeople(people); showDatesInfo(people.find(x=>x.id===id)); alert('Dados salvos'); });
+
+      document.getElementById('resetBtn').addEventListener('click', function(){ document.getElementById('personForm').reset(); });
+
+      // Init: read id from query and render
+      (function(){ const params = new URLSearchParams(window.location.search); const id = params.get('id'); if(!id){ alert('Nenhuma pessoa selecionada'); window.location.href='index.html'; return; } showPersonDetail(id); })();
+    </script>
+  </body>
+</html>

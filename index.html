@@ -89,89 +89,13 @@
                 <div class="full">
                   <button type="submit" id="saveBtn">Salvar</button>
                   <button type="button" id="resetBtn">Limpar</button>
+                  <button type="button" id="detailBtn">Detalhe</button>
                 </div>
               </form>
             </div>
           </div>
 
-          <div class="accordion-card" id="cardEventos">
-            <button type="button" class="accordion-header" data-target="contentEventos"><span>Eventos</span><span class="accordion-arrow">▾</span></button>
-            <div class="accordion-content" id="contentEventos">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                <div style="font-weight:600;color:var(--text-main);">Eventos</div>
-                <div><button type="button" id="openEventFormBtn" class="btn">Adicionar Evento</button></div>
-              </div>
-              <div id="eventFormWrapper" style="display:none;">
-                <form id="eventForm">
-                  <div>
-                    <label for="eventType">Tipo de evento</label>
-                    <select id="eventType" name="eventType" required>
-                      <option value="">-- selecione --</option>
-                      <option value="BIRTH">Nascimento</option>
-                      <option value="BAPTISM">Batismo</option>
-                      <option value="DEATH">Óbito</option>
-                      <option value="MARRIAGE">Casamento</option>
-                      <option value="DIVORCE">Divórcio</option>
-                      <option value="ADOPTION">Adoção</option>
-                      <option value="CUSTOM">Outro</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label for="eventDate">Data</label>
-                    <input type="date" id="eventDate" name="eventDate" />
-                  </div>
-                  <div>
-                    <label for="eventLocation">Local</label>
-                    <input type="text" id="eventLocation" name="eventLocation" />
-                  </div>
-                  <div>
-                    <label for="eventNotes">Notas</label>
-                    <textarea id="eventNotes" name="eventNotes"></textarea>
-                  </div>
-                  <div class="full" style="display:flex;gap:8px;">
-                    <button type="button" id="addEventBtn">Salvar Evento</button>
-                    <button type="button" id="cancelEventBtn">Cancelar</button>
-                  </div>
-                </form>
-              </div>
-              <div id="eventsList"></div>
-            </div>
-          </div>
-
-          <div class="accordion-card" id="cardRelacoes">
-            <button type="button" class="accordion-header" data-target="contentRelacoes"><span>Relações</span><span class="accordion-arrow">▾</span></button>
-            <div class="accordion-content" id="contentRelacoes">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-                <div style="font-weight:600;color:var(--text-main);">Relações</div>
-                <div><button type="button" id="openRelationFormBtn" class="btn">Adicionar Relação</button></div>
-              </div>
-              <div id="relationFormWrapper" style="display:none;">
-                <form id="relationForm">
-                  <div>
-                    <label for="relationType">Tipo de relação</label>
-                    <select id="relationType" name="relationType">
-                      <option value="">-- selecione --</option>
-                      <option value="siblin">Siblin</option>
-                      <option value="ancestor">Ancestor</option>
-                      <option value="child">Child</option>
-                      <option value="mate">Mate</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label for="relationPerson">Pessoa relacionada</label>
-                    <select id="relationPerson" name="relationPerson">
-                      <option value="">-- selecione --</option>
-                    </select>
-                  </div>
-                  <div class="full" style="display:flex;gap:8px;">
-                    <button type="button" id="addRelationBtn">Salvar Relação</button>
-                    <button type="button" id="cancelRelationBtn">Cancelar</button>
-                  </div>
-                </form>
-              </div>
-              <div id="relationsList"></div>
-            </div>
-          </div>
+          <!-- Apenas Dados Pessoais visíveis na página de Cadastro. Eventos/ Relações mudaram para página de detalhe. -->
         </div>
         <div id="datesInfo" style="font-size:0.85em;color:#666;margin-top:16px;text-align:right;"></div>
       </div>
@@ -219,8 +143,8 @@
               closeAccordion('contentRelacoes');
               openAccordion('contentDados');
               // Limpa listas de eventos e relações para nova ficha
-              if (typeof renderEventsList === 'function') renderEventsList('');
-              if (typeof renderRelationsList === 'function') renderRelationsList('');
+              if (typeof renderEventsList === 'function' && document.getElementById('eventsList')) renderEventsList('');
+              if (typeof renderRelationsList === 'function' && document.getElementById('relationsList')) renderRelationsList('');
               // Limpa a área de datas (não mostrar datas para novo registro)
               if (typeof showDatesInfo === 'function') showDatesInfo();
             });
@@ -252,16 +176,15 @@
                 }
               } catch (e) { /* ignore */ }
               showFormPanel(true);
-              // Abre panels de relações e eventos na edição
-              openAccordion('contentRelacoes');
-              openAccordion('contentEventos');
+              // Abre panel de Dados e, se existirem, relações/eventos
+              if (document.getElementById('contentRelacoes')) openAccordion('contentRelacoes');
+              if (document.getElementById('contentEventos')) openAccordion('contentEventos');
               openAccordion('contentDados');
-              // Preenche pessoas para relação
-              fillRelationPersonSelect(id);
-              // Renderiza lista de relações
-              renderRelationsList(id);
-              // Renderiza lista de eventos
-              renderEventsList(id);
+              // Preenche pessoas para relação (se select presente)
+              if (document.getElementById('relationPerson')) fillRelationPersonSelect(id);
+              // Renderiza listas apenas se os containers existirem
+              if (document.getElementById('relationsList')) renderRelationsList(id);
+              if (document.getElementById('eventsList')) renderEventsList(id);
             }
             // Oculta ficha ao salvar ou limpar
             document.getElementById('personForm').addEventListener('submit', function(e){
@@ -312,6 +235,13 @@
               closeAccordion('contentRelacoes');
               closeAccordion('contentEventos');
               closeAccordion('contentDados');
+            });
+            // Botão Detalhe: abre página de detalhe com todas as secções
+            const detailBtn = document.getElementById('detailBtn');
+            if (detailBtn) detailBtn.addEventListener('click', function(){
+              const id = document.getElementById('id').value;
+              if (!id) return alert('Nenhuma pessoa selecionada');
+              window.location.href = 'pessoa-detalhe.html?id=' + encodeURIComponent(id);
             });
             // Oculta ficha ao iniciar
             showFormPanel(false);
@@ -389,7 +319,8 @@
                 });
               });
             }
-            document.getElementById('addEventBtn').addEventListener('click', function(){
+            const addEventBtnEl = document.getElementById('addEventBtn');
+            if (addEventBtnEl) addEventBtnEl.addEventListener('click', function(){
               const personId = document.getElementById('id').value;
               if (!personId) return alert('Pessoa não selecionada');
               const type = document.getElementById('eventType').value;
@@ -413,7 +344,7 @@
               saveEvents(events);
               renderEventsList(personId);
               renderTable(); // Atualiza tabela
-              document.getElementById('eventForm').reset();
+              const evForm = document.getElementById('eventForm'); if (evForm) evForm.reset();
               showEventForm(false);
             });
 
@@ -458,12 +389,12 @@
                 }
               } catch (e) { /* ignore */ }
               showFormPanel(true);
-              openAccordion('contentRelacoes');
-              openAccordion('contentEventos');
+              if (document.getElementById('contentRelacoes')) openAccordion('contentRelacoes');
+              if (document.getElementById('contentEventos')) openAccordion('contentEventos');
               openAccordion('contentDados');
-              fillRelationPersonSelect(id);
-              renderRelationsList(id);
-              renderEventsList(id);
+              if (document.getElementById('relationPerson')) fillRelationPersonSelect(id);
+              if (document.getElementById('relationsList')) renderRelationsList(id);
+              if (document.getElementById('eventsList')) renderEventsList(id);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }
 
@@ -519,7 +450,8 @@
                 });
               });
             }
-            document.getElementById('addRelationBtn').addEventListener('click', function(){
+            const addRelationBtnEl = document.getElementById('addRelationBtn');
+            if (addRelationBtnEl) addRelationBtnEl.addEventListener('click', function(){
               const type = document.getElementById('relationType').value;
               const to = document.getElementById('relationPerson').value;
               const from = document.getElementById('id').value;
@@ -528,8 +460,8 @@
               relations.push({ from, to, type });
               saveRelations(relations);
               renderRelationsList(from);
-              document.getElementById('relationType').value = '';
-              document.getElementById('relationPerson').value = '';
+              const relTypeEl = document.getElementById('relationType'); if (relTypeEl) relTypeEl.value = '';
+              const relPersonEl = document.getElementById('relationPerson'); if (relPersonEl) relPersonEl.value = '';
               showRelationForm(false);
             });
       const STORAGE_KEY = 'people:xpto';
@@ -621,6 +553,7 @@
             <td>${birthDate}</td>
             <td>${deathDate}</td>
             <td class="actions">
+              <button data-id="${p.id}" class="detail" title="Detalhe" style="background:none;border:none;cursor:pointer;padding:0;margin-right:8px;"><span style="font-size:1.2em;">🔎</span></button>
               <button data-id="${p.id}" class="del" title="Excluir" style="background:none;border:none;cursor:pointer;padding:0;"><span style="font-size:1.2em;">🗑️</span></button>
             </td>
           `;
@@ -748,9 +681,11 @@
         if (!el) return;
         const id = el.getAttribute('data-id');
         if (!id) return;
-        // If it's the person link or previously the edit button, open edit/detail
+        // If it's the person link or edit: open edit; detail: open detail page; del: soft delete
         if (el.classList.contains('edit') || el.classList.contains('person-link')) {
           editPerson(id);
+        } else if (el.classList.contains('detail')) {
+          window.location.href = 'pessoa-detalhe.html?id=' + encodeURIComponent(id);
         } else if (el.classList.contains('del')) {
           softDeletePerson(id);
         }

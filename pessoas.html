@@ -35,17 +35,81 @@
           </div>
         </div>
         <div id="person-focus" class="person-focus" aria-live="polite"></div>
+        <div id="layout-controls" class="layout-controls" aria-hidden="false">
+          <div class="lc-header">Layout controls</div>
+          <div class="lc-row"><label>Parent spacing</label><input type="range" id="parentSpacingBase" min="100" max="320" step="10"><span id="parentSpacingBaseVal" class="lc-val"></span></div>
+          <div class="lc-row"><label>Parent vertical per</label><input type="range" id="parentDyPer" min="10" max="60" step="2"><span id="parentDyPerVal" class="lc-val"></span></div>
+          <div class="lc-row"><label>Child spacing</label><input type="range" id="childSpacingBase" min="100" max="320" step="10"><span id="childSpacingBaseVal" class="lc-val"></span></div>
+          <div class="lc-row"><label>Child vertical per</label><input type="range" id="childDyPer" min="10" max="60" step="2"><span id="childDyPerVal" class="lc-val"></span></div>
+          <div class="lc-row"><label>Sibling radius base</label><input type="range" id="siblingRadiusBase" min="60" max="220" step="5"><span id="siblingRadiusBaseVal" class="lc-val"></span></div>
+          <div class="lc-row"><label>Sibling radius per</label><input type="range" id="siblingRadiusPer" min="8" max="80" step="2"><span id="siblingRadiusPerVal" class="lc-val"></span></div>
+          <div class="lc-row buttons"><button id="resetLayout" class="btn">Reset</button></div>
+        </div>
       </main>
     </div>
     <script>
       function getPeople() {
         try { const raw = localStorage.getItem('people:xpto'); return raw ? JSON.parse(raw) : []; } catch(e){ return []; }
       }
+
+      // connect layout-controls sliders to LayoutSettings
+      function wireLayoutControls(){
+        try{
+          const map = {
+            parentSpacingBase: 'parentSpacingBase', parentDyPer: 'parentDyPer',
+            childSpacingBase: 'childSpacingBase', childDyPer: 'childDyPer',
+            siblingRadiusBase: 'siblingRadiusBase', siblingRadiusPer: 'siblingRadiusPer'
+          };
+          Object.keys(map).forEach(id => {
+            const el = document.getElementById(id);
+            if(!el) return;
+            // set initial value from LayoutSettings
+            el.value = LayoutSettings[map[id]] || el.min || 0;
+            // update numeric display
+            const valEl = document.getElementById(id + 'Val'); if(valEl) valEl.textContent = el.value;
+            el.addEventListener('input', function(){
+              LayoutSettings[map[id]] = Number(this.value);
+              saveLayoutSettings(LayoutSettings);
+              const vEl = document.getElementById(id + 'Val'); if(vEl) vEl.textContent = this.value;
+              // re-render graph to apply changes (keeps focus)
+              try{ renderGraph(); } catch(e){}
+            });
+          });
+          const reset = document.getElementById('resetLayout');
+          if(reset) reset.addEventListener('click', function(){
+            // reset to defaults
+            LayoutSettings = loadLayoutSettings();
+            Object.assign(LayoutSettings, DEFAULT_LayoutSettings);
+            saveLayoutSettings(LayoutSettings);
+            // update sliders
+            Object.keys(map).forEach(id => { const el = document.getElementById(id); if(el) el.value = LayoutSettings[map[id]]; const vEl = document.getElementById(id + 'Val'); if(vEl) vEl.textContent = el.value; });
+            renderGraph();
+          });
+        }catch(e){ console.warn('Layout controls wiring failed', e); }
+      }
       function getEvents() {
         try { const raw = localStorage.getItem('events:xpto'); return raw ? JSON.parse(raw) : []; } catch(e){ return []; }
       }
       function formatDate(d){ if(!d) return ''; const t=new Date(d); if(isNaN(t)) return d; return t.getDate().toString().padStart(2,'0') + '-' + (t.getMonth()+1).toString().padStart(2,'0') + '-' + t.getFullYear(); }
       function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+      // Runtime layout settings (editable by UI sliders). Persisted in localStorage under 'layoutSettings:xpto'
+      const DEFAULT_LayoutSettings = {
+        parentSpacingBase: 200, parentSpacingDecay: 10, parentSpacingMin: 90,
+        parentDyBase: 120, parentDyPer: 30, parentDyMax: 360,
+        childSpacingBase: 200, childSpacingDecay: 10, childSpacingMin: 90,
+        childDyBase: 120, childDyPer: 30, childDyMax: 360,
+        siblingRadiusBase: 110, siblingRadiusPer: 36, siblingRadiusMin: 140, siblingRadiusMax: 520,
+        otherColGap: 140, otherRowGap: 80
+      };
+
+      const LAYOUT_KEY = 'layoutSettings:xpto';
+      function loadLayoutSettings(){
+        try{ const raw = localStorage.getItem(LAYOUT_KEY); if(!raw) return {...DEFAULT_LayoutSettings}; const obj = JSON.parse(raw); return Object.assign({}, DEFAULT_LayoutSettings, obj); }catch(e){ return {...DEFAULT_LayoutSettings}; }
+      }
+      function saveLayoutSettings(obj){ try{ localStorage.setItem(LAYOUT_KEY, JSON.stringify(obj)); }catch(e){}
+      }
+      let LayoutSettings = loadLayoutSettings();
 
       // Render only Miguel and direct relations in a simple family-tree layout
       function renderGraph(){
@@ -58,15 +122,18 @@
           svg.appendChild(msg); return;
         }
 
-        // find Miguel by full name (normalized)
+        // pick root person: prefer configured focused person, else first person
         function fullname(p){ return ((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim(); }
-        const targetName = 'Miguel Filipe do Amaral Bangueses';
-        const root = all.find(p => fullname(p).toLowerCase() === targetName.toLowerCase());
-        if(!root){
-          const msg = document.createElementNS('http://www.w3.org/2000/svg','text');
-          msg.setAttribute('x','50%'); msg.setAttribute('y','50%'); msg.setAttribute('text-anchor','middle'); msg.setAttribute('fill','#888'); msg.setAttribute('font-size','16'); msg.textContent = 'Pessoa "Miguel Filipe do Amaral Bangueses" não encontrada.';
-          svg.appendChild(msg); return;
-        }
+        let root = null;
+        try{
+          const FOCUS_KEY = 'focusedPerson:xpto';
+          const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
+          if(saved && saved.name){
+            const targetName = (saved.name || '').trim().toLowerCase();
+            root = all.find(p => fullname(p).toLowerCase() === targetName || ((p.fullName||'').toLowerCase() === targetName) || ((p.name||'').toLowerCase() === targetName));
+          }
+        }catch(e){ /* ignore */ }
+        if(!root) root = all[0];
 
         // helper: render person card into the central container
         function renderPersonCard(person){
@@ -96,6 +163,59 @@
 
           // render related person cards around the focus card using relations stored in localStorage ('relations:xpto')
           const relWrap = focusEl.querySelector('.relations-container');
+          // use runtime LayoutSettings (modifiable via UI)
+          const layout = LayoutSettings;
+          function placeCard(el, dx, dy){ el.dataset.x = dx; el.dataset.y = dy; el.style.transform = `translate(${dx}px, ${dy}px)`; }
+
+          // collision resolution to avoid overlaps (iterative)
+          function resolveOverlaps(){
+            const cards = Array.from(relWrap.querySelectorAll('.relation-card'));
+            if(cards.length === 0) return;
+            const centerEl = focusEl.querySelector('.person-card');
+            const centerW = centerEl ? centerEl.offsetWidth : 0; const centerH = centerEl ? centerEl.offsetHeight : 0;
+            const padding = 8;
+            const nodes = cards.map(el => ({ el, x: parseFloat(el.dataset.x)||0, y: parseFloat(el.dataset.y)||0, w: el.offsetWidth, h: el.offsetHeight }));
+            const iters = 48;
+            for(let iter=0; iter<iters; iter++){
+              let moved = false;
+              // avoid center overlap
+              nodes.forEach(n => {
+                if(!centerEl) return;
+                const dx = n.x, dy = n.y;
+                const overlapX = Math.abs(dx) < (centerW/2 + n.w/2 + padding);
+                const overlapY = Math.abs(dy) < (centerH/2 + n.h/2 + padding);
+                if(overlapX && overlapY){
+                  moved = true;
+                  let vx = dx === 0 ? 0.01 : dx; let vy = dy === 0 ? 0.01 : dy;
+                  const len = Math.sqrt(vx*vx + vy*vy) || 1; vx/=len; vy/=len;
+                  const needed = Math.max((centerW/2 + n.w/2 + padding) - Math.abs(dx), (centerH/2 + n.h/2 + padding) - Math.abs(dy));
+                  n.x += vx * needed; n.y += vy * needed;
+                }
+              });
+              // pairwise resolve
+              for(let i=0;i<nodes.length;i++){
+                for(let j=i+1;j<nodes.length;j++){
+                  const a = nodes[i], b = nodes[j];
+                  const dx = b.x - a.x; const dy = b.y - a.y;
+                  const overlapX = Math.abs(dx) < (a.w/2 + b.w/2 + padding);
+                  const overlapY = Math.abs(dy) < (a.h/2 + b.h/2 + padding);
+                  if(overlapX && overlapY){
+                    moved = true;
+                    let vx = dx === 0 ? 0.01 : dx; let vy = dy === 0 ? 0.01 : dy;
+                    const len = Math.sqrt(vx*vx + vy*vy) || 1; vx/=len; vy/=len;
+                    const pushX = (a.w/2 + b.w/2 + padding) - Math.abs(dx);
+                    const pushY = (a.h/2 + b.h/2 + padding) - Math.abs(dy);
+                    const push = Math.max(pushX, pushY);
+                    const half = push/2;
+                    b.x += vx * half; b.y += vy * half; a.x -= vx * half; a.y -= vy * half;
+                  }
+                }
+              }
+              if(!moved) break;
+            }
+            // apply back
+            nodes.forEach(n => { n.el.dataset.x = Math.round(n.x); n.el.dataset.y = Math.round(n.y); n.el.style.transform = `translate(${Math.round(n.x)}px, ${Math.round(n.y)}px)`; });
+          }
           function getRelationsStore(){ try { const raw = localStorage.getItem('relations:xpto'); return raw ? JSON.parse(raw) : []; } catch(e){ return []; } }
           const typeDesc = { siblin: 'Irmão / Irmã', ancestor: 'Pai / Mãe', child: 'Filho(a)', mate: 'Companheiro(a)' };
           if(relWrap){
@@ -115,25 +235,90 @@
             // unique by id
             const unique = Array.from(new Map(targets.map(t => [String(t.id), t])).values());
 
-            unique.forEach((t, i) => {
-              const related = all.find(x => String(x.id) === String(t.id));
-              if(!related) return;
+            // classify relations: parents (ancestor), children (child), siblings (siblin), others
+            const parents = unique.filter(u => (u.type || '').toLowerCase() === 'ancestor');
+            const children = unique.filter(u => (u.type || '').toLowerCase() === 'child');
+            const siblings = unique.filter(u => (u.type || '').toLowerCase() === 'siblin');
+            const others = unique.filter(u => !['ancestor','child','siblin'].includes(((u.type||'') + '').toLowerCase()));
+
+            // helper to create card element
+            function makeCard(related, relLabel){
               const name = (((related.firstName||'') + ' ' + (related.lastName||'')).trim()) || (related.name||related.fullName||related.displayName||'');
               const short = name.length > 20 ? name.slice(0,17) + '…' : name;
-              const relLabel = typeDesc[t.type] || t.type || '';
               const card = document.createElement('div');
               card.className = 'relation-card';
               card.setAttribute('role','button');
               card.setAttribute('tabindex','0');
-              card.innerHTML = `<div class="relation-name" title="${name}">${short}</div><div class="relation-type">${escapeHtml(relLabel)}</div>`;
-              // position around in a circle
-              const n = unique.length || 1; const angle = (i / n) * Math.PI * 2; const radius = 190;
-              const dx = Math.round(Math.cos(angle) * radius); const dy = Math.round(Math.sin(angle) * radius);
-              card.style.transform = `translate(${dx}px, ${dy}px)`;
+              card.innerHTML = `<div class="relation-name" title="${escapeHtml(name)}">${escapeHtml(short)}</div><div class="relation-type">${escapeHtml(relLabel)}</div>`;
               card.addEventListener('click', ()=>{ renderPersonCard(related); });
               card.addEventListener('keydown', (e)=>{ if(e.key === 'Enter'||e.key===' ') renderPersonCard(related); });
-              relWrap.appendChild(card);
-            });
+              return card;
+            }
+
+            // adaptive placement: compute spacing/radius based on counts
+            // parents above: spacing reduces slightly as count grows, vertical offset grows
+            if(parents.length){
+              const count = parents.length;
+              const spacing = Math.max(layout.parentSpacingMin, layout.parentSpacingBase - count * layout.parentSpacingDecay);
+              const base = -((count-1) * spacing) / 2;
+              const dy = -Math.min(layout.parentDyMax, layout.parentDyBase + count * layout.parentDyPer);
+              parents.forEach((t, i) => {
+                const related = all.find(x => String(x.id) === String(t.id)); if(!related) return;
+                const relLabel = typeDesc[t.type] || t.type || '';
+                const card = makeCard(related, relLabel);
+                const dx = Math.round(base + i * spacing);
+                placeCard(card, dx, dy);
+                relWrap.appendChild(card);
+              });
+            }
+            // children below: similar adaptive behaviour
+            if(children.length){
+              const count = children.length;
+              const spacing = Math.max(layout.childSpacingMin, layout.childSpacingBase - count * layout.childSpacingDecay);
+              const base = -((count-1) * spacing) / 2;
+              const dy = Math.min(layout.childDyMax, layout.childDyBase + count * layout.childDyPer);
+              children.forEach((t, i) => {
+                const related = all.find(x => String(x.id) === String(t.id)); if(!related) return;
+                const relLabel = typeDesc[t.type] || t.type || '';
+                const card = makeCard(related, relLabel);
+                const dx = Math.round(base + i * spacing);
+                placeCard(card, dx, dy);
+                relWrap.appendChild(card);
+              });
+            }
+
+            // siblings: radial but radius grows with number to reduce overlap
+            if(siblings.length){
+              const n = siblings.length;
+              const radius = Math.max(layout.siblingRadiusMin, Math.min(layout.siblingRadiusMax, layout.siblingRadiusBase + n * layout.siblingRadiusPer));
+              siblings.forEach((t, i) => {
+                const related = all.find(x => String(x.id) === String(t.id)); if(!related) return;
+                const relLabel = typeDesc[t.type] || t.type || '';
+                const angle = (i / n) * Math.PI * 2; // distribute full circle
+                const dx = Math.round(Math.cos(angle) * radius);
+                const dy = Math.round(Math.sin(angle) * radius);
+                const card = makeCard(related, relLabel);
+                placeCard(card, dx, dy);
+                relWrap.appendChild(card);
+              });
+            }
+
+            // others: position in two columns left/right with vertical stacking
+            if(others.length){
+              const colGap = layout.otherColGap;
+              const rowGap = layout.otherRowGap;
+              others.forEach((t, i) => {
+                const related = all.find(x => String(x.id) === String(t.id)); if(!related) return;
+                const relLabel = typeDesc[t.type] || t.type || '';
+                const side = (i % 2 === 0) ? -1 : 1; // alternate left/right
+                const idx = Math.floor(i / 2);
+                const dx = side * (200 + idx * colGap);
+                const dy = (idx % 2 === 0) ? -40 - idx * Math.round(idx * 6) : 40 + idx * Math.round(idx * 6);
+                const card = makeCard(related, relLabel);
+                placeCard(card, dx, dy);
+                relWrap.appendChild(card);
+              });
+            }
           }
         }
 
@@ -263,7 +448,7 @@
       }
 
       window.addEventListener('storage', renderGraph);
-      document.addEventListener('DOMContentLoaded', renderGraph);
+      document.addEventListener('DOMContentLoaded', function(){ renderGraph(); try{ wireLayoutControls(); }catch(e){} });
     </script>
   </body>
 </html>

@@ -219,3 +219,99 @@ th {
     font-size: 1.3rem;
   }
 }
+
+/* Sidebar + Topbar (Portainer-like) */
+.app-shell {
+  display: flex;
+  width: 100%;
+  min-height: 100vh;
+  align-items: stretch;
+}
+.sidebar {
+  width: 220px;
+  background: rgba(15,18,28,0.96);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-right: 1px solid rgba(163,163,255,0.03);
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+}
+.sidebar .logo {
+  font-weight: 800;
+  font-size: 1.05rem;
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 4px;
+}
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.sidebar a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-weight: 700;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+.sidebar a.active, .sidebar a:hover {
+  background: linear-gradient(90deg, rgba(59,130,246,0.12), rgba(167,139,250,0.06));
+  color: var(--text-main);
+}
+.content {
+  margin-left: 240px;
+  padding: 24px 32px 48px 32px;
+  width: calc(100% - 240px);
+  min-height: 100vh;
+}
+.topbar {
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+@media (max-width: 900px) {
+  .sidebar { position: relative; width: 100%; height: auto; flex-direction: row; padding: 10px; }
+  .sidebar nav { flex-direction: row; gap: 8px; overflow:auto; }
+  .content { margin-left: 0; width: 100%; padding: 16px; }
+  .topbar { height: 56px; }
+}
+
+/* Indicadores (regras reaproveitáveis) */
+.indicadores-cards {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.indicador-card {
+  flex: 1 1 220px;
+  min-width: 220px;
+  max-width: 320px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  border-radius: 14px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
+  border: 1px solid rgba(163,163,255,0.03);
+}
+.indicador-icon { font-size: 2.4em; filter: drop-shadow(0 6px 16px rgba(0,0,0,0.16)); }
+.indicador-num { font-size: 2.2rem; font-weight: 700; color: var(--text-main); }
+.indicador-label { color: var(--text-secondary); font-weight: 600; }
+.legend .avatar { width: 14px; height: 14px; border-radius: 50%; display:inline-block; box-shadow: 0 2px 8px rgba(0,0,0,0.35); }

@@ -5,45 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Cadastro de Pessoas</title>
     <link rel="stylesheet" href="style.css">
-    <style>
-      body { background: #f4f7fb; font-family: 'Segoe UI', 'Arial', sans-serif; }
-      .menu-bar { background: #fff; padding: 0 24px; margin-bottom: 24px; box-shadow: 0 2px 8px #0001; display:flex; align-items:center; height:56px; }
-      .menu-bar a { margin-right:24px; font-weight:600; text-decoration:none; color:#2a4d8f; font-size:1.05em; }
-      .menu-bar a.active, .menu-bar a:hover { color:#1a2a4d; text-decoration:underline; }
-      .main-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 32px; width: 100%; max-width: 1100px; margin: 0 auto; padding: 24px 16px 48px 16px; }
-      .card { background:#fff; border-radius:12px; padding:18px; box-shadow:0 6px 18px #0001; }
-      .table-panel { min-width:0; padding:20px; }
-      .form-panel { min-width:0; padding:18px; }
-      h1 { color:#1a2a4d; }
-      table { width:100%; border-collapse:collapse; }
-      table thead th { text-align:left; color:#556; padding:8px 6px; font-weight:600; }
-      table tbody td { padding:10px 6px; border-top:1px solid #eee; }
-      .actions button { background:none;border:none;cursor:pointer;padding:6px;margin:0 4px; }
-      .folders { display:flex; flex-direction:column; gap:18px; }
-      .folder h2 { margin:0 0 8px 0; color:#2a4d8f; }
-      form > div { margin-bottom:10px; }
-      label { display:block; margin-bottom:6px; color:#444; }
-      input[type=text], select, textarea, input[type=date] { width:100%; padding:8px 10px; border:1px solid #ddd; border-radius:8px; }
-      textarea { min-height:80px; }
-      .full { display:flex; gap:8px; }
-      .btn, button[type=submit], button { background:#2a4d8f; color:#fff; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; }
-      .btn:hover, button[type=submit]:hover { background:#17345a; }
-      .deleted { opacity:0.6; }
-      @media (max-width:900px) { .main-grid { grid-template-columns:1fr; } }
-    </style>
   </head>
   <body>
-    <nav class="menu-bar">
-      <a href="index.html" class="active">Cadastro</a>
-      <a href="indicadores.html">Indicadores</a>
-      <a href="pessoas.html">Pessoas</a>
-    </nav>
-    <div class="main-grid">
-      <div class="table-panel card">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-          <h1 style="font-size:1.5rem;margin:0;">Cadastro de Pessoas</h1>
-          <button class="btn" id="addPersonBtn">Adicionar Pessoa</button>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="logo">XPTO</div>
+        <nav>
+          <a href="index.html" class="active">Cadastro</a>
+          <a href="indicadores.html">Indicadores</a>
+          <a href="pessoas.html">Pessoas</a>
+        </nav>
+      </aside>
+      <main class="content">
+        <div class="topbar">
+          <div style="display:flex;align-items:center;gap:12px"><h1 style="margin:0;font-size:1.25rem;">Cadastro de Pessoas</h1></div>
+          <div><button class="btn" id="addPersonBtn">Adicionar Pessoa</button></div>
         </div>
+        <div class="main-grid">
+          <div class="table-panel card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0;">
+            </div>
         <div>
           <label><input type="checkbox" id="hideDeleted" /> Ocultar registros excluídos</label>
         </div>
@@ -158,31 +139,10 @@
           </div>
         </div>
         <div id="datesInfo" style="font-size:0.85em;color:#666;margin-top:16px;text-align:right;"></div>
-      </div>
+          </div>
+        </div>
+      </main>
     </div>
-      .main-grid {
-        display: grid;
-        grid-template-columns: 1.2fr 1fr;
-        gap: 32px;
-        width: 100%;
-        max-width: 1100px;
-        margin: 0 auto;
-        padding: 32px 0;
-      }
-      .table-panel {
-        min-width: 0;
-      }
-      .form-panel {
-        min-width: 0;
-      }
-      @media (max-width: 900px) {
-        .main-grid {
-          grid-template-columns: 1fr;
-        }
-        .form-panel {
-          margin-top: 24px;
-        }
-      }
 
     <script>
             // Novo controle de exibição da ficha

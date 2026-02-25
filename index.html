@@ -19,9 +19,11 @@
         <table id="peopleTable">
           <thead>
             <tr>
+              <th></th>
               <th>First Name</th>
               <th>Last Name</th>
-              <th>Gender</th>
+              <th>Data Nascimento</th>
+              <th>Data Óbito</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -31,6 +33,40 @@
       <div class="form-panel card" id="formPanel" style="display:none;">
         <div class="folders">
           <div class="folder" id="folderDados">
+                      <div class="folder" id="folderEventos" style="margin-top:24px;">
+                        <h2>Eventos</h2>
+                        <form id="eventForm">
+                          <div>
+                            <label for="eventType">Tipo de evento</label>
+                            <select id="eventType" name="eventType" required>
+                              <option value="">-- selecione --</option>
+                              <option value="BIRTH">Nascimento</option>
+                              <option value="BAPTISM">Batismo</option>
+                              <option value="DEATH">Óbito</option>
+                              <option value="MARRIAGE">Casamento</option>
+                              <option value="DIVORCE">Divórcio</option>
+                              <option value="ADOPTION">Adoção</option>
+                              <option value="CUSTOM">Outro</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label for="eventDate">Data</label>
+                            <input type="date" id="eventDate" name="eventDate" />
+                          </div>
+                          <div>
+                            <label for="eventLocation">Local</label>
+                            <input type="text" id="eventLocation" name="eventLocation" />
+                          </div>
+                          <div>
+                            <label for="eventNotes">Notas</label>
+                            <textarea id="eventNotes" name="eventNotes"></textarea>
+                          </div>
+                          <div class="full">
+                            <button type="button" id="addEventBtn">Adicionar Evento</button>
+                          </div>
+                        </form>
+                        <div id="eventsList"></div>
+                      </div>
             <h2>Dados Pessoais</h2>
             <form id="personForm">
               <input type="hidden" id="id" name="id" />
@@ -143,10 +179,14 @@
               showFormPanel(true);
               // Exibe folder de relações
               document.getElementById('folderRelacoes').style.display = 'block';
+              // Exibe folder de eventos
+              document.getElementById('folderEventos').style.display = 'block';
               // Preenche pessoas para relação
               fillRelationPersonSelect(id);
               // Renderiza lista de relações
               renderRelationsList(id);
+              // Renderiza lista de eventos
+              renderEventsList(id);
             }
             // Oculta ficha ao salvar ou limpar
             document.getElementById('personForm').addEventListener('submit', function(e){
@@ -187,16 +227,88 @@
               showDatesInfo();
               showFormPanel(false);
               document.getElementById('folderRelacoes').style.display = 'none';
+              document.getElementById('folderEventos').style.display = 'none';
             });
             document.getElementById('resetBtn').addEventListener('click', function(){
               resetForm();
               showDatesInfo();
               showFormPanel(false);
               document.getElementById('folderRelacoes').style.display = 'none';
+              document.getElementById('folderEventos').style.display = 'none';
             });
             // Oculta ficha ao iniciar
             showFormPanel(false);
             document.getElementById('folderRelacoes').style.display = 'none';
+            document.getElementById('folderEventos').style.display = 'none';
+            // Eventos
+            function getEvents() {
+              try {
+                const raw = localStorage.getItem('events:xpto');
+                return raw ? JSON.parse(raw) : [];
+              } catch (e) { return []; }
+            }
+            function saveEvents(events) {
+              localStorage.setItem('events:xpto', JSON.stringify(events));
+            }
+            function renderEventsList(personId) {
+              const events = getEvents();
+              const list = document.getElementById('eventsList');
+              const evs = events.filter(ev => ev.personId === personId && !ev.deletedAt);
+              if (evs.length === 0) {
+                list.innerHTML = '<div style="color:#888">Nenhum evento cadastrado.</div>';
+                return;
+              }
+              let html = '<ul>';
+              evs.forEach((ev, idx) => {
+                html += `<li><b>${ev.type}</b> - ${ev.date || 'Sem data'}${ev.location ? ', ' + ev.location : ''} <br><small>${ev.notes || ''}</small> <button class="remove-event" data-index="${idx}" title="Remover evento" style="background:none;border:none;cursor:pointer;padding:0;margin-left:8px;"><span style="font-size:1.2em;">🗑️</span></button></li>`;
+              });
+              html += '</ul>';
+              list.innerHTML = html;
+              // Adiciona handler para remover evento
+              document.querySelectorAll('.remove-event').forEach(btn => {
+                btn.addEventListener('click', function(){
+                  const idx = parseInt(this.getAttribute('data-index'));
+                  let events = getEvents();
+                  const evs = events.filter(ev => ev.personId === personId && !ev.deletedAt);
+                  const eventToRemove = evs[idx];
+                  events = events.map(ev => {
+                    if (ev.id === eventToRemove.id) {
+                      return { ...ev, deletedAt: nowISO(), updatedAt: nowISO() };
+                    }
+                    return ev;
+                  });
+                  saveEvents(events);
+                  renderEventsList(personId);
+                  renderTable(); // Atualiza tabela
+                });
+              });
+            }
+            document.getElementById('addEventBtn').addEventListener('click', function(){
+              const personId = document.getElementById('id').value;
+              if (!personId) return alert('Pessoa não selecionada');
+              const type = document.getElementById('eventType').value;
+              const date = document.getElementById('eventDate').value || null;
+              const location = document.getElementById('eventLocation').value || null;
+              const notes = document.getElementById('eventNotes').value || '';
+              if (!type) return alert('Tipo de evento obrigatório');
+              const events = getEvents();
+              const now = nowISO();
+              events.push({
+                id: generateUUID(),
+                personId,
+                type,
+                date,
+                location,
+                notes,
+                createdAt: now,
+                updatedAt: now,
+                deletedAt: null
+              });
+              saveEvents(events);
+              renderEventsList(personId);
+              renderTable(); // Atualiza tabela
+              document.getElementById('eventForm').reset();
+            });
 
             // Relações
             function fillRelationPersonSelect(currentId) {
@@ -298,14 +410,26 @@
         tbody.innerHTML = '';
         const people = loadPeople();
         const hideDeleted = document.getElementById('hideDeleted').checked;
+        const events = getEvents();
         people.forEach(p => {
           if (hideDeleted && p.deletedAt) return;
           const tr = document.createElement('tr');
           if (p.deletedAt) tr.classList.add('deleted');
+          let genderIcon = '';
+          if (p.gender === 'male') genderIcon = '<span title="Masculino" style="font-size:1.2em">&#9794;</span>';
+          else if (p.gender === 'female') genderIcon = '<span title="Feminino" style="font-size:1.2em">&#9792;</span>';
+          else genderIcon = '<span title="Outro" style="font-size:1.2em">&#9893;</span>';
+          // Busca datas de nascimento e óbito
+          const birthEv = events.find(ev => ev.personId === p.id && ev.type === 'BIRTH' && !ev.deletedAt);
+          const deathEv = events.find(ev => ev.personId === p.id && ev.type === 'DEATH' && !ev.deletedAt);
+          const birthDate = birthEv && birthEv.date ? formatDate(birthEv.date) : '';
+          const deathDate = deathEv && deathEv.date ? formatDate(deathEv.date) : '';
           tr.innerHTML = `
+            <td style="width:32px;text-align:center;">${genderIcon}</td>
             <td>${escapeHtml(p.firstName)}</td>
             <td>${escapeHtml(p.lastName)}</td>
-            <td>${p.gender || ''}</td>
+            <td>${birthDate}</td>
+            <td>${deathDate}</td>
             <td class="actions">
               <button data-id="${p.id}" class="edit">Editar</button>
               <button data-id="${p.id}" class="del">Excluir</button>
@@ -330,9 +454,7 @@
         const day = pad(d.getDate());
         const month = pad(d.getMonth() + 1);
         const year = d.getFullYear();
-        const hour = pad(d.getHours());
-        const min = pad(d.getMinutes());
-        return `${day}-${month}-${year} ${hour}:${min}`;
+        return `${day}-${month}-${year}`;
       }
 
       function showDatesInfo(person) {

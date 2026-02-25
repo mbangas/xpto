@@ -243,16 +243,26 @@
           if(relWrap){
             relWrap.innerHTML = '';
             const relations = getRelationsStore();
-            // relations where focused person is the origin
+            // collect relations where focused person is origin (from) or target (to)
             const relsFrom = relations.filter(r => String(r.from) === String(person.id));
-            // if none, fallback to relations where focused person is the target (show the origin persons)
+            const relsTo = relations.filter(r => String(r.to) === String(person.id));
             const targets = [];
-            if(relsFrom.length > 0){
-              relsFrom.forEach(r => { if(r && r.to) targets.push({ id: r.to, type: r.type }); });
-            } else {
-              const relsTo = relations.filter(r => String(r.to) === String(person.id));
-              relsTo.forEach(r => { if(r && r.from) targets.push({ id: r.from, type: r.type }); });
-            }
+            function normalizeType(t){ if(!t) return ''; return (''+t).toLowerCase(); }
+            function invertType(t){ const n = normalizeType(t); if(n === 'ancestor') return 'child'; if(n === 'child') return 'ancestor'; return n; }
+            // relations originating from focused person -> related persons are in `to` (keep type)
+            relsFrom.forEach(r => { if(r && r.to) targets.push({ id: r.to, type: normalizeType(r.type) }); });
+            // relations targeting focused person -> related persons are in `from` (invert type so child->parent stored as 'ancestor' becomes 'child' for display)
+            relsTo.forEach(r => { if(r && r.from) targets.push({ id: r.from, type: invertType(r.type) }); });
+
+            // also include children discovered by scanning people records (e.g. fatherId/motherId/parents arrays)
+            try{
+              all.forEach(rp => {
+                if(!rp || rp.id === undefined || rp.id === null) return;
+                if(String(rp.id) === String(person.id)) return;
+                const isChild = (String(rp.fatherId) === String(person.id)) || (String(rp.motherId) === String(person.id)) || (Array.isArray(rp.parents) && rp.parents.map(String).includes(String(person.id)));
+                if(isChild){ targets.push({ id: rp.id, type: 'child' }); }
+              });
+            }catch(e){ /* ignore scanning errors */ }
 
             // unique by id
             const unique = Array.from(new Map(targets.map(t => [String(t.id), t])).values());
@@ -394,8 +404,20 @@
           if(p.id === root.id) return;
           let rel = null;
 
-          // direct known keys
-          rel = detectLabelByKey(p, root.id) || detectLabelByKey(root, p.id);
+          // explicit detection: if candidate references root as parent, candidate is a child
+          try{
+            if((p.fatherId !== undefined && String(p.fatherId) === String(root.id)) || (p.motherId !== undefined && String(p.motherId) === String(root.id)) || (Array.isArray(p.parents) && p.parents.map(String).includes(String(root.id)))){
+              rel = 'Filho';
+            } else if((root.fatherId !== undefined && String(root.fatherId) === String(p.id)) || (root.motherId !== undefined && String(root.motherId) === String(p.id)) || (Array.isArray(root.parents) && root.parents.map(String).includes(String(p.id)))){
+              // candidate is parent of root
+              if(root.fatherId !== undefined && String(root.fatherId) === String(p.id)) rel = 'Pai';
+              else if(root.motherId !== undefined && String(root.motherId) === String(p.id)) rel = 'Mãe';
+              else rel = 'Pai/Mãe';
+            }
+          }catch(e){ /* ignore */ }
+
+          // direct known keys and other heuristics (fallback)
+          if(!rel) rel = detectLabelByKey(p, root.id) || detectLabelByKey(root, p.id);
 
           // if any nested field in p references root.id
           if(!rel && containsId(p, root.id)) rel = 'Parente';
@@ -426,9 +448,10 @@
           const p = nodes[e.to];
           if(!p) return;
           const label = (e.label||'').toLowerCase();
-          if(label.includes('pai') || label.includes('mãe') || label.includes('pai/mãe')) parents.push(p);
-          else if(label.includes('côn') || label.includes('cônjuge') || label.includes('parceiro')) spouses.push(p);
-          else if(label.includes('filho')) children.push(p);
+          // accept both Portuguese and common English relation types
+          if(label.includes('pai') || label.includes('mãe') || label.includes('pai/mãe') || label.includes('ancestor') || label.includes('parent')) parents.push(p);
+          else if(label.includes('côn') || label.includes('cônjuge') || label.includes('parceiro') || label.includes('mate') || label.includes('spouse') || label.includes('conjuge')) spouses.push(p);
+          else if(label.includes('filho') || label.includes('child')) children.push(p);
           else others.push(p);
         });
 

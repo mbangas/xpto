@@ -403,21 +403,25 @@
           }
         }
 
-        // only render configured focused person automatically if there is no runtime focus
+        // render the focused person card. Prefer runtime focus (navigation),
+        // otherwise fall back to configured focus from settings. Always call
+        // `renderPersonCard` so UI changes (e.g. layout slider updates) take
+        // effect immediately when `renderGraph()` is invoked.
         try {
-          if(!RuntimeFocus){
+          let personToRender = null;
+          if(RuntimeFocus){
+            if(RuntimeFocus.id !== undefined && RuntimeFocus.id !== null){ personToRender = all.find(p => String(p.id) === String(RuntimeFocus.id)); }
+            if(!personToRender && RuntimeFocus.name){ const targetName = (RuntimeFocus.name || '').trim().toLowerCase(); personToRender = all.find(p => (((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim().toLowerCase() === targetName) || ((p.fullName||'') .toLowerCase() === targetName) || ((p.name||'').toLowerCase() === targetName)); }
+          }
+          if(!personToRender){
             const FOCUS_KEY = 'focusedPerson:myLineage';
             const saved = JSON.parse(localStorage.getItem(FOCUS_KEY) || 'null');
             if(saved){
-              let person = null;
-              if(saved.id !== undefined && saved.id !== null) person = all.find(p => String(p.id) === String(saved.id));
-              if(!person && saved.name){
-                const targetName = (saved.name || '').trim().toLowerCase();
-                person = all.find(p => (((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim().toLowerCase() === targetName) || ((p.fullName||'') .toLowerCase() === targetName) || ((p.name||'').toLowerCase() === targetName));
-              }
-              if(person) renderPersonCard(person);
+              if(saved.id !== undefined && saved.id !== null) personToRender = all.find(p => String(p.id) === String(saved.id));
+              if(!personToRender && saved.name){ const targetName = (saved.name || '').trim().toLowerCase(); personToRender = all.find(p => (((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim().toLowerCase() === targetName) || ((p.fullName||'') .toLowerCase() === targetName) || ((p.name||'').toLowerCase() === targetName)); }
             }
           }
+          if(personToRender) renderPersonCard(personToRender);
         } catch(e){ console.warn('Erro ao carregar pessoa em foco das configurações:', e); }
 
         // detect direct relations

@@ -62,6 +62,12 @@ body {
   gap: 18px;
   border: 1.5px solid rgba(163, 163, 255, 0.08);
 }
+
+/* helper to center standalone cards (used in import/export pages) */
+.centered-panel {
+  margin-left: auto;
+  margin-right: auto;
+}
 h1 {
   font-size: 2.3rem;
   font-weight: 700;
@@ -90,6 +96,41 @@ p {
   filter: brightness(1);
   position: relative;
   overflow: hidden;
+}
+.icon-btn {
+  background: transparent;
+  border: none;
+  padding: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-main);
+}
+
+/* Pagination controls: ensure icon-only buttons look clean and disabled state is obvious */
+#paginationControls .icon-btn { padding:6px; margin:0 6px; }
+.icon-btn[disabled], #paginationControls .icon-btn[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+/* Make icons inside the cadastro table white */
+.table-panel .mdi { color: var(--text-main); }
+
+/* Action icons (detail / delete) in the people table should match menu color (more gray) */
+.table-panel button.detail .mdi,
+.table-panel button.del .mdi,
+.table-panel .actions .mdi {
+  color: var(--menu-text);
+}
+
+/* Make entire row content (gender icon, name, dates, action buttons) use menu gray
+   so table body appears more subtle compared to headers */
+.table-panel table tbody td {
+  color: var(--menu-text);
+}
+.table-panel table tbody td a,
+.table-panel table tbody td button,
+.table-panel table tbody td .mdi {
+  color: var(--menu-text);
 }
 .btn::after {
   content: '';
@@ -332,6 +373,41 @@ th {
   background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));
   border: 1px solid rgba(163,163,255,0.03);
 }
+.indicador-group {
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+  min-width: 280px;
+}
+.indicador-group-title {
+  margin: 0;
+  color: var(--text-secondary);
+  font-weight: 700;
+  font-size: 1rem;
+}
+.indicador-group-row {
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+}
+.indicador-subcards {
+  display:flex;
+  gap:12px;
+  flex-wrap:wrap;
+  align-items:stretch;
+}
+.indicador-group-total {
+  flex: 0 0 160px;
+  min-width: 160px;
+  background: linear-gradient(90deg, rgba(59,130,246,0.14), rgba(167,139,250,0.06));
+  border: 1px solid rgba(59,130,246,0.12);
+  padding: 18px;
+}
+.indicador-group-total .indicador-num { font-size: 2.4rem; }
+
+/* chart container for births by decade */
+.indicador-chart { min-width: 320px; width: 520px; max-width: 100%; height: 140px; display:block; background: linear-gradient(180deg, rgba(255,255,255,0.01), rgba(255,255,255,0.02)); border: 1px solid rgba(163,163,255,0.03); border-radius: 10px; padding:8px; box-sizing: border-box; }
+.indicador-chart svg { width: 100%; height: 100%; }
 .indicador-icon { font-size: 2.4em; filter: drop-shadow(0 6px 16px rgba(0,0,0,0.16)); }
 .indicador-num { font-size: 2.2rem; font-weight: 700; color: var(--text-main); }
 .indicador-label { color: var(--text-secondary); font-weight: 600; }
@@ -375,6 +451,8 @@ th {
   padding: 12px;
   box-sizing:border-box;
   color: var(--text-main);
+  overflow: hidden;
+  min-width: 0;
 }
 .person-avatar{ width:56px; height:56px; border-radius:8px; object-fit:cover; flex:0 0 56px; margin-right:12px; }
 .person-name {
@@ -404,11 +482,11 @@ th {
 
 /* relations around focus */
 .relations-container { position:absolute; left:50%; top:50%; transform: translate(-50%,-50%); width:0; height:0; pointer-events:none; }
-.relations-container .relation-card { pointer-events:auto; position:absolute; left:0; top:0; transform-origin: center; transition: transform 0.28s var(--transition), box-shadow 0.18s; width:140px; height:64px; background: rgba(35,40,58,0.9); border: 1px solid rgba(163,163,255,0.06); border-radius:10px; display:flex; flex-direction:column; justify-content:center; align-items:center; color:var(--text-main); box-shadow: 0 6px 18px rgba(2,6,23,0.5); cursor:pointer; }
+.relations-container .relation-card { pointer-events:auto; position:absolute; left:0; top:0; transform-origin: center; transition: transform 0.28s var(--transition), box-shadow 0.18s; width:252px; height:101px; padding:6px; background: rgba(35,40,58,0.95); border: 1px solid rgba(163,163,255,0.06); border-radius:10px; display:flex; flex-direction:row; justify-content:flex-start; align-items:center; color:var(--text-main); box-shadow: 0 6px 18px rgba(2,6,23,0.5); cursor:pointer; box-sizing: border-box; overflow: hidden; }
 .relation-card:hover { transform: scale(1.03); box-shadow: 0 10px 26px rgba(2,6,23,0.6); }
-.relation-name { font-weight:700; font-size:0.88rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 8px; }
+.relation-name { font-weight:700; font-size:0.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding:0 8px; word-break:break-word; overflow-wrap:anywhere; }
 .relation-type { font-size:0.72rem; color:var(--text-secondary); margin-top:4px; }
-.relation-avatar{ width:40px; height:40px; border-radius:6px; object-fit:cover; flex:0 0 40px; margin-right:8px }
+.relation-avatar{ width:62px; height:62px; border-radius:6px; object-fit:cover; flex:0 0 62px; margin-right:12px; }
 
 /* Layout controls panel */
 

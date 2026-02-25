@@ -399,6 +399,20 @@ th {
 /* Hidden state for layout controls (toggled via JS) */
 .layout-controls.hidden { display: none !important; }
 
+/* Mini cards for events and relations in pessoa-detalhe */
+.mini-list { display: flex; gap: 12px; flex-wrap: wrap; }
+.mini-card { background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border: 1px solid rgba(163,163,255,0.04); border-radius: 10px; padding: 12px; width: 260px; box-shadow: 0 6px 18px rgba(2,6,23,0.45); display: flex; flex-direction: column; gap: 8px; }
+.mini-card .mc-header { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.mini-card .mc-type { font-weight:700; color:var(--text-main); font-size:0.98rem; }
+.mini-card .mc-meta { font-size:0.85rem; color:var(--text-secondary); }
+.mini-card .mc-notes { font-size:0.9rem; color:var(--text-secondary); min-height:36px; overflow:hidden; }
+.mini-card .mc-actions { display:flex; gap:8px; justify-content:flex-end; }
+.mini-card .mc-actions button { background:transparent; border:none; color:var(--text-secondary); cursor:pointer; padding:6px; border-radius:8px; }
+.mini-card .mc-actions button:hover { background: rgba(163,163,255,0.03); color:var(--text-main); }
+.relation-mini { display:flex; gap:8px; align-items:center; }
+.relation-mini .rel-name { font-weight:700; color:var(--text-main); }
+.relation-mini .rel-type { font-size:0.85rem; color:var(--text-secondary); }
+
 /* Small modifier for the toggle button when placed in the topbar */
 .lc-toggle { padding: 8px 14px; border-radius: 10px; font-size: 0.95rem; padding-left:12px; padding-right:12px; }
 

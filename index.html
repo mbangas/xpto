@@ -45,8 +45,7 @@
           <thead>
             <tr>
               <th></th>
-              <th>First Name</th>
-              <th>Last Name</th>
+              <th>Nome</th>
               <th>Data Nascimento</th>
               <th>Data Óbito</th>
               <th>Actions</th>
@@ -547,10 +546,11 @@
           const deathEv = events.find(ev => ev.personId === p.id && ev.type === 'DEATH' && !ev.deletedAt);
           const birthDate = birthEv && birthEv.date ? formatDate(birthEv.date) : '';
           const deathDate = deathEv && deathEv.date ? formatDate(deathEv.date) : '';
+          const fullName = ((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim();
+          const fullNameEsc = escapeHtml(fullName);
           tr.innerHTML = `
             <td style="width:32px;text-align:center;">${genderIcon}</td>
-            <td><a href="#" class="person-link" data-id="${p.id}">${escapeHtml(p.firstName)}</a></td>
-            <td>${escapeHtml(p.lastName)}</td>
+            <td><a href="#" class="person-link" data-id="${p.id}">${fullNameEsc}</a></td>
             <td>${birthDate}</td>
             <td>${deathDate}</td>
             <td class="actions">

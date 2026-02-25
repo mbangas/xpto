@@ -29,35 +29,64 @@
         </table>
       </div>
       <div class="form-panel card" id="formPanel" style="display:none;">
-        <form id="personForm">
-          <input type="hidden" id="id" name="id" />
-          <div>
-            <label for="firstName">First Name</label>
-            <input type="text" id="firstName" name="firstName" required />
+        <div class="folders">
+          <div class="folder" id="folderDados">
+            <h2>Dados Pessoais</h2>
+            <form id="personForm">
+              <input type="hidden" id="id" name="id" />
+              <div>
+                <label for="firstName">First Name</label>
+                <input type="text" id="firstName" name="firstName" required />
+              </div>
+              <div>
+                <label for="lastName">Last Name</label>
+                <input type="text" id="lastName" name="lastName" required />
+              </div>
+              <div>
+                <label for="gender">Gender</label>
+                <select id="gender" name="gender">
+                  <option value="">-- selecione --</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div class="full">
+                <label for="notes">Notes</label>
+                <textarea id="notes" name="notes"></textarea>
+              </div>
+              <div class="full">
+                <button type="submit" id="saveBtn">Salvar</button>
+                <button type="button" id="resetBtn">Limpar</button>
+              </div>
+            </form>
           </div>
-          <div>
-            <label for="lastName">Last Name</label>
-            <input type="text" id="lastName" name="lastName" required />
+          <div class="folder" id="folderRelacoes" style="margin-top:24px;">
+            <h2>Relações</h2>
+            <form id="relationForm">
+              <div>
+                <label for="relationType">Tipo de relação</label>
+                <select id="relationType" name="relationType">
+                  <option value="">-- selecione --</option>
+                  <option value="siblin">Siblin</option>
+                  <option value="ancestor">Ancestor</option>
+                  <option value="child">Child</option>
+                  <option value="mate">Mate</option>
+                </select>
+              </div>
+              <div>
+                <label for="relationPerson">Pessoa relacionada</label>
+                <select id="relationPerson" name="relationPerson">
+                  <option value="">-- selecione --</option>
+                </select>
+              </div>
+              <div class="full">
+                <button type="button" id="addRelationBtn">Adicionar Relação</button>
+              </div>
+            </form>
+            <div id="relationsList"></div>
           </div>
-          <div>
-            <label for="gender">Gender</label>
-            <select id="gender" name="gender">
-              <option value="">-- selecione --</option>
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div class="full">
-            <label for="notes">Notes</label>
-            <textarea id="notes" name="notes"></textarea>
-          </div>
-          <!-- Datas serão exibidas no rodapé do card -->
-          <div class="full">
-            <button type="submit" id="saveBtn">Salvar</button>
-            <button type="button" id="resetBtn">Limpar</button>
-          </div>
-        </form>
+        </div>
         <div id="datesInfo" style="font-size:0.85em;color:#666;margin-top:16px;text-align:right;"></div>
       </div>
     </div>
@@ -95,8 +124,10 @@
             addPersonBtn.addEventListener('click', function() {
               resetForm();
               showFormPanel(true);
+              // Oculta folder de relações na criação
+              document.getElementById('folderRelacoes').style.display = 'none';
             });
-            // Modifica editPerson para mostrar ficha
+            // Modifica editPerson para mostrar ficha e folders
             const originalEditPerson = editPerson;
             editPerson = function(id) {
               const people = loadPeople();
@@ -110,6 +141,12 @@
               // Exibe datas no rodapé
               showDatesInfo(p);
               showFormPanel(true);
+              // Exibe folder de relações
+              document.getElementById('folderRelacoes').style.display = 'block';
+              // Preenche pessoas para relação
+              fillRelationPersonSelect(id);
+              // Renderiza lista de relações
+              renderRelationsList(id);
             }
             // Oculta ficha ao salvar ou limpar
             document.getElementById('personForm').addEventListener('submit', function(e){
@@ -149,14 +186,87 @@
               resetForm();
               showDatesInfo();
               showFormPanel(false);
+              document.getElementById('folderRelacoes').style.display = 'none';
             });
             document.getElementById('resetBtn').addEventListener('click', function(){
               resetForm();
               showDatesInfo();
               showFormPanel(false);
+              document.getElementById('folderRelacoes').style.display = 'none';
             });
             // Oculta ficha ao iniciar
             showFormPanel(false);
+            document.getElementById('folderRelacoes').style.display = 'none';
+
+            // Relações
+            function fillRelationPersonSelect(currentId) {
+              const people = loadPeople();
+              const select = document.getElementById('relationPerson');
+              select.innerHTML = '<option value="">-- selecione --</option>';
+              people.forEach(p => {
+                if (p.id !== currentId && !p.deletedAt) {
+                  select.innerHTML += `<option value="${p.id}">${escapeHtml(p.firstName)} ${escapeHtml(p.lastName)}</option>`;
+                }
+              });
+            }
+
+            function getRelations() {
+              try {
+                const raw = localStorage.getItem('relations:xpto');
+                return raw ? JSON.parse(raw) : [];
+              } catch (e) { return []; }
+            }
+            function saveRelations(relations) {
+              localStorage.setItem('relations:xpto', JSON.stringify(relations));
+            }
+            function renderRelationsList(personId) {
+              const relations = getRelations();
+              const people = loadPeople();
+              const list = document.getElementById('relationsList');
+              const rels = relations.filter(r => r.from === personId);
+              if (rels.length === 0) {
+                list.innerHTML = '<div style="color:#888">Nenhuma relação cadastrada.</div>';
+                return;
+              }
+              const typeDesc = {
+                siblin: 'Irmão / Irmã',
+                ancestor: 'Pai / Mãe',
+                child: 'Filho(a)',
+                mate: 'Companheiro(a)'
+              };
+              let html = '<ul>';
+              rels.forEach((r, idx) => {
+                const p = people.find(x => x.id === r.to);
+                const desc = typeDesc[r.type] || r.type;
+                html += `<li>${desc}: ${p ? escapeHtml(p.firstName + ' ' + p.lastName) : r.to} <button class="remove-relation" data-index="${idx}" title="Remover relação" style="background:none;border:none;cursor:pointer;padding:0;margin-left:8px;"><span style="font-size:1.2em;">🗑️</span></button></li>`;
+              });
+              html += '</ul>';
+              list.innerHTML = html;
+              // Adiciona handler para remover relação
+              document.querySelectorAll('.remove-relation').forEach(btn => {
+                btn.addEventListener('click', function(){
+                  const idx = parseInt(this.getAttribute('data-index'));
+                  let relations = getRelations();
+                  const rels = relations.filter(r => r.from === personId);
+                  const relToRemove = rels[idx];
+                  relations = relations.filter(r => !(r.from === personId && r.to === relToRemove.to && r.type === relToRemove.type));
+                  saveRelations(relations);
+                  renderRelationsList(personId);
+                });
+              });
+            }
+            document.getElementById('addRelationBtn').addEventListener('click', function(){
+              const type = document.getElementById('relationType').value;
+              const to = document.getElementById('relationPerson').value;
+              const from = document.getElementById('id').value;
+              if (!type || !to || !from) return alert('Selecione tipo e pessoa relacionada.');
+              const relations = getRelations();
+              relations.push({ from, to, type });
+              saveRelations(relations);
+              renderRelationsList(from);
+              document.getElementById('relationType').value = '';
+              document.getElementById('relationPerson').value = '';
+            });
       const STORAGE_KEY = 'people:xpto';
 
       function nowISO() { return new Date().toISOString(); }

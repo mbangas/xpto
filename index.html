@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Cadastro de Pessoas</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
   </head>
   <body>
     <div class="app-shell">
@@ -32,7 +33,7 @@
                 <div style="display:flex;gap:12px;align-items:center;">
                     <div style="display:flex;align-items:center;gap:6px;">
                       <input type="text" id="nameFilter" placeholder="Filtrar por nome..." style="padding:8px 10px;border-radius:8px;border:1px solid rgba(163,163,255,0.06);background:transparent;color:var(--text-main);" />
-                      <button id="nameSearchBtn" type="button" title="Pesquisar" style="padding:8px 10px;border-radius:8px;border:1px solid rgba(163,163,255,0.06);background:transparent;cursor:pointer;">🔍</button>
+                      <button id="nameSearchBtn" type="button" title="Pesquisar" style="padding:8px 10px;border-radius:8px;border:1px solid rgba(163,163,255,0.06);background:transparent;cursor:pointer;"><i class="mdi mdi-magnify" aria-hidden="true"></i></button>
                     </div>
                     <div id="paginationControls" style="color:var(--text-secondary);"></div>
                   </div>
@@ -57,7 +58,7 @@
       <div class="form-panel card" id="formPanel" style="display:none;">
         <div class="accordion">
           <div class="accordion-card" id="cardDados">
-            <button type="button" class="accordion-header" data-target="contentDados"><span>Dados Pessoais</span><span class="accordion-arrow">▾</span></button>
+            <button type="button" class="accordion-header" data-target="contentDados"><span>Dados Pessoais</span><span class="accordion-arrow"><i class="mdi mdi-chevron-down" aria-hidden="true"></i></span></button>
             <div class="accordion-content" id="contentDados">
               <form id="personForm">
                 <input type="hidden" id="id" name="id" />
@@ -296,7 +297,7 @@
               }
               let html = '<ul>';
               evs.forEach((ev, idx) => {
-                html += `<li><b>${ev.type}</b> - ${ev.date || 'Sem data'}${ev.location ? ', ' + ev.location : ''} <br><small>${ev.notes || ''}</small> <button class="remove-event" data-index="${idx}" title="Remover evento" style="background:none;border:none;cursor:pointer;padding:0;margin-left:8px;"><span style="font-size:1.2em;">🗑️</span></button></li>`;
+                html += `<li><b>${ev.type}</b> - ${ev.date || 'Sem data'}${ev.location ? ', ' + ev.location : ''} <br><small>${ev.notes || ''}</small> <button class="remove-event" data-index="${idx}" title="Remover evento" style="background:none;border:none;cursor:pointer;padding:0;margin-left:8px;"><i class="mdi mdi-trash-can" style="font-size:1.2em;" aria-hidden="true"></i></button></li>`;
               });
               html += '</ul>';
               list.innerHTML = html;
@@ -429,7 +430,7 @@
                 const p = people.find(x => x.id === r.to);
                 const desc = typeDesc[r.type] || r.type;
                   const nameHtml = p ? `<a href="#" class="relation-link" data-id="${p.id}">${escapeHtml(p.firstName + ' ' + p.lastName)}</a>` : escapeHtml(r.to);
-                  html += `<li>${desc}: ${nameHtml} <button class="remove-relation" data-index="${idx}" title="Remover relação" style="background:none;border:none;cursor:pointer;padding:0;margin-left:8px;"><span style="font-size:1.2em;">🗑️</span></button></li>`;
+                  html += `<li>${desc}: ${nameHtml} <button class="remove-relation" data-index="${idx}" title="Remover relação" style="background:none;border:none;cursor:pointer;padding:0;margin-left:8px;"><i class="mdi mdi-trash-can" style="font-size:1.2em;" aria-hidden="true"></i></button></li>`;
               });
               html += '</ul>';
               list.innerHTML = html;
@@ -507,7 +508,7 @@
         ctrl.style.display = 'inline-flex';
         ctrl.style.alignItems = 'center';
         ctrl.style.gap = '6px';
-        ctrl.innerHTML = `<button id="prevPage" ${prevDisabled} style="margin-right:0;padding:4px 8px;">◀</button><span style="margin-right:0;">Página ${currentPage} de ${totalPages}</span><button id="nextPage" ${nextDisabled} style="padding:4px 8px;">▶</button>`;
+        ctrl.innerHTML = `<button id="prevPage" ${prevDisabled} style="margin-right:0;padding:4px 8px;"><i class="mdi mdi-chevron-left" aria-hidden="true"></i></button><span style="margin-right:0;">Página ${currentPage} de ${totalPages}</span><button id="nextPage" ${nextDisabled} style="padding:4px 8px;"><i class="mdi mdi-chevron-right" aria-hidden="true"></i></button>`;
         const prev = document.getElementById('prevPage');
         const next = document.getElementById('nextPage');
         if (prev) prev.addEventListener('click', function(){ if (currentPage>1) { currentPage--; renderTable(); } });
@@ -539,9 +540,9 @@
           const tr = document.createElement('tr');
           if (p.deletedAt) tr.classList.add('deleted');
           let genderIcon = '';
-          if (p.gender === 'male') genderIcon = '<span title="Masculino" style="font-size:1.2em">&#9794;</span>';
-          else if (p.gender === 'female') genderIcon = '<span title="Feminino" style="font-size:1.2em">&#9792;</span>';
-          else genderIcon = '<span title="Outro" style="font-size:1.2em">&#9893;</span>';
+          if (p.gender === 'male') genderIcon = '<i title="Masculino" class="mdi mdi-gender-male" style="font-size:1.2em;" aria-hidden="true"></i>';
+          else if (p.gender === 'female') genderIcon = '<i title="Feminino" class="mdi mdi-gender-female" style="font-size:1.2em;" aria-hidden="true"></i>';
+          else genderIcon = '<i title="Outro" class="mdi mdi-gender-transgender" style="font-size:1.2em;" aria-hidden="true"></i>';
           const birthEv = events.find(ev => ev.personId === p.id && ev.type === 'BIRTH' && !ev.deletedAt);
           const deathEv = events.find(ev => ev.personId === p.id && ev.type === 'DEATH' && !ev.deletedAt);
           const birthDate = birthEv && birthEv.date ? formatDate(birthEv.date) : '';
@@ -553,8 +554,8 @@
             <td>${birthDate}</td>
             <td>${deathDate}</td>
             <td class="actions">
-              <button data-id="${p.id}" class="detail" title="Detalhe" style="background:none;border:none;cursor:pointer;padding:0;margin-right:8px;"><span style="font-size:1.2em;">🔎</span></button>
-              <button data-id="${p.id}" class="del" title="Excluir" style="background:none;border:none;cursor:pointer;padding:0;"><span style="font-size:1.2em;">🗑️</span></button>
+              <button data-id="${p.id}" class="detail" title="Detalhe" style="background:none;border:none;cursor:pointer;padding:0;margin-right:8px;"><i class="mdi mdi-eye" style="font-size:1.2em;" aria-hidden="true"></i></button>
+              <button data-id="${p.id}" class="del" title="Excluir" style="background:none;border:none;cursor:pointer;padding:0;"><i class="mdi mdi-trash-can" style="font-size:1.2em;" aria-hidden="true"></i></button>
             </td>
           `;
           tbody.appendChild(tr);

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Detalhe da Pessoa</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
   </head>
   <body>
     <div class="app-shell">
@@ -30,7 +31,7 @@
           <div class="form-panel card" id="formPanel">
             <div class="accordion">
               <div class="accordion-card" id="cardDados">
-                <button type="button" class="accordion-header" data-target="contentDados"><span>Dados Pessoais</span><span class="accordion-arrow">▾</span></button>
+                <button type="button" class="accordion-header" data-target="contentDados"><span>Dados Pessoais</span><span class="accordion-arrow"><i class="mdi mdi-chevron-down" aria-hidden="true"></i></span></button>
                 <div class="accordion-content" id="contentDados">
                   <form id="personForm">
                     <input type="hidden" id="id" name="id" />
@@ -68,7 +69,7 @@
               </div>
 
               <div class="accordion-card" id="cardEventos">
-                <button type="button" class="accordion-header" data-target="contentEventos"><span>Eventos</span><span class="accordion-arrow">▾</span></button>
+                <button type="button" class="accordion-header" data-target="contentEventos"><span>Eventos</span><span class="accordion-arrow"><i class="mdi mdi-chevron-down" aria-hidden="true"></i></span></button>
                 <div class="accordion-content" id="contentEventos">
                   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                     <div style="font-weight:600;color:var(--text-main);">Eventos</div>
@@ -112,7 +113,7 @@
               </div>
 
               <div class="accordion-card" id="cardRelacoes">
-                <button type="button" class="accordion-header" data-target="contentRelacoes"><span>Relações</span><span class="accordion-arrow">▾</span></button>
+                <button type="button" class="accordion-header" data-target="contentRelacoes"><span>Relações</span><span class="accordion-arrow"><i class="mdi mdi-chevron-down" aria-hidden="true"></i></span></button>
                 <div class="accordion-content" id="contentRelacoes">
                   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
                     <div style="font-weight:600;color:var(--text-main);">Relações</div>
@@ -224,7 +225,7 @@
                   <div class="mc-meta">${formatDate(ev.date)||'Sem data'}</div>
                 </div>
                 <div class="mc-notes">${ev.location ? escapeHtml(ev.location) + '<br/>' : ''}${escapeHtml(ev.notes)}</div>
-                <div class="mc-actions"><button class="remove-event" data-id="${ev.id}" title="Remover">🗑️</button></div>
+                <div class="mc-actions"><button class="remove-event" data-id="${ev.id}" title="Remover"><i class="mdi mdi-trash-can" aria-hidden="true"></i></button></div>
               </div>`;
           });
           html += '</div>';
@@ -287,8 +288,8 @@
                     <div class="rel-type">${escapeHtml(desc)}</div>
                   </div>
                   <div class="mc-actions">
-                    <button class="open-relation" data-id="${p ? p.id : ''}" title="Abrir">🔗</button>
-                    <button class="remove-relation" data-to="${escapeHtml(r.to)}" data-type="${escapeHtml(r.type)}" title="Remover">🗑️</button>
+                    <button class="open-relation" data-id="${p ? p.id : ''}" title="Abrir"><i class="mdi mdi-link-variant" aria-hidden="true"></i></button>
+                    <button class="remove-relation" data-to="${escapeHtml(r.to)}" data-type="${escapeHtml(r.type)}" title="Remover"><i class="mdi mdi-trash-can" aria-hidden="true"></i></button>
                   </div>
                 </div>
               </div>`;

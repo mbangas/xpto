@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Indicadores</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
   </head>
   <body>
     <div class="app-shell">
@@ -29,17 +30,17 @@
         </div>
         <div class="indicadores-cards">
           <div class="indicador-card card">
-            <div class="indicador-icon" title="Pessoas">👤</div>
+            <div class="indicador-icon" title="Pessoas"><i class="mdi mdi-account" aria-hidden="true"></i></div>
             <div class="indicador-num" id="totalPessoas">0</div>
             <div class="indicador-label">Pessoas</div>
           </div>
           <div class="indicador-card card">
-            <div class="indicador-icon" title="Eventos">📅</div>
+            <div class="indicador-icon" title="Eventos"><i class="mdi mdi-calendar" aria-hidden="true"></i></div>
             <div class="indicador-num" id="totalEventos">0</div>
             <div class="indicador-label">Eventos</div>
           </div>
           <div class="indicador-card card">
-            <div class="indicador-icon" title="Relações">🔗</div>
+            <div class="indicador-icon" title="Relações"><i class="mdi mdi-account-multiple" aria-hidden="true"></i></div>
             <div class="indicador-num" id="totalRelacoes">0</div>
             <div class="indicador-label">Relações</div>
           </div>
@@ -77,10 +78,10 @@
         document.getElementById('totalRelacoes').textContent = relacoes.length;
         // Contagem por tipo de relação e renderização de cards específicos
         const typeMap = {
-          siblin: { label: 'Irmão / Irmã', icon: '🧑‍🤝‍🧑' },
-          ancestor: { label: 'Pai / Mãe', icon: '👪' },
-          child: { label: 'Filho(a)', icon: '🧒' },
-          mate: { label: 'Companheiro(a)', icon: '💞' }
+          siblin: { label: 'Irmão / Irmã', icon: '<i class="mdi mdi-account-multiple" aria-hidden="true"></i>' },
+          ancestor: { label: 'Pai / Mãe', icon: '<i class="mdi mdi-account" aria-hidden="true"></i>' },
+          child: { label: 'Filho(a)', icon: '<i class="mdi mdi-baby" aria-hidden="true"></i>' },
+          mate: { label: 'Companheiro(a)', icon: '<i class="mdi mdi-heart" aria-hidden="true"></i>' }
         };
         const counts = {};
         relacoes.forEach(r => { if (r && r.type) counts[r.type] = (counts[r.type] || 0) + 1; });
@@ -104,19 +105,19 @@
             const card = document.createElement('div');
             card.className = 'indicador-card card';
             card.style.minWidth = '140px';
-            card.innerHTML = `<div class="indicador-icon" title="${t}">🔸</div><div class="indicador-num">${n}</div><div class="indicador-label">${t}</div>`;
+            card.innerHTML = `<div class="indicador-icon" title="${t}"><i class="mdi mdi-diamond-stone" aria-hidden="true"></i></div><div class="indicador-num">${n}</div><div class="indicador-label">${t}</div>`;
             container.appendChild(card);
           });
         }
         // Eventos: contar por tipo e renderizar cards
         const eventMap = {
-          BIRTH: { label: 'Nascimento', icon: '👶' },
-          BAPTISM: { label: 'Batismo', icon: '✝️' },
-          DEATH: { label: 'Óbito', icon: '🪦' },
-          MARRIAGE: { label: 'Casamento', icon: '💍' },
-          DIVORCE: { label: 'Divórcio', icon: '⚖️' },
-          ADOPTION: { label: 'Adoção', icon: '🤝' },
-          CUSTOM: { label: 'Outro', icon: '🔸' }
+          BIRTH: { label: 'Nascimento', icon: '<i class="mdi mdi-baby" aria-hidden="true"></i>' },
+          BAPTISM: { label: 'Batismo', icon: '<i class="mdi mdi-cross" aria-hidden="true"></i>' },
+          DEATH: { label: 'Óbito', icon: '<i class="mdi mdi-skull" aria-hidden="true"></i>' },
+          MARRIAGE: { label: 'Casamento', icon: '<i class="mdi mdi-ring" aria-hidden="true"></i>' },
+          DIVORCE: { label: 'Divórcio', icon: '<i class="mdi mdi-scale" aria-hidden="true"></i>' },
+          ADOPTION: { label: 'Adoção', icon: '<i class="mdi mdi-handshake" aria-hidden="true"></i>' },
+          CUSTOM: { label: 'Outro', icon: '<i class="mdi mdi-diamond-stone" aria-hidden="true"></i>' }
         };
         const evCounts = {};
         eventos.forEach(ev => { if (ev && ev.type) evCounts[ev.type] = (evCounts[ev.type] || 0) + 1; });
@@ -138,16 +139,16 @@
             const card = document.createElement('div');
             card.className = 'indicador-card card';
             card.style.minWidth = '140px';
-            card.innerHTML = `<div class="indicador-icon" title="${t}">🔹</div><div class="indicador-num">${n}</div><div class="indicador-label">${t}</div>`;
+            card.innerHTML = `<div class="indicador-icon" title="${t}"><i class="mdi mdi-rhombus" aria-hidden="true"></i></div><div class="indicador-num">${n}</div><div class="indicador-label">${t}</div>`;
             evContainer.appendChild(card);
           });
         }
         // Gêneros: contar por gênero e renderizar cards
         const genderMap = {
-          male: { label: 'Masculino', icon: '♂' },
-          female: { label: 'Feminino', icon: '♀' },
-          other: { label: 'Outro', icon: '⚧' },
-          unknown: { label: 'Não informado', icon: '❓' }
+          male: { label: 'Masculino', icon: '<i class="mdi mdi-gender-male" aria-hidden="true"></i>' },
+          female: { label: 'Feminino', icon: '<i class="mdi mdi-gender-female" aria-hidden="true"></i>' },
+          other: { label: 'Outro', icon: '<i class="mdi mdi-gender-transgender" aria-hidden="true"></i>' },
+          unknown: { label: 'Não informado', icon: '<i class="mdi mdi-help-circle" aria-hidden="true"></i>' }
         };
         const gCounts = {};
         pessoas.forEach(p => { const g = p && p.gender ? p.gender : 'unknown'; gCounts[g] = (gCounts[g] || 0) + 1; });
@@ -171,7 +172,7 @@
             const card = document.createElement('div');
             card.className = 'indicador-card card';
             card.style.minWidth = '140px';
-            card.innerHTML = `<div class="indicador-icon" title="${k}">🔸</div><div class="indicador-num">${n}</div><div class="indicador-label">${k}</div>`;
+            card.innerHTML = `<div class="indicador-icon" title="${k}"><i class="mdi mdi-diamond-stone" aria-hidden="true"></i></div><div class="indicador-num">${n}</div><div class="indicador-label">${k}</div>`;
             gContainer.appendChild(card);
           });
         }

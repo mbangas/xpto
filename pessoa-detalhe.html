@@ -19,9 +19,9 @@
   <body>
     <div class="app-shell">
       <aside class="sidebar">
-        <div class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></div>
+        <a href="index.html" class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></a>
         <nav>
-          <a href="index.html"><i class="mdi mdi-account-multiple" aria-hidden="true"></i>Cadastro</a>
+          <a href="app.html"><i class="mdi mdi-account-multiple" aria-hidden="true"></i>Cadastro</a>
           <a href="indicadores.html"><i class="mdi mdi-chart-bar" aria-hidden="true"></i>Indicadores</a>
           <a href="pessoas.html"><i class="mdi mdi-account" aria-hidden="true"></i>Pessoas</a>
           <a href="import.html"><i class="mdi mdi-file-import" aria-hidden="true"></i>Importar</a>
@@ -34,7 +34,7 @@
       <main class="content">
         <div class="topbar">
           <div style="display:flex;align-items:center;gap:12px"><h1 style="margin:0;font-size:1.25rem;">Detalhe da Pessoa</h1></div>
-          <div><a class="btn" href="index.html">Voltar</a></div>
+          <div><a class="btn" href="app.html">Voltar</a></div>
         </div>
         <div class="main-grid">
           <div class="form-panel card" id="formPanel">
@@ -647,7 +647,7 @@
 
       function loadPageForPerson(id){ window.location.href = 'pessoa-detalhe.html?id=' + encodeURIComponent(id); }
 
-      function showPersonDetail(id){ const people = loadPeople(); const p = people.find(x=>x.id===id); if(!p) { alert('Registro não encontrado'); window.location.href='index.html'; return; } document.getElementById('id').value = p.id; document.getElementById('firstName').value = p.firstName || ''; document.getElementById('lastName').value = p.lastName || ''; document.getElementById('gender').value = p.gender || ''; document.getElementById('notes').value = p.notes || ''; if(document.getElementById('createdAt')) document.getElementById('createdAt').value = p.createdAt || ''; if(document.getElementById('updatedAt')) document.getElementById('updatedAt').value = p.updatedAt || ''; if(document.getElementById('deletedAt')) document.getElementById('deletedAt').value = p.deletedAt || ''; showDatesInfo(p); try{ const evs = getEvents(); const birth = evs.find(e=>e.personId===p.id && e.type==='BIRTH' && !e.deletedAt); const death = evs.find(e=>e.personId===p.id && e.type==='DEATH' && !e.deletedAt); const ageEl = document.getElementById('ageInfo'); if(birth && birth.date){ const ref = death && death.date ? death.date : new Date().toISOString(); const age = computeAge(birth.date, ref); ageEl.textContent = age == null ? '' : (death ? 'Idade ao falecer: ' + age + ' anos' : 'Idade: ' + age + ' anos'); } else if(ageEl) ageEl.textContent = ''; }catch(e){}
+      function showPersonDetail(id){ const people = loadPeople(); const p = people.find(x=>x.id===id); if(!p) { alert('Registro não encontrado'); window.location.href='app.html'; return; } document.getElementById('id').value = p.id; document.getElementById('firstName').value = p.firstName || ''; document.getElementById('lastName').value = p.lastName || ''; document.getElementById('gender').value = p.gender || ''; document.getElementById('notes').value = p.notes || ''; if(document.getElementById('createdAt')) document.getElementById('createdAt').value = p.createdAt || ''; if(document.getElementById('updatedAt')) document.getElementById('updatedAt').value = p.updatedAt || ''; if(document.getElementById('deletedAt')) document.getElementById('deletedAt').value = p.deletedAt || ''; showDatesInfo(p); try{ const evs = getEvents(); const birth = evs.find(e=>e.personId===p.id && e.type==='BIRTH' && !e.deletedAt); const death = evs.find(e=>e.personId===p.id && e.type==='DEATH' && !e.deletedAt); const ageEl = document.getElementById('ageInfo'); if(birth && birth.date){ const ref = death && death.date ? death.date : new Date().toISOString(); const age = computeAge(birth.date, ref); ageEl.textContent = age == null ? '' : (death ? 'Idade ao falecer: ' + age + ' anos' : 'Idade: ' + age + ' anos'); } else if(ageEl) ageEl.textContent = ''; }catch(e){}
       openAccordion('contentDados'); openAccordion('contentEventos'); openAccordion('contentRelacoes'); fillRelationPersonSelect(id); renderRelationsList(id); renderEventsList(id); renderPhotos(id); }
 
       (function(){ // Small form toggles and wiring
@@ -668,7 +668,7 @@
       document.getElementById('resetBtn').addEventListener('click', function(){ document.getElementById('personForm').reset(); });
 
       // Init: read id from query and render
-      (function(){ const params = new URLSearchParams(window.location.search); const id = params.get('id'); if(!id){ alert('Nenhuma pessoa selecionada'); window.location.href='index.html'; return; } showPersonDetail(id); })();
+      (function(){ const params = new URLSearchParams(window.location.search); const id = params.get('id'); if(!id){ alert('Nenhuma pessoa selecionada'); window.location.href='app.html'; return; } showPersonDetail(id); })();
     </script>
   </body>
 </html>

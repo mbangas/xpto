@@ -295,7 +295,12 @@ th {
   align-items: center;
   gap: 10px;
   padding: 6px 4px;
+  text-decoration: none;
+  cursor: pointer;
 }
+
+/* Ensure any logo anchor or its children never show underline */
+.logo, .logo * { text-decoration: none !important; }
 
 /* Ícone do logotipo na barra lateral */
 .sidebar .logo .mdi {

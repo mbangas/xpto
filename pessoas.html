@@ -233,9 +233,10 @@
         addSiblings(root);
 
         // partner(s): check spouseId / partnerId and relations store
+        const __partners_for_root = new Set();
         function addPartners(person){ if(!person) return; const partners = new Set(); if(person.spouseId) partners.add(String(person.spouseId)); if(person.partnerId) partners.add(String(person.partnerId)); // scan relations store for mate-like relations
           try{ const rels = JSON.parse(localStorage.getItem('relations:myLineage') || '[]'); rels.forEach(r=>{ if(!r) return; const from = String(r.from||r.personId||''); const to = String(r.to||r.targetId||''); const t = (r.type||'').toString().toLowerCase(); if((from === String(person.id) && (t.includes('mate')||t.includes('spouse')||t.includes('compan')||t.includes('parceiro')||t.includes('conjuge'))) && to) partners.add(to); if((to === String(person.id) && (t.includes('mate')||t.includes('spouse')||t.includes('compan')||t.includes('parceiro')||t.includes('conjuge'))) && from) partners.add(from); }); }catch(e){}
-          partners.forEach(pid=>{ const p = idMap.get(pid); if(p){ addNode(p); const g = (p.gender||'').toString().toLowerCase(); const label = (g==='female'||g==='feminino'||g==='f') ? 'Companheira' : (g==='male'||g==='masculino'||g==='m') ? 'Companheiro' : 'Companheiro(a)'; edges.push({ data: { id: `e_partner_${person.id}_${pid}`, source: String(person.id), target: pid, label, rel: 'partner' } }); } }); }
+          partners.forEach(pid=>{ const p = idMap.get(pid); if(p){ addNode(p); const g = (p.gender||'').toString().toLowerCase(); const label = (g==='female'||g==='feminino'||g==='f') ? 'Companheira' : (g==='male'||g==='masculino'||g==='m') ? 'Companheiro' : 'Companheiro(a)'; __partners_for_root.add(String(pid)); } }); }
         addPartners(root);
 
         // children: people where root is listed as a parent in any supported key
@@ -247,7 +248,7 @@
 
         // produce arrays
         const nodes = Array.from(nodesMap.values());
-        return { nodes, edges, parentMap, rootId: String(root.id) };
+        return { nodes, edges, parentMap, rootId: String(root.id), partners: Array.from(__partners_for_root) };
       }
 
       // Render with Cytoscape using preset positions computed from ancestor tree
@@ -280,16 +281,44 @@
         function getDepth(id){ if(depthMemo.has(id)) return depthMemo.get(id); const parents = parentMap.get(String(id)) || []; if(!parents || parents.length===0){ depthMemo.set(id, 0); return 0; } const d = 1 + Math.max(...parents.map(pid=> idMapHas(pid) ? getDepth(pid) : 0)); depthMemo.set(id, d); return d; }
 
         // place parents recursively and set positions
-        function placeWithY(id, xStart){ const parents = parentMap.get(String(id)) || []; if(!parents || parents.length===0){ const w = widths.get(id) || nodeWidth; const x = xStart + w/2; const y = (getDepth(id) * vGap) * -1; positions.set(String(id), { x, y }); return { left: xStart, right: xStart + w }; }
-          let curr = xStart; const centers = []; parents.forEach(pid=>{ if(!idMapHas(pid)) return; const pw = widths.get(pid) || nodeWidth; const r = placeWithY(pid, curr); const center = (r.left + r.right)/2; centers.push(center); curr = r.right + hGap; }); const myX = centers.length ? centers.reduce((a,b)=>a+b,0)/centers.length : xStart + (widths.get(id)||nodeWidth)/2; const y = (getDepth(id) * vGap) * -1; positions.set(String(id), { x: myX, y }); return { left: (centers.length ? Math.min(...centers) - (nodeWidth/2) : xStart), right: (centers.length ? Math.max(...centers) + (nodeWidth/2) : xStart + (widths.get(id)||nodeWidth)) } }
+        function placeWithY(id, xStart){ const parents = parentMap.get(String(id)) || []; if(!parents || parents.length===0){ const w = widths.get(id) || nodeWidth; const x = xStart + w/2; const y = (getDepth(id) * vGap); positions.set(String(id), { x, y }); return { left: xStart, right: xStart + w }; }
+          let curr = xStart; const centers = []; parents.forEach(pid=>{ if(!idMapHas(pid)) return; const pw = widths.get(pid) || nodeWidth; const r = placeWithY(pid, curr); const center = (r.left + r.right)/2; centers.push(center); curr = r.right + hGap; }); const myX = centers.length ? centers.reduce((a,b)=>a+b,0)/centers.length : xStart + (widths.get(id)||nodeWidth)/2; const y = (getDepth(id) * vGap); positions.set(String(id), { x: myX, y }); return { left: (centers.length ? Math.min(...centers) - (nodeWidth/2) : xStart), right: (centers.length ? Math.max(...centers) + (nodeWidth/2) : xStart + (widths.get(id)||nodeWidth)) } }
 
-        if(rootId){ const total = widths.get(rootId) || nodeWidth; const startX = - (total/2); placeWithY(rootId, startX); }
+        if(rootId){ const total = widths.get(rootId) || nodeWidth; const startX = - (total/2); placeWithY(rootId, startX);
+          // position partner(s) side-by-side at the same vertical level as root
+          try{
+            // place partners to the right of the focused person using the focused card width
+            const partnerIds = (data.partners || []).filter(id => idMapHas(id));
+            if(partnerIds.length){
+              const rootPos = positions.get(String(rootId)) || { x: 0, y: 0 };
+              // right edge of root center + half width
+              const firstCenterX = rootPos.x + (nodeWidth / 2) + hGap + (nodeWidth / 2); // root right edge + gap + half partner
+              for(let i = 0; i < partnerIds.length; i++){
+                const pid = String(partnerIds[i]);
+                const x = firstCenterX + i * (nodeWidth + hGap);
+                positions.set(pid, { x: Math.round(x), y: Math.round(rootPos.y) });
+              }
+            }
+          }catch(e){ /* ignore partner positioning errors */ }
+        }
 
         // translate positions into node positions and default y for root if missing
         const positionedNodes = (data.nodes||[]).map(n=>{ const id = String(n.data.id); const pos = positions.get(id) || { x: 0, y: 0 }; return { data: n.data, position: { x: Math.round(pos.x), y: Math.round(pos.y) } }; });
 
         // ensure edge labels are visible
-        const cyElements = { nodes: positionedNodes, edges: data.edges };
+        // create visual partner edges (do not include them in ancestor calculations)
+        const partnerEdges = [];
+        try{
+          (data.partners || []).forEach(pid => {
+            if(!idMapHas(pid)) return;
+            const nodeInfo = (data.nodes||[]).find(n => String(n.data.id) === String(pid));
+            const g = (nodeInfo && nodeInfo.data && nodeInfo.data.gender) ? String(nodeInfo.data.gender).toLowerCase() : '';
+            const label = (g==='female'||g==='feminino'||g==='f') ? 'Companheira' : (g==='male'||g==='masculino'||g==='m') ? 'Companheiro' : 'Companheiro(a)';
+            partnerEdges.push({ data: { id: `e_partner_${rootId}_${pid}`, source: String(rootId), target: String(pid), label, rel: 'partner' } });
+          });
+        }catch(e){}
+
+        const cyElements = { nodes: positionedNodes, edges: (data.edges||[]).concat(partnerEdges) };
 
         _cy = cytoscape({
           container: container,

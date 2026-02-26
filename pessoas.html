@@ -262,6 +262,7 @@
 
         // children: people where root is listed as a parent in any supported key
         function addChildren(person){ if(!person) return; const rootId = String(person.id); people.forEach(p=>{ const pid = String(p.id); const parentIds = getParentIds(p); if(parentIds.includes(rootId) || containsId(p, rootId)){ addNode(p); const g=(p.gender||'').toString().toLowerCase(); const label = (g==='female'||g==='feminino'||g==='f') ? 'Filha' : (g==='male'||g==='masculino'||g==='m') ? 'Filho' : 'Filho(a)'; const edgeId = `e_child_${person.id}_${pid}`; if(!edges.find(e=>e.data && e.data.id === edgeId)) edges.push({ data: { id: edgeId, source: rootId, target: pid, label } }); } }); }
+
         addChildren(root);
 
         // Build positions for an ancestor-oriented layout (parents above). We'll compute a simple horizontal packing

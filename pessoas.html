@@ -14,6 +14,7 @@
       /* small adjustments for Cytoscape container and node labels */
       #cy { background: #fafafa; border-radius:8px; }
       .cy-node-label { font-size:12px; font-weight:600; color:#222; }
+      /* edge highlight (used by Cytoscape) */
     </style>
   </head>
   <body>
@@ -463,7 +464,8 @@
             { selector: 'node[junctionFor]', style: { 'background-opacity': 0, 'width': 4, 'height': 4, 'label': '' } },
             { selector: 'node[gender]', style: { 'border-color': function(ele){ const g = (ele.data('gender')||'').toString().toLowerCase(); return (g==='female'||g==='feminino'||g==='f') ? '#e26aa6' : (g==='male'||g==='masculino'||g==='m') ? '#4a90e2' : '#9aa0a6'; } }},
             { selector: 'edge', style: { 'width':2,'line-color':'#888','target-arrow-shape':'triangle','target-arrow-color':'#888','curve-style':'bezier','label':'data(label)','font-size':11,'text-rotation':'autorotate','text-margin-y':-6,'color':'#333' } },
-            { selector: 'edge[rel = "partner"]', style: { 'line-style':'dashed','target-arrow-shape':'none','source-arrow-shape':'none' } }
+            { selector: 'edge[rel = "partner"]', style: { 'line-style':'dashed','target-arrow-shape':'none','source-arrow-shape':'none' } },
+            { selector: 'edge.highlighted', style: { 'line-color':'#4a90e2','target-arrow-color':'#4a90e2','width':4,'opacity':1,'z-index':9999,'font-size':12,'text-outline-color':'#ffffff','text-outline-width':3 } }
           ],
           layout: { name: 'preset' }
         });
@@ -476,11 +478,11 @@
           overlay.setAttribute('aria-hidden','true');
           container.appendChild(overlay);
         }
-        // ensure overlay is correctly positioned and accepts pointer events
+        // ensure overlay is correctly positioned; allow pointer events to pass through to Cytoscape
         overlay.style.position = 'absolute';
         overlay.style.inset = '0';
         overlay.style.zIndex = '1000';
-        overlay.style.pointerEvents = 'auto';
+        overlay.style.pointerEvents = 'none';
         function clearOverlay(){ if(overlay) overlay.innerHTML = ''; }
         function createOverlayButtons(){
           if(!overlay) return;
@@ -559,6 +561,8 @@
 
         // ignore node body taps now that overlay buttons handle actions
         _cy.on('tap', 'node', function(evt){});
+        // toggle highlight class when an edge is tapped
+        _cy.on('tap', 'edge', function(evt){ try{ const edge = evt.target; if(edge && typeof edge.toggleClass === 'function') edge.toggleClass('highlighted'); }catch(e){} });
         _cy.fit(40);
       }
 
@@ -570,6 +574,7 @@
         const rankSel = document.getElementById('rankDir'); if(rankSel) rankSel.addEventListener('change', ()=>renderGraph());
         // reset focus button
         const resetBtn = document.getElementById('resetFocusBtn'); if(resetBtn) resetBtn.addEventListener('click', ()=>{ location.reload(); });
+        // edge highlighting handled by Cytoscape tap handler
       });
     </script>
   </body>

@@ -29,7 +29,25 @@
           <div></div>
         </div>
 
-        <div class="card centered-panel" style="max-width:760px;">
+        <div class="card centered-panel" style="max-width:760px;width:100%;">
+          <h2 style="margin:0 0 8px 0;">Biblioteca de Documentos</h2>
+          <p style="color:var(--text-secondary);margin-top:6px;">Defina a pasta base que contém o repositório de documentos. Use o botão para abrir o seletor de pastas (File System Access API) quando disponível, ou selecione uma pasta via o seletor de ficheiros com <em>webkitdirectory</em> como fallback (navegadores Chromium).</p>
+
+          <div style="display:flex;gap:12px;align-items:center;margin-top:12px;flex-direction:column;align-items:flex-start;">
+            <label style="font-weight:600;color:var(--text-secondary);">Selecionar pasta de documentos</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn" id="openDocDirBtn">Selecionar pasta...</button>
+              <input type="file" id="docDirPicker" webkitdirectory directory multiple style="display:none;" />
+            </div>
+            <div id="docSelectionInfo" style="color:var(--text-secondary);font-size:0.95rem;min-height:36px;"></div>
+            <div style="display:flex;gap:8px;margin-top:6px;">
+              <button class="btn" id="clearDocBaseBtn">Remover configuração</button>
+            </div>
+            <div id="currentDocBase" style="margin-top:10px;color:var(--text-secondary);font-size:0.95rem;"></div>
+          </div>
+        </div>
+
+        <div class="card centered-panel" style="max-width:760px;width:100%;margin-top:16px;">
           <h2 style="margin:0 0 8px 0;">Biblioteca de Fotos</h2>
           <p style="color:var(--text-secondary);margin-top:6px;">Defina a pasta base que contém o repositório de fotografias. Use o botão para abrir o seletor de pastas (File System Access API) quando disponível, ou selecione uma pasta via o seletor de ficheiros com <em>webkitdirectory</em> como fallback (navegadores Chromium).</p>
 
@@ -47,7 +65,7 @@
           </div>
         </div>
 
-        <div class="card centered-panel" style="max-width:760px; margin-top:16px;">
+        <div class="card centered-panel" style="max-width:760px;width:100%;margin-top:16px;">
           <h2 style="margin:0 0 8px 0;">Pessoa em Foco</h2>
           <p style="color:var(--text-secondary);margin-top:6px;">Pesquise pessoas e defina uma como foco principal. A seleção será salva nas configurações locais.</p>
 
@@ -74,8 +92,32 @@
     <script>
       function nowISO(){ return new Date().toISOString(); }
       const KEY = 'photoBase:myLineage';
+      const DOC_KEY = 'docBase:myLineage';
 
       // Persist directory handle in IndexedDB so other pages can write into it
+      // --- Document base helpers ---
+      function saveDocBase(obj){ localStorage.setItem(DOC_KEY, JSON.stringify(obj)); }
+      function clearDocBase(){ localStorage.removeItem(DOC_KEY); }
+      function readDocSaved(){ try{ return JSON.parse(localStorage.getItem(DOC_KEY)||'null'); }catch(e){ return null; } }
+
+      function saveDocDirHandleToDB(handle){
+        try{
+          const req = indexedDB.open('myLineage-db', 1);
+          req.onupgradeneeded = function(e){ const db = e.target.result; if(!db.objectStoreNames.contains('handles')) db.createObjectStore('handles'); };
+          return new Promise((resolve, reject)=>{
+            req.onsuccess = function(e){
+              const db = e.target.result;
+              const tx = db.transaction('handles', 'readwrite');
+              const store = tx.objectStore('handles');
+              store.put(handle, 'docBaseHandle');
+              tx.oncomplete = function(){ db.close(); resolve(true); };
+              tx.onerror = function(ev){ db.close(); reject(ev); };
+            };
+            req.onerror = function(){ reject(req.error); };
+          });
+        }catch(e){ return Promise.reject(e); }
+      }
+
       function saveDirHandleToDB(handle){
         try{
           const req = indexedDB.open('myLineage-db', 1);
@@ -123,6 +165,56 @@
         let lastFolder = null; let lastCount = 0;
 
         showCurrent();
+
+        // --- Biblioteca de Documentos ---
+        function showCurrentDoc(){
+          const cur = readDocSaved();
+          const el = document.getElementById('currentDocBase');
+          if(!cur){ el.innerHTML = '<div style="font-style:italic;color:var(--text-secondary);">Nenhuma pasta base configurada.</div>'; return; }
+          el.innerHTML = `<div>Base configurada: <b>${escapeHtml(cur.folder)}</b> — ${cur.files || 0} ficheiros<br><small style="color:var(--text-secondary);">Salvo em: ${cur.when || ''}</small></div>`;
+        }
+        showCurrentDoc();
+
+        const docFileInput = document.getElementById('docDirPicker');
+        const openDocBtn = document.getElementById('openDocDirBtn');
+        const docInfo = document.getElementById('docSelectionInfo');
+        const clearDocBtn = document.getElementById('clearDocBaseBtn');
+
+        function handleDocFilesArray(files){
+          if(!files || files.length===0){ docInfo.textContent = 'Nenhum ficheiro selecionado.'; return; }
+          const paths = files.map(f => f.webkitRelativePath || f.name);
+          const root = commonPrefix(paths) || (paths[0] ? paths[0].split('/')[0] : '');
+          docInfo.innerHTML = `<div>Detectado: <b>${escapeHtml(root)}</b> — ${files.length} ficheiros</div>`;
+          saveDocBase({ folder: root, files: files.length, when: nowISO() });
+          showCurrentDoc();
+          alert('Pasta base de documentos salva.');
+        }
+
+        if(window.showDirectoryPicker){
+          docFileInput.style.display = 'none';
+          openDocBtn.addEventListener('click', async function(){
+            try{
+              const dir = await window.showDirectoryPicker();
+              const count = await countFilesInDir(dir);
+              docInfo.innerHTML = `<div>Detectado: <b>${escapeHtml(dir.name)}</b> — ${count} ficheiros</div>`;
+              saveDocBase({ folder: dir.name, files: count, when: nowISO() });
+              try{ await saveDocDirHandleToDB(dir); }catch(err){ console.warn('Não foi possível salvar handle do diretório de documentos:', err); }
+              showCurrentDoc();
+              alert('Pasta base de documentos salva.');
+            }catch(err){
+              console.error(err);
+              alert('Não foi possível abrir o seletor de pastas.');
+            }
+          });
+        } else {
+          openDocBtn.style.display = 'none';
+          docFileInput.addEventListener('change', function(e){
+            handleDocFilesArray(Array.from(this.files || []));
+          });
+        }
+
+        clearDocBtn.addEventListener('click', function(){ if(!confirm('Remover a configuração da pasta base de documentos?')) return; clearDocBase(); showCurrentDoc(); alert('Configuração removida.'); });
+        // --- fim Biblioteca de Documentos ---
 
         async function countFilesInDir(dirHandle){
           let count = 0;

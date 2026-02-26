@@ -1,0 +1,728 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Álbum de Fotos – myLineage</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
+    <style>
+      /* ── Album grid ─────────────────────────────────────────────────── */
+      .album-topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .album-search {
+        padding: 7px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg-surface-2);
+        color: var(--text-main);
+        font-family: var(--font-main);
+        font-size: 0.88rem;
+        width: 220px;
+        outline: none;
+        transition: border-color var(--transition);
+      }
+      .album-search:focus { border-color: var(--accent); }
+      .album-count-badge {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        background: var(--bg-surface-2);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 4px 12px;
+        white-space: nowrap;
+      }
+      .album-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 60px 20px;
+        color: var(--text-secondary);
+        text-align: center;
+      }
+      .album-empty .mdi { font-size: 3rem; opacity: 0.3; }
+      .album-empty p { font-size: 0.95rem; max-width: 380px; }
+      .album-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 12px;
+        padding: 20px;
+      }
+      .album-thumb {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        cursor: pointer;
+        transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+        display: flex;
+        flex-direction: column;
+      }
+      .album-thumb:hover {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow);
+        transform: translateY(-2px);
+      }
+      .album-thumb-img-wrap {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        background: var(--bg-surface-2);
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .album-thumb-img-wrap img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transition: transform 0.22s ease;
+      }
+      .album-thumb:hover .album-thumb-img-wrap img { transform: scale(1.05); }
+      .album-thumb-info {
+        padding: 8px 10px 10px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-height: 0;
+      }
+      .album-thumb-name {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text-main);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .album-thumb-meta {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .album-thumb-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+        margin-top: 4px;
+      }
+      .album-tag-chip {
+        font-size: 0.65rem;
+        padding: 2px 6px;
+        border-radius: 10px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        border: 1px solid var(--border-accent);
+        white-space: nowrap;
+        max-width: 110px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .album-no-img {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-disabled);
+        flex-direction: column;
+        gap: 4px;
+        font-size: 0.75rem;
+      }
+      .album-no-img .mdi { font-size: 2.2rem; opacity: 0.35; }
+
+      /* ── Photo modal ────────────────────────────────────────────────── */
+      #albumModal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.78);
+        align-items: center;
+        justify-content: center;
+        z-index: 300;
+        padding: 16px;
+      }
+      #albumModal.open { display: flex; }
+      .album-modal-inner {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        max-width: 900px;
+        width: 100%;
+        max-height: 92vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        animation: modalIn 0.18s ease;
+      }
+      @keyframes modalIn {
+        from { opacity: 0; transform: scale(0.96) translateY(8px); }
+        to   { opacity: 1; transform: scale(1) translateY(0); }
+      }
+      .album-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+      }
+      .album-modal-header h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-main);
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: calc(100% - 48px);
+      }
+      .album-modal-close {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 1.4rem;
+        line-height: 1;
+        padding: 4px 6px;
+        border-radius: 6px;
+        transition: color var(--transition), background var(--transition);
+        flex-shrink: 0;
+      }
+      .album-modal-close:hover { color: var(--text-main); background: var(--bg-surface-2); }
+      .album-modal-body {
+        display: flex;
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+      .album-modal-img-pane {
+        flex: 1;
+        min-width: 0;
+        background: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        padding: 12px;
+      }
+      .album-modal-img-pane img {
+        max-width: 100%;
+        max-height: 75vh;
+        object-fit: contain;
+        border-radius: 6px;
+        display: block;
+      }
+      .album-modal-sidebar {
+        width: 260px;
+        flex-shrink: 0;
+        border-left: 1px solid var(--border);
+        overflow-y: auto;
+        padding: 18px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        background: var(--bg-surface);
+      }
+      .album-info-section { display: flex; flex-direction: column; gap: 6px; }
+      .album-info-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-secondary);
+      }
+      .album-info-value {
+        font-size: 0.88rem;
+        color: var(--text-main);
+        word-break: break-word;
+      }
+      .album-info-value.muted { color: var(--text-secondary); font-style: italic; }
+      .album-info-notes {
+        font-size: 0.85rem;
+        color: var(--text-main);
+        background: var(--bg-surface-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 120px;
+        overflow-y: auto;
+        line-height: 1.5;
+      }
+      .album-info-chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+      .album-info-chip {
+        font-size: 0.75rem;
+        padding: 3px 9px;
+        border-radius: 12px;
+        background: var(--accent-soft);
+        color: var(--accent);
+        border: 1px solid var(--border-accent);
+      }
+      .album-loader {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 20px;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        gap: 8px;
+      }
+      @media (max-width: 600px) {
+        .album-modal-body { flex-direction: column; }
+        .album-modal-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border); max-height: 40vh; }
+        .album-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; padding: 12px; }
+      }
+    </style>
+    <script src="remote-storage.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a href="index.html" class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></a>
+        <nav>
+          <a href="app.html"><i class="mdi mdi-account-multiple" aria-hidden="true"></i>Cadastro</a>
+          <a href="indicadores.html"><i class="mdi mdi-chart-bar" aria-hidden="true"></i>Indicadores</a>
+          <a href="arvore.html"><i class="mdi mdi-sitemap" aria-hidden="true"></i>Árvore</a>
+          <a href="gedcom.html"><i class="mdi mdi-dna" aria-hidden="true"></i>GEDCOM</a>
+          <a href="album.html" class="active"><i class="mdi mdi-image-multiple" aria-hidden="true"></i>Álbum</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="apis.html"><i class="mdi mdi-api" aria-hidden="true"></i>APIs</a>
+          <a href="configuracao.html"><i class="mdi mdi-cog" aria-hidden="true"></i>Definições</a>
+        </div>
+      </aside>
+      <main class="content">
+        <div class="topbar">
+          <div style="display:flex;align-items:center;gap:12px">
+            <h1>Álbum de Fotos</h1>
+            <span class="album-count-badge" id="photoBadge" style="display:none;"></span>
+          </div>
+          <div class="album-topbar-actions">
+            <input type="search" class="album-search" id="albumSearch" placeholder="Pesquisar por nome ou pessoa..." />
+          </div>
+        </div>
+
+        <!-- Content area -->
+        <div id="albumContent">
+          <div class="album-loader" id="albumLoader">
+            <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> A carregar fotos…
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Photo detail modal -->
+    <div id="albumModal" role="dialog" aria-modal="true" aria-labelledby="modalPhotoName">
+      <div class="album-modal-inner">
+        <div class="album-modal-header">
+          <h2 id="modalPhotoName">Foto</h2>
+          <button class="album-modal-close" id="albumModalClose" title="Fechar (Esc)">
+            <i class="mdi mdi-close" aria-hidden="true"></i>
+          </button>
+        </div>
+        <div class="album-modal-body">
+          <div class="album-modal-img-pane" id="modalImgPane">
+            <img id="modalImg" src="" alt="" />
+          </div>
+          <aside class="album-modal-sidebar" id="modalSidebar">
+            <!-- filled by JS -->
+          </aside>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      'use strict';
+
+      const PHOTO_BASE_KEY  = 'photoBase:myLineage';
+      const PHOTOS_KEY      = 'photos:myLineage';
+      const PHOTO_REL_KEY   = 'photoRelations:myLineage';
+
+      // ── Storage helpers ──────────────────────────────────────────────
+      function getPhotos()   { try{ return JSON.parse(localStorage.getItem(PHOTOS_KEY) || '[]'); }catch(e){ return []; } }
+      function getRelations(){ try{ return JSON.parse(localStorage.getItem(PHOTO_REL_KEY) || '{}'); }catch(e){ return {}; } }
+      function readPhotoBase(){ try{ return JSON.parse(localStorage.getItem(PHOTO_BASE_KEY) || 'null'); }catch(e){ return null; } }
+      function escapeHtml(s){ return String(s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+      function fmtDate(iso){ if(!iso) return ''; try{ return new Date(iso).toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(e){ return iso; } }
+
+      // ── IndexedDB: retrieve saved directory handle ───────────────────
+      function getDirHandleFromDB(){
+        try{
+          const req = indexedDB.open('myLineage-db', 1);
+          return new Promise(resolve => {
+            req.onupgradeneeded = e => { const db = e.target.result; if(!db.objectStoreNames.contains('handles')) db.createObjectStore('handles'); };
+            req.onsuccess = e => {
+              const db = e.target.result;
+              const tx = db.transaction('handles','readonly');
+              const g  = tx.objectStore('handles').get('photoBaseHandle');
+              g.onsuccess = () => { db.close(); resolve(g.result || null); };
+              g.onerror   = () => { db.close(); resolve(null); };
+            };
+            req.onerror = () => resolve(null);
+          });
+        }catch(e){ return Promise.resolve(null); }
+      }
+
+      async function ensureReadPermission(handle){
+        if(!handle) return false;
+        try{
+          if(handle.queryPermission){
+            const q = await handle.queryPermission({ mode: 'read' });
+            if(q === 'granted') return true;
+          }
+          if(handle.requestPermission){
+            const r = await handle.requestPermission({ mode: 'read' });
+            return r === 'granted';
+          }
+          return true;
+        }catch(e){ return false; }
+      }
+
+      // ── Recursively collect all image files from a directory handle ──
+      const IMAGE_EXTS = new Set(['jpg','jpeg','png','gif','webp','bmp','tiff','tif','heic','avif','svg']);
+      async function collectImagesFromDir(dirHandle, pathPrefix){
+        const results = [];
+        try{
+          for await (const [name, handle] of dirHandle.entries()){
+            const fullPath = pathPrefix ? pathPrefix + '/' + name : name;
+            if(handle.kind === 'file'){
+              const ext = name.split('.').pop().toLowerCase();
+              if(IMAGE_EXTS.has(ext)) results.push({ name, fullPath, handle });
+            } else if(handle.kind === 'directory'){
+              const sub = await collectImagesFromDir(handle, fullPath);
+              results.push(...sub);
+            }
+          }
+        }catch(e){ console.warn('Erro ao listar pasta:', e); }
+        return results;
+      }
+
+      // ── Build photo objects from FS entries (no localStorage record) ─
+      async function buildFsPhotoUrl(fileHandle){
+        try{
+          const file = await fileHandle.getFile();
+          return URL.createObjectURL(file);
+        }catch(e){ return null; }
+      }
+
+      // ── Build photo "persons" label from relations map ───────────────
+      function personNamesForPhoto(photoId, relMap, people){
+        const personIds = Object.entries(relMap)
+          .filter(([, ids]) => ids.includes(photoId))
+          .map(([pid]) => pid);
+        if(!personIds.length) return [];
+        return personIds.map(pid => {
+          const p = people.find(x => x.id === pid);
+          if(!p) return null;
+          return ((p.firstName||'') + ' ' + (p.lastName||'')).trim();
+        }).filter(Boolean);
+      }
+
+      function getStoredPeople(){
+        try{ return JSON.parse(localStorage.getItem('people:myLineage') || '[]'); }catch(e){ return []; }
+      }
+
+      // ── State ────────────────────────────────────────────────────────
+      let _allItems   = [];   // { id, name, fullPath, src, notes, tags, persons, createdAt, fromFs }
+      let _filteredItems = [];
+      let _dirHandle  = null;
+      let _dirGranted = false;
+
+      // ── Render thumbnails ────────────────────────────────────────────
+      function renderGrid(items){
+        const content = document.getElementById('albumContent');
+        const badge   = document.getElementById('photoBadge');
+        badge.textContent = items.length + ' foto' + (items.length !== 1 ? 's' : '');
+        badge.style.display = items.length > 0 ? 'inline-block' : 'none';
+
+        if(items.length === 0){
+          const base = readPhotoBase();
+          content.innerHTML = `
+            <div class="album-empty">
+              <i class="mdi mdi-image-off-outline" aria-hidden="true"></i>
+              <p>${base && base.folder
+                  ? 'Nenhuma foto encontrada na biblioteca <strong>' + escapeHtml(base.folder) + '</strong>.'
+                  : 'Nenhuma pasta de fotos configurada.<br>Configure a Biblioteca de Fotos nas <a href="configuracao.html">Definições</a>.'
+                }</p>
+            </div>`;
+          return;
+        }
+
+        const grid = document.createElement('div');
+        grid.className = 'album-grid';
+        for(const item of items){
+          grid.appendChild(buildThumb(item));
+        }
+        content.innerHTML = '';
+        content.appendChild(grid);
+      }
+
+      function buildThumb(item){
+        const card = document.createElement('div');
+        card.className = 'album-thumb';
+        card.title = item.fullPath || item.name;
+        card.addEventListener('click', () => openModal(item));
+
+        const wrap = document.createElement('div');
+        wrap.className = 'album-thumb-img-wrap';
+
+        if(item.src){
+          const img = document.createElement('img');
+          img.src   = item.src;
+          img.alt   = item.name;
+          img.loading = 'lazy';
+          img.onerror = () => { wrap.innerHTML = '<div class="album-no-img"><i class="mdi mdi-image-broken-variant" aria-hidden="true"></i><span>Sem pré-visualização</span></div>'; };
+          wrap.appendChild(img);
+        } else {
+          wrap.innerHTML = '<div class="album-no-img"><i class="mdi mdi-image-outline" aria-hidden="true"></i><span>Sem pré-visualização</span></div>';
+        }
+
+        const info = document.createElement('div');
+        info.className = 'album-thumb-info';
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'album-thumb-name';
+        nameEl.textContent = item.name;
+
+        const metaEl = document.createElement('div');
+        metaEl.className = 'album-thumb-meta';
+        metaEl.textContent = item.createdAt ? fmtDate(item.createdAt) : (item.fullPath && item.fullPath !== item.name ? item.fullPath : '');
+
+        info.appendChild(nameEl);
+        info.appendChild(metaEl);
+
+        if(item.persons && item.persons.length > 0){
+          const tagsEl = document.createElement('div');
+          tagsEl.className = 'album-thumb-tags';
+          item.persons.slice(0, 3).forEach(name => {
+            const chip = document.createElement('span');
+            chip.className = 'album-tag-chip';
+            chip.textContent = name;
+            tagsEl.appendChild(chip);
+          });
+          if(item.persons.length > 3){
+            const more = document.createElement('span');
+            more.className = 'album-tag-chip';
+            more.textContent = '+' + (item.persons.length - 3);
+            tagsEl.appendChild(more);
+          }
+          info.appendChild(tagsEl);
+        }
+
+        card.appendChild(wrap);
+        card.appendChild(info);
+        return card;
+      }
+
+      // ── Modal ────────────────────────────────────────────────────────
+      function openModal(item){
+        document.getElementById('modalPhotoName').textContent = item.name;
+        const img = document.getElementById('modalImg');
+        img.src = item.src || '';
+        img.alt = item.name;
+
+        const sidebar = document.getElementById('modalSidebar');
+        sidebar.innerHTML = '';
+
+        function section(label, valueHtml, muted){
+          const s = document.createElement('div');
+          s.className = 'album-info-section';
+          s.innerHTML = `<div class="album-info-label">${escapeHtml(label)}</div>
+                         <div class="album-info-value${muted?' muted':''}">${valueHtml}</div>`;
+          return s;
+        }
+
+        sidebar.appendChild(section('Ficheiro', escapeHtml(item.name)));
+
+        if(item.fullPath && item.fullPath !== item.name){
+          sidebar.appendChild(section('Caminho', escapeHtml(item.fullPath)));
+        }
+
+        if(item.createdAt){
+          sidebar.appendChild(section('Adicionado em', escapeHtml(fmtDate(item.createdAt))));
+        }
+
+        // Persons tagged or linked
+        const allPersons = [];
+        if(item.persons && item.persons.length){ allPersons.push(...item.persons); }
+        if(item.tags && item.tags.length){
+          item.tags.forEach(t => { if(t.personName && !allPersons.includes(t.personName)) allPersons.push(t.personName); });
+        }
+        if(allPersons.length){
+          const s = document.createElement('div');
+          s.className = 'album-info-section';
+          s.innerHTML = '<div class="album-info-label">Pessoas</div>';
+          const chips = document.createElement('div');
+          chips.className = 'album-info-chips';
+          allPersons.forEach(name => {
+            const c = document.createElement('span');
+            c.className = 'album-info-chip';
+            c.textContent = name;
+            chips.appendChild(c);
+          });
+          s.appendChild(chips);
+          sidebar.appendChild(s);
+        } else {
+          sidebar.appendChild(section('Pessoas', 'Nenhuma pessoa associada', true));
+        }
+
+        // Notes
+        const notesSection = document.createElement('div');
+        notesSection.className = 'album-info-section';
+        notesSection.innerHTML = '<div class="album-info-label">Notas</div>';
+        if(item.notes && item.notes.trim()){
+          const notesEl = document.createElement('div');
+          notesEl.className = 'album-info-notes';
+          notesEl.textContent = item.notes;
+          notesSection.appendChild(notesEl);
+        } else {
+          const noNotes = document.createElement('div');
+          noNotes.className = 'album-info-value muted';
+          noNotes.textContent = 'Sem notas.';
+          notesSection.appendChild(noNotes);
+        }
+        sidebar.appendChild(notesSection);
+
+        // Folder
+        const base = readPhotoBase();
+        if(base && base.folder){
+          sidebar.appendChild(section('Biblioteca', escapeHtml(base.folder)));
+        }
+
+        document.getElementById('albumModal').classList.add('open');
+        document.getElementById('albumModal').focus();
+      }
+
+      function closeModal(){
+        document.getElementById('albumModal').classList.remove('open');
+        const img = document.getElementById('modalImg');
+        // revoke if blob URL created for FS items
+        if(img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+        img.src = '';
+      }
+
+      document.getElementById('albumModalClose').addEventListener('click', closeModal);
+      document.getElementById('albumModal').addEventListener('click', e => { if(e.target === document.getElementById('albumModal')) closeModal(); });
+      document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
+
+      // ── Search / filter ──────────────────────────────────────────────
+      document.getElementById('albumSearch').addEventListener('input', function(){
+        const q = this.value.trim().toLowerCase();
+        if(!q){
+          _filteredItems = _allItems;
+        } else {
+          _filteredItems = _allItems.filter(item => {
+            if((item.name || '').toLowerCase().includes(q)) return true;
+            if((item.fullPath || '').toLowerCase().includes(q)) return true;
+            if((item.notes || '').toLowerCase().includes(q)) return true;
+            if(item.persons && item.persons.some(n => n.toLowerCase().includes(q))) return true;
+            if(item.tags && item.tags.some(t => (t.personName||'').toLowerCase().includes(q))) return true;
+            return false;
+          });
+        }
+        renderGrid(_filteredItems);
+      });
+
+      // ── Load all photos ──────────────────────────────────────────────
+      async function loadAlbum(){
+        const content   = document.getElementById('albumContent');
+        const loaderEl  = document.getElementById('albumLoader');
+        if(loaderEl) loaderEl.style.display = 'flex';
+
+        try{
+          const storedPhotos = getPhotos();         // photos registered in localStorage
+          const relMap       = getRelations();      // personId → [photoId, ...]
+          const people       = getStoredPeople();
+          const items        = [];
+
+          // 1. Photos stored in localStorage (uploaded via the app)
+          _dirHandle  = await getDirHandleFromDB();
+          _dirGranted = _dirHandle ? await ensureReadPermission(_dirHandle) : false;
+
+          for(const ph of storedPhotos){
+            let src = null;
+
+            // Prefer reading from directory handle (stored copy)
+            if(ph.baseCopyName && _dirHandle && _dirGranted){
+              try{
+                const fh   = await _dirHandle.getFileHandle(ph.baseCopyName);
+                const file = await fh.getFile();
+                src = URL.createObjectURL(file);
+              }catch(e){
+                src = ph.originalDataUrl || ph.dataUrl || null;
+              }
+            } else {
+              src = ph.originalDataUrl || ph.dataUrl || null;
+            }
+
+            items.push({
+              id:        ph.id,
+              name:      ph.name || ph.baseCopyName || ph.id,
+              fullPath:  ph.folder ? ph.folder + '/' + (ph.baseCopyName || ph.name) : (ph.baseCopyName || ph.name || ph.id),
+              src,
+              notes:     ph.notes || '',
+              tags:      ph.tags  || [],
+              persons:   personNamesForPhoto(ph.id, relMap, people),
+              createdAt: ph.createdAt || null,
+              fromFs:    false
+            });
+          }
+
+          // 2. If we have FS access, also list images directly from the directory
+          //    (files that exist in the folder but were not uploaded through the app)
+          if(_dirHandle && _dirGranted){
+            const fsImages = await collectImagesFromDir(_dirHandle, '');
+            for(const entry of fsImages){
+              // Skip files already registered in localStorage
+              const alreadyRegistered = storedPhotos.some(p => p.baseCopyName === entry.name || p.name === entry.name);
+              if(alreadyRegistered) continue;
+
+              let src = null;
+              try{
+                const file = await entry.handle.getFile();
+                src = URL.createObjectURL(file);
+              }catch(e){}
+
+              items.push({
+                id:        'fs::' + entry.fullPath,
+                name:      entry.name,
+                fullPath:  entry.fullPath,
+                src,
+                notes:     '',
+                tags:      [],
+                persons:   [],
+                createdAt: null,
+                fromFs:    true
+              });
+            }
+          }
+
+          _allItems      = items;
+          _filteredItems = items;
+          renderGrid(items);
+        }catch(e){
+          console.error(e);
+          content.innerHTML = `<div class="album-empty"><i class="mdi mdi-alert-outline" aria-hidden="true"></i><p>Erro ao carregar o álbum: ${escapeHtml(String(e))}</p></div>`;
+        }
+      }
+
+      // ── Init ─────────────────────────────────────────────────────────
+      document.addEventListener('DOMContentLoaded', loadAlbum);
+    </script>
+  </body>
+</html>

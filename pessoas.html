@@ -36,7 +36,6 @@
         <div class="topbar">
           <div><h1 style="margin:0;font-size:1.25rem;">Visualização gráfica de Pessoas</h1></div>
           <div>
-            <button id="toggleLayoutControls" class="btn lc-toggle" aria-pressed="false" aria-controls="layout-controls">Layout</button>
             <button id="resetFocusBtn" class="btn lc-toggle" title="Resetar pessoa em foco para a definida nas configurações">Reset foco</button>
           </div>
         </div>
@@ -52,13 +51,7 @@
 
         <div id="person-focus" class="person-focus" aria-live="polite"></div>
 
-        <div id="layout-controls" class="layout-controls" aria-hidden="false">
-          <div class="lc-header">Layout controls</div>
-          <div class="lc-row"><label>Rank direction</label>
-            <select id="rankDir"><option value="TB">Top &rarr; Down</option><option value="LR">Left &rarr; Right</option></select>
-          </div>
-          <div class="lc-row buttons"><button id="resetLayout" class="btn">Reset</button></div>
-        </div>
+        <!-- layout controls removed per request -->
 
       </main>
     </div>

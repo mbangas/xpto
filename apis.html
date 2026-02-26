@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>APIs</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
+    <script src="remote-storage.js"></script>
+    <style>
+      .api-section { margin-bottom: 32px; }
+      .api-section h2 { margin: 0 0 16px 0; font-size: 1.1rem; color: var(--text-main); }
+      .api-table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+      .api-table th {
+        text-align: left;
+        padding: 10px 14px;
+        background: rgba(163,163,255,0.07);
+        color: var(--text-secondary);
+        font-weight: 600;
+        border-bottom: 1px solid rgba(163,163,255,0.12);
+      }
+      .api-table td {
+        padding: 10px 14px;
+        border-bottom: 1px solid rgba(163,163,255,0.06);
+        vertical-align: top;
+        color: var(--text-main);
+      }
+      .api-table tr:last-child td { border-bottom: none; }
+      .api-table tr:hover td { background: rgba(163,163,255,0.04); }
+      .method-badge {
+        display: inline-block;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 0.78rem;
+        letter-spacing: 0.04em;
+        font-family: monospace;
+      }
+      .method-get    { background: rgba(80,200,120,0.18); color: #50c878; }
+      .method-post   { background: rgba(100,160,255,0.18); color: #64a0ff; }
+      .method-delete { background: rgba(255,90,90,0.18); color: #ff5a5a; }
+      .endpoint-code {
+        font-family: monospace;
+        font-size: 0.85rem;
+        background: rgba(163,163,255,0.08);
+        padding: 2px 7px;
+        border-radius: 4px;
+        color: var(--accent, #a3a3ff);
+      }
+      .try-btn {
+        font-size: 0.78rem;
+        padding: 4px 10px;
+        border-radius: 6px;
+        cursor: pointer;
+        border: 1px solid rgba(163,163,255,0.25);
+        background: transparent;
+        color: var(--text-secondary);
+        transition: background 0.15s, color 0.15s;
+      }
+      .try-btn:hover { background: rgba(163,163,255,0.12); color: var(--text-main); }
+      .response-box {
+        margin-top: 20px;
+        background: rgba(0,0,0,0.25);
+        border: 1px solid rgba(163,163,255,0.12);
+        border-radius: 8px;
+        padding: 14px 16px;
+      }
+      .response-box h3 { margin: 0 0 10px 0; font-size: 0.85rem; color: var(--text-secondary); }
+      .response-box pre {
+        margin: 0;
+        font-size: 0.8rem;
+        white-space: pre-wrap;
+        word-break: break-all;
+        color: var(--text-main);
+        max-height: 320px;
+        overflow-y: auto;
+      }
+      .status-chip {
+        display: inline-block;
+        margin-left: 8px;
+        font-size: 0.78rem;
+        padding: 2px 8px;
+        border-radius: 4px;
+        font-weight: 600;
+      }
+      .status-ok  { background: rgba(80,200,120,0.18); color: #50c878; }
+      .status-err { background: rgba(255,90,90,0.18);  color: #ff5a5a; }
+      .input-row { display: flex; gap: 8px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+      .input-row input {
+        padding: 6px 10px;
+        border-radius: 7px;
+        border: 1px solid rgba(163,163,255,0.15);
+        background: rgba(163,163,255,0.06);
+        color: var(--text-main);
+        font-size: 0.85rem;
+        min-width: 180px;
+      }
+      .section-divider {
+        border: none;
+        border-top: 1px solid rgba(163,163,255,0.1);
+        margin: 8px 0 24px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a href="index.html" class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></a>
+        <nav>
+          <a href="app.html"><i class="mdi mdi-account-multiple" aria-hidden="true"></i>Cadastro</a>
+          <a href="indicadores.html"><i class="mdi mdi-chart-bar" aria-hidden="true"></i>Indicadores</a>
+          <a href="arvore.html"><i class="mdi mdi-sitemap" aria-hidden="true"></i>Árvore</a>
+          <a href="import.html"><i class="mdi mdi-file-import" aria-hidden="true"></i>Importar</a>
+          <a href="export.html"><i class="mdi mdi-file-export" aria-hidden="true"></i>Exportar</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="apis.html" class="active"><i class="mdi mdi-api" aria-hidden="true"></i>APIs</a>
+          <a href="configuracao.html"><i class="mdi mdi-cog" aria-hidden="true"></i>Definições</a>
+        </div>
+      </aside>
+
+      <main class="content">
+        <div class="topbar">
+          <div><h1>APIs</h1></div>
+          <div></div>
+        </div>
+
+        <div class="card centered-panel" style="max-width:900px;">
+          <p style="color:var(--text-secondary);margin:0 0 24px 0;">
+            Referência das APIs REST disponíveis no servidor local (<code>server.js</code>). Pode testar cada endpoint diretamente aqui.
+          </p>
+
+          <!-- ── Data API ─────────────────────────────────────────── -->
+          <div class="api-section">
+            <h2><i class="mdi mdi-database" style="margin-right:6px;"></i>API de Dados — <code style="font-size:0.9em;">/api/data</code></h2>
+            <hr class="section-divider">
+            <table class="api-table">
+              <thead>
+                <tr>
+                  <th style="width:90px;">Método</th>
+                  <th style="width:260px;">Endpoint</th>
+                  <th>Descrição</th>
+                  <th style="width:80px;">Testar</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="method-badge method-get">GET</span></td>
+                  <td><span class="endpoint-code">/api/data</span></td>
+                  <td>Lista todas as chaves (ficheiros JSON) guardados em <code>JSON-DATA/</code>.</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/data')">Testar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="method-badge method-get">GET</span></td>
+                  <td><span class="endpoint-code">/api/data/<em>:key</em></span></td>
+                  <td>Devolve o conteúdo JSON do ficheiro com a chave indicada.</td>
+                  <td>
+                    <div class="input-row">
+                      <input id="key-get" type="text" placeholder="chave" />
+                      <button class="try-btn" onclick="tryApiKey('GET','/api/data/','key-get')">Testar</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="method-badge method-post">POST</span></td>
+                  <td><span class="endpoint-code">/api/data/<em>:key</em></span></td>
+                  <td>Cria ou substitui o ficheiro JSON para a chave indicada. O corpo do pedido deve ser JSON.</td>
+                  <td>
+                    <div class="input-row">
+                      <input id="key-post" type="text" placeholder="chave" />
+                      <input id="body-post" type="text" placeholder='{"exemplo":1}' style="min-width:140px;" />
+                      <button class="try-btn" onclick="tryPost()">Testar</button>
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td><span class="method-badge method-delete">DELETE</span></td>
+                  <td><span class="endpoint-code">/api/data/<em>:key</em></span></td>
+                  <td>Remove o ficheiro JSON da chave indicada de <code>JSON-DATA/</code>.</td>
+                  <td>
+                    <div class="input-row">
+                      <input id="key-del" type="text" placeholder="chave" />
+                      <button class="try-btn" onclick="tryApiKey('DELETE','/api/data/','key-del')">Testar</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ── Remote Storage API ─────────────────────────────── -->
+          <div class="api-section">
+            <h2><i class="mdi mdi-cloud-outline" style="margin-right:6px;"></i>Remote Storage — <code style="font-size:0.9em;">remote-storage.js</code></h2>
+            <hr class="section-divider">
+            <table class="api-table">
+              <thead>
+                <tr>
+                  <th style="width:180px;">Função</th>
+                  <th>Descrição</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>remoteGet(key)</code></td>
+                  <td>Lê o valor JSON guardado para <em>key</em> via <code>GET /api/data/:key</code>. Devolve <code>null</code> se não existir.</td>
+                </tr>
+                <tr>
+                  <td><code>remoteSet(key, value)</code></td>
+                  <td>Guarda o valor JSON para <em>key</em> via <code>POST /api/data/:key</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>remoteRemove(key)</code></td>
+                  <td>Elimina a entrada para <em>key</em> via <code>DELETE /api/data/:key</code>.</td>
+                </tr>
+                <tr>
+                  <td><code>remoteKeys()</code></td>
+                  <td>Devolve a lista de todas as chaves via <code>GET /api/data</code>.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ── Response area ──────────────────────────────────── -->
+          <div id="responseArea" class="response-box" style="display:none;">
+            <h3>Resposta <span id="statusChip"></span></h3>
+            <pre id="responseBody"></pre>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+      async function tryApi(method, url) {
+        try {
+          const res = await fetch(url, { method });
+          const text = await res.text();
+          let formatted = text;
+          try { formatted = JSON.stringify(JSON.parse(text), null, 2); } catch(_) {}
+          showResponse(res.status, formatted);
+        } catch(e) {
+          showResponse('ERR', String(e));
+        }
+      }
+
+      async function tryApiKey(method, base, inputId) {
+        const key = document.getElementById(inputId).value.trim();
+        if (!key) { alert('Introduza uma chave.'); return; }
+        await tryApi(method, base + encodeURIComponent(key));
+      }
+
+      async function tryPost() {
+        const key  = document.getElementById('key-post').value.trim();
+        const body = document.getElementById('body-post').value.trim();
+        if (!key)  { alert('Introduza uma chave.'); return; }
+        if (!body) { alert('Introduza o corpo JSON.'); return; }
+        let parsed;
+        try { parsed = JSON.parse(body); } catch(_) { alert('Corpo inválido — deve ser JSON válido.'); return; }
+        try {
+          const res = await fetch('/api/data/' + encodeURIComponent(key), {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(parsed)
+          });
+          const text = await res.text();
+          let formatted = text;
+          try { formatted = JSON.stringify(JSON.parse(text), null, 2); } catch(_) {}
+          showResponse(res.status, formatted);
+        } catch(e) {
+          showResponse('ERR', String(e));
+        }
+      }
+
+      function showResponse(status, body) {
+        const area  = document.getElementById('responseArea');
+        const chip  = document.getElementById('statusChip');
+        const pre   = document.getElementById('responseBody');
+        const ok    = String(status).startsWith('2');
+        chip.textContent = status;
+        chip.className   = 'status-chip ' + (ok ? 'status-ok' : 'status-err');
+        pre.textContent  = body;
+        area.style.display = 'block';
+        area.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    </script>
+  </body>
+</html>

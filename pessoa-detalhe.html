@@ -694,17 +694,18 @@
       function openTechInfoModal(){
         try{
           const id = document.getElementById('id').value;
-          const raw = localStorage.getItem(STORAGE_KEY);
+          const rawPeople = localStorage.getItem(STORAGE_KEY);
           let personOut = '';
-          if(raw){
-            try{ const arr = JSON.parse(raw); const p = (arr||[]).find(x=>x.id===id); if(p) personOut = JSON.stringify(p); else personOut = ''; }catch(e){ personOut = raw || ''; }
+          if(rawPeople){
+            try{ const arr = JSON.parse(rawPeople); const p = (arr||[]).find(x=>x.id===id); if(p) personOut = JSON.stringify(p); else personOut = ''; }catch(e){ personOut = rawPeople || ''; }
           }
 
           // load relations and group into outgoing (from this person) and incoming (to this person)
           let outgoing = [];
           let incoming = [];
+          let relRaw = null;
           try{
-            const relRaw = localStorage.getItem('relations:myLineage');
+            relRaw = localStorage.getItem('relations:myLineage');
             if(relRaw){
               try{
                 const relArr = JSON.parse(relRaw) || [];
@@ -715,9 +716,11 @@
           }catch(e){}
 
           let combined = '';
+          combined += "Fonte: localStorage key '" + STORAGE_KEY + "'\n";
           combined += 'Pessoa:\n' + (personOut || '') + '\n\n';
+          combined += "Fonte: localStorage key 'relations:myLineage'\n";
           combined += 'Relações (da pessoa -> outros):\n' + JSON.stringify(outgoing) + '\n\n';
-          combined += 'Relações (outros -> pessoa):\n' + JSON.stringify(incoming);
+          combined += 'Relações (outros -> pessoa):\n' + JSON.stringify(incoming) + '\n';
           document.getElementById('techInfoContent').textContent = combined || '';
           document.getElementById('techInfoModal').style.display = 'flex';
         }catch(e){ console.error(e); }

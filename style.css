@@ -55,13 +55,17 @@ body {
   border-radius: var(--border-radius);
   box-shadow: var(--card-shadow);
   padding: 36px 28px 28px 28px;
-  backdrop-filter: blur(var(--glass-blur));
+  /* backdrop-filter removed per user request (no permanent blur) */
   transition: box-shadow var(--transition), background var(--transition);
   display: flex;
   flex-direction: column;
   gap: 18px;
   border: 1.5px solid rgba(163, 163, 255, 0.08);
 }
+/* Ensure any Cytoscape graph placed inside a card is clipped to the card's inner area */
+.card #cy { overflow: hidden; border-radius: 8px; }
+/* Remove temporary blur/filter effects while a card is active or focused (prevents click-induced visual artifact) */
+/* removed temporary rule that disabled blur on active/focus-within */
 
 /* helper to center standalone cards (used in import/export pages) */
 .centered-panel {

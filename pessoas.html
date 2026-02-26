@@ -12,9 +12,12 @@
     <script src="https://unpkg.com/cytoscape-dagre@2.3.2/cytoscape-dagre.js"></script>
     <style>
       /* small adjustments for Cytoscape container and node labels */
-      #cy { background: #fafafa; border-radius:8px; }
+      /* ensure overlays and icons stay inside the white graph area */
+      #cy { background: #fafafa; border-radius:8px; overflow: hidden; }
       .cy-node-label { font-size:12px; font-weight:600; color:#222; }
       /* edge highlight (used by Cytoscape) */
+      /* prevent accidental text selection inside graph nodes */
+      #cy, #cy * { -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
     </style>
   </head>
   <body>
@@ -469,6 +472,9 @@
           ],
           layout: { name: 'preset' }
         });
+
+        // disable selection so clicking a node doesn't trigger selection effects on other nodes
+        try{ _cy.unselectify(); }catch(e){}
 
         // create DOM overlay buttons for nodes so icons are truly clickable
         let overlay = document.getElementById('cy-overlay');

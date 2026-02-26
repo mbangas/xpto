@@ -112,6 +112,7 @@
           <a href="arvore.html"><i class="mdi mdi-sitemap" aria-hidden="true"></i>Árvore</a>
           <a href="gedcom.html"><i class="mdi mdi-dna" aria-hidden="true"></i>GEDCOM</a>
           <a href="album.html"><i class="mdi mdi-image-multiple" aria-hidden="true"></i>Álbum</a>
+          <a href="documentos.html"><i class="mdi mdi-folder-open" aria-hidden="true"></i>Documentos</a>
         </nav>
         <div class="sidebar-footer">
           <a href="apis.html" class="active"><i class="mdi mdi-api" aria-hidden="true"></i>APIs</a>
@@ -192,10 +193,13 @@
           <div class="api-section">
             <h2><i class="mdi mdi-cloud-outline" style="margin-right:6px;"></i>Remote Storage — <code style="font-size:0.9em;">remote-storage.js</code></h2>
             <hr class="section-divider">
+            <p style="color:var(--text-secondary);margin:0 0 14px 0;font-size:0.88rem;">
+              Shim que sincroniza o <code>localStorage</code> do browser com o servidor. É carregado antes de qualquer outro script e intercepta <code>setItem</code> / <code>removeItem</code>.
+            </p>
             <table class="api-table">
               <thead>
                 <tr>
-                  <th style="width:180px;">Função</th>
+                  <th style="width:200px;">Função</th>
                   <th>Descrição</th>
                 </tr>
               </thead>
@@ -215,6 +219,93 @@
                 <tr>
                   <td><code>remoteKeys()</code></td>
                   <td>Devolve a lista de todas as chaves via <code>GET /api/data</code>.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ── localStorage Keys ──────────────────────────────── -->
+          <div class="api-section">
+            <h2><i class="mdi mdi-database-outline" style="margin-right:6px;"></i>Chaves localStorage / JSON-DATA</h2>
+            <hr class="section-divider">
+            <p style="color:var(--text-secondary);margin:0 0 14px 0;font-size:0.88rem;">
+              Todas as chaves são persistidas em <code>JSON-DATA/</code> via <code>remote-storage.js</code>. O nome do ficheiro é <code>encodeURIComponent(key) + .json</code>.
+            </p>
+            <table class="api-table">
+              <thead>
+                <tr>
+                  <th style="width:260px;">Chave</th>
+                  <th>Conteúdo</th>
+                  <th style="width:90px;">Testar</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span class="endpoint-code">people:myLineage</span></td>
+                  <td>Array de pessoas — cada objeto tem <code>id</code>, <code>firstName</code>, <code>lastName</code>, <code>gender</code>, <code>notes</code>, <code>createdAt</code>, <code>updatedAt</code>, <code>deletedAt</code>.</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/people%3AmyLineage')">Testar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="endpoint-code">events:myLineage</span></td>
+                  <td>Array de eventos — <code>id</code>, <code>personId</code>, <code>type</code> (BIRTH, BAPTISM, MARRIAGE, DEATH, …), <code>date</code>, <code>location</code>, <code>notes</code>.</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/events%3AmyLineage')">Testar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="endpoint-code">relations:myLineage</span></td>
+                  <td>Array de relações — <code>from</code>, <code>to</code>, <code>type</code> (parent, child, sibling, spouse, …).</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/relations%3AmyLineage')">Testar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="endpoint-code">photos:myLineage</span></td>
+                  <td>Array de fotografias — <code>id</code>, <code>name</code>, <code>baseCopyName</code>, <code>originalDataUrl</code>, <code>notes</code>, <code>tags</code> (identificações com <code>bbox</code> e <code>personId</code>), <code>createdAt</code>.</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/photos%3AmyLineage')">Testar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="endpoint-code">photoRelations:myLineage</span></td>
+                  <td>Objeto de mapeamento <code>personId → [photoId, …]</code> — associação entre pessoas e fotos.</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/photoRelations%3AmyLineage')">Testar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="endpoint-code">photoBase:myLineage</span></td>
+                  <td>Objeto com a configuração da Biblioteca de Fotos: <code>folder</code>, <code>files</code> (contagem), <code>when</code> (ISO).</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/photoBase%3AmyLineage')">Testar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="endpoint-code">docBase:myLineage</span></td>
+                  <td>Objeto com a configuração da Biblioteca de Documentos: <code>folder</code>, <code>files</code> (contagem), <code>when</code> (ISO).</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/docBase%3AmyLineage')">Testar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="endpoint-code">focusedPerson:myLineage</span></td>
+                  <td>Objeto da pessoa em foco: <code>id</code>, <code>name</code>, <code>when</code>.</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/focusedPerson%3AmyLineage')">Testar</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- ── IndexedDB Handles ───────────────────────────────── -->
+          <div class="api-section">
+            <h2><i class="mdi mdi-folder-key-outline" style="margin-right:6px;"></i>IndexedDB — Handles de directório</h2>
+            <hr class="section-divider">
+            <p style="color:var(--text-secondary);margin:0 0 14px 0;font-size:0.88rem;">
+              As permissões de acesso a pastas locais (File System Access API) são guardadas em IndexedDB (<code>myLineage-db</code>, object store <code>handles</code>) para persistir entre sessões.
+            </p>
+            <table class="api-table">
+              <thead>
+                <tr>
+                  <th style="width:220px;">Chave IndexedDB</th>
+                  <th>Utilização</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><code>photoBaseHandle</code></td>
+                  <td><code>FileSystemDirectoryHandle</code> da pasta de fotos configurada em Definições. Usado pelo Álbum e pelo Detalhe da Pessoa para ler e escrever ficheiros de imagem.</td>
+                </tr>
+                <tr>
+                  <td><code>docBaseHandle</code></td>
+                  <td><code>FileSystemDirectoryHandle</code> da pasta de documentos configurada em Definições. Usado pela página de Documentos para listar e abrir ficheiros.</td>
                 </tr>
               </tbody>
             </table>

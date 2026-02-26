@@ -1,0 +1,867 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Documentos – myLineage</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
+    <style>
+      /* ── Toolbar ──────────────────────────────────────────────────── */
+      .docs-topbar-actions {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .docs-search {
+        padding: 7px 12px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg-surface-2);
+        color: var(--text-main);
+        font-family: var(--font-main);
+        font-size: 0.88rem;
+        width: 240px;
+        outline: none;
+        transition: border-color var(--transition);
+      }
+      .docs-search:focus { border-color: var(--accent); }
+
+      /* type-filter pills */
+      .docs-filter-bar {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding: 20px 20px 12px;
+      }
+      .filter-pill {
+        font-size: 0.75rem;
+        padding: 4px 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--bg-surface-2);
+        color: var(--text-secondary);
+        cursor: pointer;
+        transition: border-color var(--transition), background var(--transition), color var(--transition);
+        user-select: none;
+        white-space: nowrap;
+      }
+      .filter-pill:hover { border-color: var(--accent); color: var(--text-main); }
+      .filter-pill.active {
+        background: var(--accent-soft);
+        border-color: var(--accent);
+        color: var(--accent);
+        font-weight: 600;
+      }
+
+      /* count badge */
+      .docs-count-badge {
+        font-size: 0.78rem;
+        color: var(--text-secondary);
+        background: var(--bg-surface-2);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 4px 12px;
+        white-space: nowrap;
+      }
+
+      /* empty / loader */
+      .docs-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+        padding: 60px 20px;
+        color: var(--text-secondary);
+        text-align: center;
+      }
+      .docs-empty .mdi { font-size: 3rem; opacity: 0.3; }
+      .docs-empty p { font-size: 0.95rem; max-width: 400px; line-height: 1.6; }
+      .docs-loader {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 20px;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        gap: 8px;
+      }
+
+      /* ── Document grid ──────────────────────────────────────────── */
+      .docs-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 12px;
+        padding: 0 20px 40px;
+      }
+      .doc-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        overflow: hidden;
+        cursor: pointer;
+        transition: border-color var(--transition), box-shadow var(--transition), transform var(--transition);
+        display: flex;
+        flex-direction: column;
+        text-align: center;
+      }
+      .doc-card:hover {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow);
+        transform: translateY(-2px);
+      }
+      .doc-card-icon-wrap {
+        padding: 22px 0 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg-surface-2);
+        flex-shrink: 0;
+      }
+      .doc-card-icon-wrap .mdi {
+        font-size: 2.8rem;
+        line-height: 1;
+      }
+      .doc-card-info {
+        padding: 8px 10px 12px;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        min-height: 0;
+      }
+      .doc-card-name {
+        font-size: 0.78rem;
+        font-weight: 600;
+        color: var(--text-main);
+        word-break: break-word;
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .doc-card-meta {
+        font-size: 0.68rem;
+        color: var(--text-secondary);
+      }
+      .doc-card-path {
+        font-size: 0.65rem;
+        color: var(--text-disabled);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* ── File type colours ──────────────────────────────────────── */
+      .ft-pdf   { color: #e05a52; }
+      .ft-word  { color: #2b7cd3; }
+      .ft-excel { color: #1e7145; }
+      .ft-ppt   { color: #d04423; }
+      .ft-image { color: #9a6ab0; }
+      .ft-text  { color: #8b949e; }
+      .ft-csv   { color: #3fb950; }
+      .ft-zip   { color: #d29922; }
+      .ft-audio { color: #58a6ff; }
+      .ft-video { color: #f78166; }
+      .ft-code  { color: #79c0ff; }
+      .ft-other { color: #6e7681; }
+
+      /* ── Modal ──────────────────────────────────────────────────── */
+      #docModal {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.80);
+        align-items: center;
+        justify-content: center;
+        z-index: 300;
+        padding: 16px;
+      }
+      #docModal.open { display: flex; }
+
+      .doc-modal-inner {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        max-width: 1000px;
+        width: 100%;
+        max-height: 94vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        animation: docModalIn 0.18s ease;
+      }
+      @keyframes docModalIn {
+        from { opacity: 0; transform: scale(0.96) translateY(8px); }
+        to   { opacity: 1; transform: scale(1) translateY(0); }
+      }
+
+      .doc-modal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border);
+        flex-shrink: 0;
+        gap: 12px;
+      }
+      .doc-modal-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+      .doc-modal-title-row .mdi { font-size: 1.4rem; flex-shrink: 0; }
+      .doc-modal-header h2 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-main);
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .doc-modal-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+      .doc-modal-close, .doc-modal-dl {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 1.3rem;
+        line-height: 1;
+        padding: 5px 8px;
+        border-radius: 6px;
+        transition: color var(--transition), background var(--transition);
+      }
+      .doc-modal-close:hover, .doc-modal-dl:hover { color: var(--text-main); background: var(--bg-surface-2); }
+      .doc-modal-dl { font-size: 0.82rem; display: flex; align-items: center; gap: 4px; }
+
+      .doc-modal-body {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        overflow: hidden;
+      }
+
+      /* PDF / image viewer */
+      .doc-viewer-pane {
+        flex: 1;
+        min-width: 0;
+        background: #111;
+        overflow: hidden;
+        display: flex;
+        align-items: stretch;
+      }
+      #docViewer {
+        width: 100%;
+        height: 100%;
+        border: none;
+        display: block;
+      }
+      .doc-viewer-img {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        display: block;
+        margin: auto;
+      }
+      .doc-viewer-text {
+        flex: 1;
+        padding: 20px 24px;
+        overflow: auto;
+        font-family: SFMono-Regular, Menlo, Monaco, 'Roboto Mono', monospace;
+        font-size: 0.82rem;
+        line-height: 1.6;
+        color: var(--text-main);
+        white-space: pre-wrap;
+        word-break: break-word;
+        background: var(--bg-surface-2);
+      }
+      /* unsupported docs */
+      .doc-viewer-fallback {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        color: var(--text-secondary);
+        text-align: center;
+        padding: 40px;
+        background: var(--bg-surface-2);
+      }
+      .doc-viewer-fallback .mdi { font-size: 4rem; opacity: 0.35; }
+      .doc-viewer-fallback p { font-size: 0.9rem; max-width: 320px; }
+
+      /* sidebar with meta */
+      .doc-modal-sidebar {
+        width: 240px;
+        flex-shrink: 0;
+        border-left: 1px solid var(--border);
+        overflow-y: auto;
+        padding: 18px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        background: var(--bg-surface);
+      }
+      .doc-info-section { display: flex; flex-direction: column; gap: 5px; }
+      .doc-info-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-secondary);
+      }
+      .doc-info-value { font-size: 0.85rem; color: var(--text-main); word-break: break-word; }
+      .doc-info-value.muted { color: var(--text-secondary); font-style: italic; }
+
+      @media (max-width: 640px) {
+        .doc-modal-sidebar { display: none; }
+        .docs-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; padding: 0 12px 32px; }
+        .doc-modal-inner { max-height: 98vh; }
+      }
+    </style>
+    <script src="remote-storage.js"></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a href="index.html" class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></a>
+        <nav>
+          <a href="app.html"><i class="mdi mdi-account-multiple" aria-hidden="true"></i>Cadastro</a>
+          <a href="indicadores.html"><i class="mdi mdi-chart-bar" aria-hidden="true"></i>Indicadores</a>
+          <a href="arvore.html"><i class="mdi mdi-sitemap" aria-hidden="true"></i>Árvore</a>
+          <a href="gedcom.html"><i class="mdi mdi-dna" aria-hidden="true"></i>GEDCOM</a>
+          <a href="album.html"><i class="mdi mdi-image-multiple" aria-hidden="true"></i>Álbum</a>
+          <a href="documentos.html" class="active"><i class="mdi mdi-folder-open" aria-hidden="true"></i>Documentos</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="apis.html"><i class="mdi mdi-api" aria-hidden="true"></i>APIs</a>
+          <a href="configuracao.html"><i class="mdi mdi-cog" aria-hidden="true"></i>Definições</a>
+        </div>
+      </aside>
+
+      <main class="content">
+        <div class="topbar">
+          <div style="display:flex;align-items:center;gap:12px">
+            <h1>Documentos</h1>
+            <span class="docs-count-badge" id="docsBadge" style="display:none;"></span>
+          </div>
+          <div class="docs-topbar-actions">
+            <input type="search" class="docs-search" id="docsSearch" placeholder="Pesquisar por nome ou caminho…" />
+          </div>
+        </div>
+
+        <!-- filter pills row -->
+        <div class="docs-filter-bar" id="filterBar" style="display:none;">
+          <span style="font-size:0.75rem;color:var(--text-secondary);margin-right:4px;">Tipo:</span>
+          <!-- pills injected by JS -->
+        </div>
+
+        <div id="docsContent" style="padding-top:20px;">
+          <div class="docs-loader" id="docsLoader">
+            <i class="mdi mdi-loading mdi-spin" aria-hidden="true"></i> A carregar documentos…
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <!-- Document viewer modal -->
+    <div id="docModal" role="dialog" aria-modal="true" aria-labelledby="docModalTitle">
+      <div class="doc-modal-inner">
+        <div class="doc-modal-header">
+          <div class="doc-modal-title-row">
+            <i class="mdi" id="docModalIcon" aria-hidden="true"></i>
+            <h2 id="docModalTitle">Documento</h2>
+          </div>
+          <div class="doc-modal-header-actions">
+            <button class="doc-modal-dl" id="docModalDownload" title="Descarregar ficheiro">
+              <i class="mdi mdi-download" aria-hidden="true"></i> Descarregar
+            </button>
+            <button class="doc-modal-close" id="docModalClose" title="Fechar (Esc)">
+              <i class="mdi mdi-close" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+        <div class="doc-modal-body" id="docModalBody">
+          <!-- filled by JS -->
+        </div>
+      </div>
+    </div>
+
+    <script>
+      'use strict';
+
+      const DOC_BASE_KEY = 'docBase:myLineage';
+
+      // ── Helpers ──────────────────────────────────────────────────────
+      function readDocBase(){ try{ return JSON.parse(localStorage.getItem(DOC_BASE_KEY)||'null'); }catch(e){ return null; } }
+      function escapeHtml(s){ return String(s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+      function fmtSize(bytes){
+        if(bytes == null) return '';
+        if(bytes < 1024) return bytes + ' B';
+        if(bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
+        return (bytes/1024/1024).toFixed(2) + ' MB';
+      }
+      function fmtDate(ts){
+        if(!ts) return '';
+        try{ return new Date(ts).toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(e){ return ''; }
+      }
+
+      // ── File type classification ──────────────────────────────────────
+      const TYPE_MAP = {
+        pdf:   { icon:'mdi-file-pdf-box',         cls:'ft-pdf',   label:'PDF',    group:'pdf'   },
+        doc:   { icon:'mdi-file-word',             cls:'ft-word',  label:'Word',   group:'word'  },
+        docx:  { icon:'mdi-file-word',             cls:'ft-word',  label:'Word',   group:'word'  },
+        odt:   { icon:'mdi-file-word-outline',     cls:'ft-word',  label:'ODT',    group:'word'  },
+        xls:   { icon:'mdi-file-excel',            cls:'ft-excel', label:'Excel',  group:'excel' },
+        xlsx:  { icon:'mdi-file-excel',            cls:'ft-excel', label:'Excel',  group:'excel' },
+        ods:   { icon:'mdi-file-excel-outline',    cls:'ft-excel', label:'ODS',    group:'excel' },
+        csv:   { icon:'mdi-file-delimited',        cls:'ft-csv',   label:'CSV',    group:'csv'   },
+        ppt:   { icon:'mdi-file-powerpoint',       cls:'ft-ppt',   label:'PPT',    group:'ppt'   },
+        pptx:  { icon:'mdi-file-powerpoint',       cls:'ft-ppt',   label:'PPT',    group:'ppt'   },
+        odp:   { icon:'mdi-file-powerpoint-outline',cls:'ft-ppt',  label:'ODP',    group:'ppt'   },
+        txt:   { icon:'mdi-file-document-outline', cls:'ft-text',  label:'Texto',  group:'text'  },
+        md:    { icon:'mdi-language-markdown',     cls:'ft-text',  label:'Markdown',group:'text' },
+        rtf:   { icon:'mdi-file-document',         cls:'ft-text',  label:'RTF',    group:'text'  },
+        jpg:   { icon:'mdi-file-image',            cls:'ft-image', label:'Imagem', group:'image' },
+        jpeg:  { icon:'mdi-file-image',            cls:'ft-image', label:'Imagem', group:'image' },
+        png:   { icon:'mdi-file-image',            cls:'ft-image', label:'Imagem', group:'image' },
+        gif:   { icon:'mdi-file-image',            cls:'ft-image', label:'Imagem', group:'image' },
+        webp:  { icon:'mdi-file-image',            cls:'ft-image', label:'Imagem', group:'image' },
+        svg:   { icon:'mdi-svg',                   cls:'ft-image', label:'SVG',    group:'image' },
+        tif:   { icon:'mdi-file-image',            cls:'ft-image', label:'Imagem', group:'image' },
+        tiff:  { icon:'mdi-file-image',            cls:'ft-image', label:'Imagem', group:'image' },
+        zip:   { icon:'mdi-folder-zip',            cls:'ft-zip',   label:'ZIP',    group:'zip'   },
+        rar:   { icon:'mdi-folder-zip-outline',    cls:'ft-zip',   label:'RAR',    group:'zip'   },
+        '7z':  { icon:'mdi-folder-zip-outline',    cls:'ft-zip',   label:'7z',     group:'zip'   },
+        mp3:   { icon:'mdi-music',                 cls:'ft-audio', label:'Áudio',  group:'audio' },
+        wav:   { icon:'mdi-music',                 cls:'ft-audio', label:'Áudio',  group:'audio' },
+        mp4:   { icon:'mdi-video',                 cls:'ft-video', label:'Vídeo',  group:'video' },
+        mov:   { icon:'mdi-video',                 cls:'ft-video', label:'Vídeo',  group:'video' },
+        avi:   { icon:'mdi-video',                 cls:'ft-video', label:'Vídeo',  group:'video' },
+        html:  { icon:'mdi-language-html5',        cls:'ft-code',  label:'HTML',   group:'code'  },
+        js:    { icon:'mdi-language-javascript',   cls:'ft-code',  label:'JS',     group:'code'  },
+        json:  { icon:'mdi-code-json',             cls:'ft-code',  label:'JSON',   group:'code'  },
+        xml:   { icon:'mdi-xml',                   cls:'ft-code',  label:'XML',    group:'code'  },
+      };
+      function ftInfo(name){
+        const ext  = (name||'').split('.').pop().toLowerCase();
+        return TYPE_MAP[ext] || { icon:'mdi-file-outline', cls:'ft-other', label: (ext||'?').toUpperCase(), group:'other' };
+      }
+
+      // ── IndexedDB: retrieve saved document directory handle ───────────
+      function getDocDirHandleFromDB(){
+        try{
+          const req = indexedDB.open('myLineage-db', 1);
+          return new Promise(resolve => {
+            req.onupgradeneeded = e => { const db = e.target.result; if(!db.objectStoreNames.contains('handles')) db.createObjectStore('handles'); };
+            req.onsuccess = e => {
+              const db = e.target.result;
+              const tx = db.transaction('handles','readonly');
+              const g  = tx.objectStore('handles').get('docBaseHandle');
+              g.onsuccess = () => { db.close(); resolve(g.result || null); };
+              g.onerror   = () => { db.close(); resolve(null); };
+            };
+            req.onerror = () => resolve(null);
+          });
+        }catch(e){ return Promise.resolve(null); }
+      }
+
+      async function ensureReadPermission(handle){
+        if(!handle) return false;
+        try{
+          if(handle.queryPermission){
+            const q = await handle.queryPermission({ mode: 'read' });
+            if(q === 'granted') return true;
+          }
+          if(handle.requestPermission){
+            const r = await handle.requestPermission({ mode: 'read' });
+            return r === 'granted';
+          }
+          return true;
+        }catch(e){ return false; }
+      }
+
+      // ── Recursively list files ────────────────────────────────────────
+      async function collectFilesFromDir(dirHandle, pathPrefix){
+        const results = [];
+        try{
+          for await (const [name, handle] of dirHandle.entries()){
+            const fullPath = pathPrefix ? pathPrefix + '/' + name : name;
+            if(handle.kind === 'file'){
+              results.push({ name, fullPath, handle });
+            } else if(handle.kind === 'directory'){
+              const sub = await collectFilesFromDir(handle, fullPath);
+              results.push(...sub);
+            }
+          }
+        }catch(e){ console.warn('Erro ao listar pasta:', e); }
+        return results;
+      }
+
+      // ── State ─────────────────────────────────────────────────────────
+      let _allItems      = [];
+      let _filteredItems = [];
+      let _activeGroup   = 'all';
+      let _activeQuery   = '';
+      let _groupCounts   = {};
+
+      // ── Filter logic ──────────────────────────────────────────────────
+      function applyFilters(){
+        const q = _activeQuery.trim().toLowerCase();
+        _filteredItems = _allItems.filter(item => {
+          if(_activeGroup !== 'all' && item.ft.group !== _activeGroup) return false;
+          if(q && !item.name.toLowerCase().includes(q) && !item.fullPath.toLowerCase().includes(q)) return false;
+          return true;
+        });
+        renderGrid(_filteredItems);
+        updateFilterPills();
+      }
+
+      document.getElementById('docsSearch').addEventListener('input', function(){
+        _activeQuery = this.value;
+        applyFilters();
+      });
+
+      // ── Filter pills ──────────────────────────────────────────────────
+      function buildFilterPills(){
+        const bar = document.getElementById('filterBar');
+        _groupCounts = {};
+        for(const item of _allItems){
+          _groupCounts[item.ft.group] = (_groupCounts[item.ft.group] || 0) + 1;
+        }
+        const groups = Object.keys(_groupCounts).sort();
+        if(groups.length <= 1){ bar.style.display = 'none'; return; }
+        bar.style.display = 'flex';
+        bar.innerHTML = '<span style="font-size:0.75rem;color:var(--text-secondary);margin-right:4px;">Tipo:</span>';
+
+        const allPill = document.createElement('button');
+        allPill.className = 'filter-pill' + (_activeGroup === 'all' ? ' active' : '');
+        allPill.dataset.group = 'all';
+        allPill.textContent = 'Todos (' + _allItems.length + ')';
+        allPill.addEventListener('click', () => { _activeGroup = 'all'; applyFilters(); });
+        bar.appendChild(allPill);
+
+        for(const g of groups){
+          const pill = document.createElement('button');
+          pill.className = 'filter-pill' + (_activeGroup === g ? ' active' : '');
+          pill.dataset.group = g;
+          const sampleItem = _allItems.find(i => i.ft.group === g);
+          const label = sampleItem ? sampleItem.ft.label : g.charAt(0).toUpperCase() + g.slice(1);
+          pill.textContent = label + ' (' + _groupCounts[g] + ')';
+          pill.addEventListener('click', () => { _activeGroup = g; applyFilters(); });
+          bar.appendChild(pill);
+        }
+      }
+
+      function updateFilterPills(){
+        const bar = document.getElementById('filterBar');
+        bar.querySelectorAll('.filter-pill').forEach(p => {
+          const g = p.dataset.group;
+          p.classList.toggle('active', g === _activeGroup);
+        });
+        const badge = document.getElementById('docsBadge');
+        badge.textContent = _filteredItems.length + ' documento' + (_filteredItems.length !== 1 ? 's' : '');
+        badge.style.display = _filteredItems.length >= 0 ? 'inline-block' : 'none';
+      }
+
+      // ── Render grid ───────────────────────────────────────────────────
+      function renderGrid(items){
+        const content = document.getElementById('docsContent');
+        const badge   = document.getElementById('docsBadge');
+        badge.textContent = items.length + ' documento' + (items.length !== 1 ? 's' : '');
+        badge.style.display = 'inline-block';
+
+        if(items.length === 0){
+          const base = readDocBase();
+          if(_allItems.length > 0){
+            content.innerHTML = `<div class="docs-empty"><i class="mdi mdi-magnify" aria-hidden="true"></i><p>Nenhum documento corresponde à pesquisa.</p></div>`;
+          } else {
+            content.innerHTML = `<div class="docs-empty"><i class="mdi mdi-folder-open-outline" aria-hidden="true"></i>
+              <p>${base && base.folder
+                    ? 'Nenhum ficheiro encontrado na biblioteca <strong>' + escapeHtml(base.folder) + '</strong>.'
+                    : 'Nenhuma pasta de documentos configurada.<br>Configure a Biblioteca de Documentos nas <a href="configuracao.html">Definições</a>.'
+                  }</p></div>`;
+          }
+          return;
+        }
+
+        const grid = document.createElement('div');
+        grid.className = 'docs-grid';
+        for(const item of items){ grid.appendChild(buildCard(item)); }
+        content.innerHTML = '';
+        content.appendChild(grid);
+      }
+
+      function buildCard(item){
+        const card = document.createElement('div');
+        card.className = 'doc-card';
+        card.title = item.fullPath;
+        card.addEventListener('click', () => openDocModal(item));
+
+        const iconWrap = document.createElement('div');
+        iconWrap.className = 'doc-card-icon-wrap';
+        const icon = document.createElement('i');
+        icon.className = 'mdi ' + item.ft.icon + ' ' + item.ft.cls;
+        icon.setAttribute('aria-hidden', 'true');
+        iconWrap.appendChild(icon);
+
+        const info = document.createElement('div');
+        info.className = 'doc-card-info';
+
+        const nameEl = document.createElement('div');
+        nameEl.className = 'doc-card-name';
+        nameEl.textContent = item.name;
+
+        const metaEl = document.createElement('div');
+        metaEl.className = 'doc-card-meta';
+        const parts = [];
+        if(item.ft.label) parts.push(item.ft.label);
+        if(item.size != null) parts.push(fmtSize(item.size));
+        metaEl.textContent = parts.join(' · ');
+
+        info.appendChild(nameEl);
+        info.appendChild(metaEl);
+
+        if(item.fullPath !== item.name){
+          const pathEl = document.createElement('div');
+          pathEl.className = 'doc-card-path';
+          pathEl.textContent = item.fullPath.substring(0, item.fullPath.lastIndexOf('/'));
+          info.appendChild(pathEl);
+        }
+
+        card.appendChild(iconWrap);
+        card.appendChild(info);
+        return card;
+      }
+
+      // ── Modal ─────────────────────────────────────────────────────────
+      let _currentBlobUrl = null;
+      let _currentFileHandle = null;
+
+      async function openDocModal(item){
+        const ft = item.ft;
+        document.getElementById('docModalTitle').textContent = item.name;
+        const modalIcon = document.getElementById('docModalIcon');
+        modalIcon.className = 'mdi ' + ft.icon + ' ' + ft.cls;
+
+        const body = document.getElementById('docModalBody');
+        body.innerHTML = '<div class="docs-loader" style="flex:1;background:var(--bg-surface-2);"><i class="mdi mdi-loading mdi-spin"></i> A carregar…</div>';
+
+        document.getElementById('docModal').classList.add('open');
+
+        // populate sidebar
+        let sidebar = document.getElementById('docModalSidebar');
+        if(!sidebar){
+          sidebar = document.createElement('aside');
+          sidebar.id = 'docModalSidebar';
+          sidebar.className = 'doc-modal-sidebar';
+        }
+        sidebar.innerHTML = '';
+        function infoSection(label, value, muted){
+          const s = document.createElement('div'); s.className = 'doc-info-section';
+          s.innerHTML = `<div class="doc-info-label">${escapeHtml(label)}</div><div class="doc-info-value${muted?' muted':''}">${escapeHtml(value||'')}</div>`;
+          return s;
+        }
+        sidebar.appendChild(infoSection('Ficheiro', item.name));
+        if(item.fullPath !== item.name){
+          const dir = item.fullPath.includes('/') ? item.fullPath.substring(0, item.fullPath.lastIndexOf('/')) : '';
+          if(dir) sidebar.appendChild(infoSection('Pasta', dir));
+        }
+        sidebar.appendChild(infoSection('Tipo', ft.label));
+        if(item.size != null){
+          sidebar.appendChild(infoSection('Tamanho', fmtSize(item.size)));
+        }
+        if(item.lastModified){
+          sidebar.appendChild(infoSection('Modificado', fmtDate(item.lastModified)));
+        }
+        const base = readDocBase();
+        if(base && base.folder){
+          sidebar.appendChild(infoSection('Biblioteca', base.folder));
+        }
+
+        // revoke previous blob
+        if(_currentBlobUrl){ try{ URL.revokeObjectURL(_currentBlobUrl); }catch(e){} _currentBlobUrl = null; }
+        _currentFileHandle = item.handle;
+
+        let file = null;
+        try{ file = await item.handle.getFile(); }catch(e){
+          body.innerHTML = '';
+          const fallback = document.createElement('div'); fallback.className = 'doc-viewer-fallback';
+          fallback.innerHTML = `<i class="mdi mdi-alert-circle-outline ft-other" aria-hidden="true"></i><p>Não foi possível abrir o ficheiro: ${escapeHtml(String(e))}</p>`;
+          body.appendChild(fallback);
+          body.appendChild(sidebar);
+          return;
+        }
+
+        if(item.size == null) item.size = file.size;
+        if(item.lastModified == null) item.lastModified = file.lastModified;
+        // refresh sidebar size/date
+        sidebar.innerHTML = '';
+        sidebar.appendChild(infoSection('Ficheiro', item.name));
+        if(item.fullPath !== item.name){
+          const dir = item.fullPath.includes('/') ? item.fullPath.substring(0, item.fullPath.lastIndexOf('/')) : '';
+          if(dir) sidebar.appendChild(infoSection('Pasta', dir));
+        }
+        sidebar.appendChild(infoSection('Tipo', ft.label));
+        sidebar.appendChild(infoSection('Tamanho', fmtSize(file.size)));
+        sidebar.appendChild(infoSection('Modificado', fmtDate(file.lastModified)));
+        if(base && base.folder) sidebar.appendChild(infoSection('Biblioteca', base.folder));
+
+        const blobUrl = URL.createObjectURL(file);
+        _currentBlobUrl = blobUrl;
+
+        // wire download button
+        document.getElementById('docModalDownload').onclick = function(){
+          const a = document.createElement('a');
+          a.href = blobUrl;
+          a.download = item.name;
+          a.click();
+        };
+
+        body.innerHTML = '';
+
+        const ext = item.name.split('.').pop().toLowerCase();
+
+        if(ext === 'pdf'){
+          const pane = document.createElement('div'); pane.className = 'doc-viewer-pane';
+          const embed = document.createElement('embed');
+          embed.id = 'docViewer';
+          embed.src = blobUrl + '#toolbar=1&navpanes=0';
+          embed.type = 'application/pdf';
+          pane.appendChild(embed);
+          body.appendChild(pane);
+          body.appendChild(sidebar);
+        } else if(['jpg','jpeg','png','gif','webp','svg','bmp','tiff','tif'].includes(ext)){
+          const pane = document.createElement('div'); pane.className = 'doc-viewer-pane'; pane.style.background='#111';
+          const img = document.createElement('img'); img.src = blobUrl; img.alt = item.name; img.className = 'doc-viewer-img';
+          pane.appendChild(img);
+          body.appendChild(pane);
+          body.appendChild(sidebar);
+        } else if(['txt','md','csv','log','json','xml','js','html','css','yaml','yml','ini','toml','sh','bat'].includes(ext)){
+          // read as text and display
+          try{
+            const text = await file.text();
+            const pre = document.createElement('pre'); pre.className = 'doc-viewer-text'; pre.textContent = text;
+            body.appendChild(pre);
+            body.appendChild(sidebar);
+          }catch(e){
+            renderFallback(body, item, blobUrl);
+            body.appendChild(sidebar);
+          }
+        } else if(['mp4','webm','ogg','mov'].includes(ext)){
+          const pane = document.createElement('div'); pane.className = 'doc-viewer-pane'; pane.style.background='#000';
+          const video = document.createElement('video');
+          video.src = blobUrl; video.controls = true; video.style.maxWidth = '100%'; video.style.maxHeight = '100%'; video.style.margin = 'auto'; video.style.display = 'block';
+          pane.appendChild(video);
+          body.appendChild(pane);
+          body.appendChild(sidebar);
+        } else if(['mp3','wav','flac','aac','ogg'].includes(ext)){
+          const pane = document.createElement('div'); pane.className = 'doc-viewer-pane'; pane.style.justifyContent='center'; pane.style.alignItems='center'; pane.style.background='var(--bg-surface-2)';
+          const audio = document.createElement('audio');
+          audio.src = blobUrl; audio.controls = true; audio.style.width = '80%'; audio.style.maxWidth = '400px';
+          pane.appendChild(audio);
+          body.appendChild(pane);
+          body.appendChild(sidebar);
+        } else {
+          renderFallback(body, item, blobUrl);
+          body.appendChild(sidebar);
+        }
+      }
+
+      function renderFallback(body, item, blobUrl){
+        const ft = item.ft;
+        const div = document.createElement('div'); div.className = 'doc-viewer-fallback';
+        const ico = document.createElement('i'); ico.className = 'mdi ' + ft.icon + ' ' + ft.cls; ico.setAttribute('aria-hidden','true');
+        const p = document.createElement('p'); p.textContent = 'Este tipo de ficheiro não pode ser pré-visualizado no browser.';
+        const btn = document.createElement('button'); btn.className = 'btn'; btn.style.marginTop = '4px';
+        btn.innerHTML = '<i class="mdi mdi-download" aria-hidden="true"></i> Descarregar ficheiro';
+        btn.addEventListener('click', function(){ const a=document.createElement('a'); a.href=blobUrl; a.download=item.name; a.click(); });
+        div.appendChild(ico); div.appendChild(p); div.appendChild(btn);
+        body.appendChild(div);
+      }
+
+      function closeDocModal(){
+        document.getElementById('docModal').classList.remove('open');
+        document.getElementById('docModalBody').innerHTML = '';
+        if(_currentBlobUrl){ try{ URL.revokeObjectURL(_currentBlobUrl); }catch(e){} _currentBlobUrl = null; }
+        _currentFileHandle = null;
+      }
+
+      document.getElementById('docModalClose').addEventListener('click', closeDocModal);
+      document.getElementById('docModal').addEventListener('click', e => { if(e.target === document.getElementById('docModal')) closeDocModal(); });
+      document.addEventListener('keydown', e => { if(e.key === 'Escape') closeDocModal(); });
+
+      // ── Main load ─────────────────────────────────────────────────────
+      async function loadDocuments(){
+        const content = document.getElementById('docsContent');
+        try{
+          const dirHandle = await getDocDirHandleFromDB();
+          const granted   = dirHandle ? await ensureReadPermission(dirHandle) : false;
+
+          if(!dirHandle || !granted){
+            const base = readDocBase();
+            document.getElementById('docsLoader').style.display = 'none';
+            content.innerHTML = `<div class="docs-empty">
+              <i class="mdi mdi-folder-lock-open-outline" aria-hidden="true"></i>
+              <p>${base && base.folder
+                    ? 'A pasta <strong>' + escapeHtml(base.folder) + '</strong> está configurada mas é necessário conceder permissão de acesso.<br><br><a href="configuracao.html">Abrir Definições</a> para reautorizar o acesso à pasta.'
+                    : 'Nenhuma pasta de documentos configurada.<br>Configure a Biblioteca de Documentos nas <a href="configuracao.html">Definições</a>.'
+                  }</p></div>`;
+            return;
+          }
+
+          const entries = await collectFilesFromDir(dirHandle, '');
+
+          if(entries.length === 0){
+            document.getElementById('docsLoader').style.display = 'none';
+            const base = readDocBase();
+            content.innerHTML = `<div class="docs-empty"><i class="mdi mdi-folder-open-outline" aria-hidden="true"></i><p>Pasta vazia: nenhum ficheiro encontrado em <strong>${escapeHtml(base && base.folder ? base.folder : '')}</strong>.</p></div>`;
+            return;
+          }
+
+          _allItems = entries.map(entry => ({
+            name:         entry.name,
+            fullPath:     entry.fullPath,
+            handle:       entry.handle,
+            ft:           ftInfo(entry.name),
+            size:         null,
+            lastModified: null
+          }));
+
+          // sort: folders first by path depth, then alphabetically
+          _allItems.sort((a,b) => {
+            const depthA = (a.fullPath.match(/\//g)||[]).length;
+            const depthB = (b.fullPath.match(/\//g)||[]).length;
+            if(depthA !== depthB) return depthA - depthB;
+            return a.fullPath.localeCompare(b.fullPath);
+          });
+
+          _filteredItems = _allItems;
+          document.getElementById('docsBadge').textContent = _allItems.length + ' documento' + (_allItems.length !== 1 ? 's' : '');
+          document.getElementById('docsBadge').style.display = 'inline-block';
+
+          buildFilterPills();
+          document.getElementById('docsLoader').style.display = 'none';
+          renderGrid(_allItems);
+        }catch(e){
+          console.error(e);
+          content.innerHTML = `<div class="docs-empty"><i class="mdi mdi-alert-outline" aria-hidden="true"></i><p>Erro ao carregar documentos: ${escapeHtml(String(e))}</p></div>`;
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', loadDocuments);
+    </script>
+  </body>
+</html>

@@ -1,13 +1,147 @@
-    
 <!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Indicadores</title>
+    <title>Indicadores – myLineage</title>
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
     <script src="remote-storage.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+      /* ── Grafana-style Dashboard ─────────────────────────────────────── */
+      .dash-content { background: #0f1117; }
+
+      .dash-grid {
+        padding: 16px 20px 40px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      /* Grid rows */
+      .dash-row { display: grid; gap: 10px; }
+      .dash-row-kpi     { grid-template-columns: repeat(5, 1fr); }
+      .dash-row-1-2     { grid-template-columns: 1fr 2fr; }
+      .dash-row-half    { grid-template-columns: 1fr 1fr; }
+      .dash-row-thirds  { grid-template-columns: 1fr 1fr 1fr; }
+      .dash-row-5-7     { grid-template-columns: 5fr 7fr; }
+
+      /* Panel shell */
+      .dash-panel {
+        background: #1a1d27;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 4px;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+        min-height: 80px;
+      }
+      .dash-panel-header {
+        padding: 8px 14px;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #9fa7b3;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-shrink: 0;
+        user-select: none;
+      }
+      .dash-panel-header .mdi { font-size: 0.9rem; }
+      .panel-dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        display: inline-block; flex-shrink: 0;
+      }
+      .dash-panel-body {
+        flex: 1;
+        padding: 12px 14px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        min-height: 0;
+        position: relative;
+      }
+
+      /* Stat panels */
+      .stat-panel { border-left: 3px solid var(--stat-clr, #5294e2); }
+      .stat-panel .dash-panel-body {
+        padding: 10px 14px 14px;
+        align-items: flex-start;
+        justify-content: flex-end;
+        gap: 2px;
+      }
+      .stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #fff;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+      }
+      .stat-label {
+        font-size: 0.7rem;
+        color: #6b7a94;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-top: 4px;
+      }
+      .stat-sub {
+        font-size: 0.72rem;
+        color: #5a6e8c;
+        margin-top: 5px;
+      }
+      .stat-icon {
+        font-size: 1.6rem;
+        margin-bottom: 4px;
+        opacity: 0.55;
+        color: var(--stat-clr, #5294e2);
+      }
+
+      /* No-data placeholder */
+      .no-data {
+        color: #3d4556;
+        font-size: 0.78rem;
+        text-align: center;
+        padding: 24px 0;
+        font-style: italic;
+      }
+
+      /* Topbar extras */
+      .dash-refresh-btn {
+        background: rgba(82,148,226,0.13);
+        border: 1px solid rgba(82,148,226,0.28);
+        color: #5294e2;
+        padding: 4px 12px;
+        border-radius: 3px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        transition: background 0.18s;
+        font-family: var(--font-main);
+      }
+      .dash-refresh-btn:hover { background: rgba(82,148,226,0.22); }
+      .dash-last-updated { font-size: 0.7rem; color: #3d4a61; }
+
+      /* Responsive */
+      @media (max-width: 1200px) {
+        .dash-row-kpi      { grid-template-columns: repeat(3,1fr); }
+        .dash-row-thirds   { grid-template-columns: 1fr 1fr; }
+      }
+      @media (max-width: 860px) {
+        .dash-row-kpi,
+        .dash-row-1-2,
+        .dash-row-half,
+        .dash-row-thirds,
+        .dash-row-5-7 { grid-template-columns: 1fr; }
+      }
+    </style>
   </head>
   <body>
     <div class="app-shell">
@@ -24,262 +158,534 @@
           <a href="configuracao.html"><i class="mdi mdi-cog" aria-hidden="true"></i>Definições</a>
         </div>
       </aside>
-      <main class="content">
+
+      <main class="content dash-content">
+        <!-- ── Topbar ─────────────────────────────────────────────────── -->
         <div class="topbar">
-          <div><h1>Indicadores Gerais</h1></div>
-          <div></div>
+          <div style="display:flex;align-items:center;gap:14px">
+            <h1 style="margin:0">Indicadores Genealógicos</h1>
+            <span class="dash-last-updated" id="lastUpdated"></span>
+          </div>
+          <button class="dash-refresh-btn" onclick="buildDashboard()">
+            <i class="mdi mdi-refresh" aria-hidden="true"></i> Atualizar
+          </button>
         </div>
-        <div class="indicadores-cards">
-          <div class="indicador-group">
-            <h2 class="indicador-group-title">Pessoas</h2>
-            <div class="indicador-group-row">
-              <div class="indicador-card card indicador-group-total">
-                <div class="indicador-icon" title="Pessoas"><i class="mdi mdi-account" aria-hidden="true"></i></div>
-                <div class="indicador-num" id="totalPessoas">0</div>
-                <div class="indicador-label">Total Pessoas</div>
+
+        <!-- ── Dashboard grid ────────────────────────────────────────── -->
+        <div class="dash-grid">
+
+          <!-- Row 1 · KPI stat panels -->
+          <div class="dash-row dash-row-kpi">
+            <div class="dash-panel stat-panel" style="--stat-clr:#5294e2">
+              <div class="dash-panel-header"><i class="mdi mdi-account-group" aria-hidden="true" style="color:#5294e2"></i> Pessoas</div>
+              <div class="dash-panel-body">
+                <div class="stat-icon"><i class="mdi mdi-account-group" aria-hidden="true"></i></div>
+                <div class="stat-value" id="kpi-pessoas">—</div>
+                <div class="stat-label">Total registado</div>
+                <div class="stat-sub" id="kpi-pessoas-sub"></div>
               </div>
-              <div id="topNamesCard" class="indicador-card card" style="min-width:180px;">
-                <!-- preenchido por JS: top 3 nomes próprios -->
+            </div>
+            <div class="dash-panel stat-panel" style="--stat-clr:#73bf69">
+              <div class="dash-panel-header"><i class="mdi mdi-baby-carriage" aria-hidden="true" style="color:#73bf69"></i> Nascimentos</div>
+              <div class="dash-panel-body">
+                <div class="stat-icon"><i class="mdi mdi-baby-carriage" aria-hidden="true"></i></div>
+                <div class="stat-value" id="kpi-nascimentos">—</div>
+                <div class="stat-label">Eventos de nascimento</div>
+                <div class="stat-sub" id="kpi-nascimentos-sub"></div>
               </div>
-              <div id="genderCards" class="indicador-subcards" aria-live="polite"></div>
+            </div>
+            <div class="dash-panel stat-panel" style="--stat-clr:#f25757">
+              <div class="dash-panel-header"><i class="mdi mdi-cross" aria-hidden="true" style="color:#f25757"></i> Óbitos</div>
+              <div class="dash-panel-body">
+                <div class="stat-icon"><i class="mdi mdi-cross" aria-hidden="true"></i></div>
+                <div class="stat-value" id="kpi-obitos">—</div>
+                <div class="stat-label">Eventos de óbito</div>
+                <div class="stat-sub" id="kpi-obitos-sub"></div>
+              </div>
+            </div>
+            <div class="dash-panel stat-panel" style="--stat-clr:#f2cc0c">
+              <div class="dash-panel-header"><i class="mdi mdi-ring" aria-hidden="true" style="color:#f2cc0c"></i> Casamentos</div>
+              <div class="dash-panel-body">
+                <div class="stat-icon"><i class="mdi mdi-ring" aria-hidden="true"></i></div>
+                <div class="stat-value" id="kpi-casamentos">—</div>
+                <div class="stat-label">Eventos de casamento</div>
+                <div class="stat-sub" id="kpi-casamentos-sub"></div>
+              </div>
+            </div>
+            <div class="dash-panel stat-panel" style="--stat-clr:#b877d9">
+              <div class="dash-panel-header"><i class="mdi mdi-graph" aria-hidden="true" style="color:#b877d9"></i> Relações</div>
+              <div class="dash-panel-body">
+                <div class="stat-icon"><i class="mdi mdi-graph" aria-hidden="true"></i></div>
+                <div class="stat-value" id="kpi-relacoes">—</div>
+                <div class="stat-label">Total de relações</div>
+                <div class="stat-sub" id="kpi-relacoes-sub"></div>
+              </div>
             </div>
           </div>
 
-          <div class="indicador-group">
-            <h2 class="indicador-group-title">Eventos</h2>
-            <div class="indicador-group-row">
-              <div class="indicador-card card indicador-group-total">
-                <div class="indicador-icon" title="Eventos"><i class="mdi mdi-calendar" aria-hidden="true"></i></div>
-                <div class="indicador-num" id="totalEventos">0</div>
-                <div class="indicador-label">Total Eventos</div>
+          <!-- Row 2 · Género donut + Nascimentos por Década -->
+          <div class="dash-row dash-row-1-2">
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#5294e2"></span> Distribuição por Género</div>
+              <div class="dash-panel-body" style="align-items:center;padding:16px 14px">
+                <canvas id="chartGenero"></canvas>
               </div>
-              <div id="eventTypeCards" class="indicador-subcards" aria-live="polite"></div>
+            </div>
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#73bf69"></span> Nascimentos por Década</div>
+              <div class="dash-panel-body">
+                <canvas id="chartNascimentos"></canvas>
+              </div>
             </div>
           </div>
 
-          <div class="indicador-group">
-            <h2 class="indicador-group-title">Relações</h2>
-            <div class="indicador-group-row">
-              <div class="indicador-card card indicador-group-total">
-                <div class="indicador-icon" title="Relações"><i class="mdi mdi-account-multiple" aria-hidden="true"></i></div>
-                <div class="indicador-num" id="totalRelacoes">0</div>
-                <div class="indicador-label">Total Relações</div>
+          <!-- Row 3 · Eventos por Tipo + Relações por Tipo -->
+          <div class="dash-row dash-row-half">
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#ff9830"></span> Eventos por Tipo</div>
+              <div class="dash-panel-body">
+                <canvas id="chartEventos"></canvas>
               </div>
-              <div id="relationTypeCards" class="indicador-subcards" aria-live="polite"></div>
+            </div>
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#b877d9"></span> Tipos de Relações</div>
+              <div class="dash-panel-body" style="align-items:center;padding:16px 14px">
+                <canvas id="chartRelacoes"></canvas>
+              </div>
             </div>
           </div>
 
-          <div class="indicador-group">
-            <h2 class="indicador-group-title">Nascimento por Década</h2>
-            <div class="indicador-group-row">
-              <div class="indicador-card card indicador-group-total">
-                <div class="indicador-icon" title="Nascimentos"><i class="mdi mdi-chart-bar" aria-hidden="true"></i></div>
-                <div class="indicador-num" id="totalBirths">0</div>
-                <div class="indicador-label">Total Nascimentos</div>
+          <!-- Row 4 · Top Nomes M + Top Nomes F + Top Apelidos -->
+          <div class="dash-row dash-row-thirds">
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#5294e2"></span> Top Nomes Masculinos</div>
+              <div class="dash-panel-body">
+                <canvas id="chartNomesM"></canvas>
               </div>
-              <div id="birthDecadeChart" class="indicador-chart" aria-live="polite"></div>
+            </div>
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#ef799e"></span> Top Nomes Femininos</div>
+              <div class="dash-panel-body">
+                <canvas id="chartNomesF"></canvas>
+              </div>
+            </div>
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#73bf69"></span> Top Apelidos</div>
+              <div class="dash-panel-body">
+                <canvas id="chartApelidos"></canvas>
+              </div>
             </div>
           </div>
-        </div>
+
+          <!-- Row 5 · Longevidade + Óbitos por Década -->
+          <div class="dash-row dash-row-5-7">
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#f2cc0c"></span> Longevidade</div>
+              <div class="dash-panel-body" style="gap:12px;justify-content:flex-start">
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                  <div style="flex:1;min-width:72px;background:#111520;border-radius:4px;padding:10px 8px;text-align:center;border:1px solid rgba(255,255,255,0.06)">
+                    <div class="stat-value" id="longi-media" style="font-size:1.5rem;color:#f2cc0c">—</div>
+                    <div class="stat-label">Média</div>
+                  </div>
+                  <div style="flex:1;min-width:72px;background:#111520;border-radius:4px;padding:10px 8px;text-align:center;border:1px solid rgba(255,255,255,0.06)">
+                    <div class="stat-value" id="longi-max" style="font-size:1.5rem;color:#73bf69">—</div>
+                    <div class="stat-label">Máximo</div>
+                  </div>
+                  <div style="flex:1;min-width:72px;background:#111520;border-radius:4px;padding:10px 8px;text-align:center;border:1px solid rgba(255,255,255,0.06)">
+                    <div class="stat-value" id="longi-min" style="font-size:1.5rem;color:#f25757">—</div>
+                    <div class="stat-label">Mínimo</div>
+                  </div>
+                </div>
+                <div style="flex:1;min-height:80px;position:relative">
+                  <canvas id="chartLongevidade"></canvas>
+                  <div id="longi-nodata" class="no-data" style="display:none">Sem dados suficientes de longevidade</div>
+                </div>
+              </div>
+            </div>
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#f25757"></span> Óbitos por Década</div>
+              <div class="dash-panel-body" id="obitos-body">
+                <canvas id="chartObitos"></canvas>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /.dash-grid -->
       </main>
-    </div>
+    </div><!-- /.app-shell -->
+
     <script>
-      function getPeople() {
-        try {
-          const raw = localStorage.getItem('people:myLineage');
-          return raw ? JSON.parse(raw) : [];
-        } catch (e) { return []; }
+      // ── Data helpers ───────────────────────────────────────────────────
+      function getPeople()   { try{ const r=localStorage.getItem('people:myLineage');    return r?JSON.parse(r):[]; }catch(e){ return []; } }
+      function getEvents()   { try{ const r=localStorage.getItem('events:myLineage');    return r?JSON.parse(r):[]; }catch(e){ return []; } }
+      function getRelations(){ try{ const r=localStorage.getItem('relations:myLineage'); return r?JSON.parse(r):[]; }catch(e){ return []; } }
+
+      // ── Chart.js defaults ──────────────────────────────────────────────
+      Chart.defaults.color       = '#8a9ab5';
+      Chart.defaults.borderColor = 'rgba(255,255,255,0.06)';
+      Chart.defaults.font.family = "'Inter','Segoe UI',sans-serif";
+      Chart.defaults.font.size   = 12;
+
+      const CHART_PALETTE = [
+        '#5294e2','#73bf69','#f2cc0c','#f25757','#b877d9',
+        '#ff9830','#00c9e0','#ef799e','#56d4d4','#fda85b'
+      ];
+      const _charts = {};
+
+      function mkChart(id, type, data, options){
+        if(_charts[id]){ try{ _charts[id].destroy(); }catch(e){} }
+        const ctx = document.getElementById(id);
+        if(!ctx) return;
+        _charts[id] = new Chart(ctx, {
+          type,
+          data,
+          options: Object.assign({ responsive:true, maintainAspectRatio:true }, options||{})
+        });
       }
-      function getEvents() {
-        try {
-          const raw = localStorage.getItem('events:myLineage');
-          return raw ? JSON.parse(raw) : [];
-        } catch (e) { return []; }
+
+      function topN(counts, n){
+        return Object.entries(counts)
+          .sort((a,b)=>b[1]-a[1])
+          .slice(0,n)
+          .map(([k,v])=>({ label: k.charAt(0).toUpperCase()+k.slice(1), value: v }));
       }
-      function getRelations() {
-        try {
-          const raw = localStorage.getItem('relations:myLineage');
-          return raw ? JSON.parse(raw) : [];
-        } catch (e) { return []; }
+
+      function safeYear(dateStr){
+        if(!dateStr) return null;
+        try{
+          // Handle plain year strings like "1920" and full ISO dates
+          const trimmed = String(dateStr).trim();
+          if(/^\d{4}$/.test(trimmed)) return parseInt(trimmed, 10);
+          const d = new Date(trimmed);
+          return isNaN(d) ? null : d.getFullYear();
+        }catch(e){ return null; }
       }
-      function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
-      function updateIndicadores() {
-        const pessoas = getPeople().filter(p => !p.deletedAt);
-        const eventos = getEvents().filter(ev => !ev.deletedAt);
-        const relacoes = getRelations();
-        document.getElementById('totalPessoas').textContent = pessoas.length;
-        document.getElementById('totalEventos').textContent = eventos.length;
-        document.getElementById('totalRelacoes').textContent = relacoes.length;
-        // Contagem por tipo de relação e renderização de cards específicos
-        const typeMap = {
-          siblin: { label: 'Irmão / Irmã', icon: '<i class="mdi mdi-account-multiple" aria-hidden="true"></i>' },
-          ancestor: { label: 'Pai / Mãe', icon: '<i class="mdi mdi-account" aria-hidden="true"></i>' },
-          child: { label: 'Filho(a)', icon: '<i class="mdi mdi-baby" aria-hidden="true"></i>' },
-          mate: { label: 'Companheiro(a)', icon: '<i class="mdi mdi-heart" aria-hidden="true"></i>' }
-        };
-        const counts = {};
-        relacoes.forEach(r => { if (r && r.type) counts[r.type] = (counts[r.type] || 0) + 1; });
-        const container = document.getElementById('relationTypeCards');
-        if (container) {
-          container.innerHTML = '';
-          // Render known types in a stable order
-          Object.keys(typeMap).forEach(t => {
-            const n = counts[t] || 0;
-            const card = document.createElement('div');
-            card.className = 'indicador-card card';
-            card.style.minWidth = '140px';
-            card.innerHTML = `<div class="indicador-icon" title="${typeMap[t].label}">${typeMap[t].icon}</div><div class="indicador-num">${n}</div><div class="indicador-label">${typeMap[t].label}</div>`;
-            container.appendChild(card);
-            // remove from counts so remaining unknowns can be listed later
-            delete counts[t];
+
+      // ── Main build ────────────────────────────────────────────────────
+      function buildDashboard(){
+        const allPessoas  = getPeople();
+        const allEventos  = getEvents();
+        const allRelacoes = getRelations();
+
+        const pessoas  = allPessoas.filter(p  => !p.deletedAt);
+        const eventos  = allEventos.filter(ev => !ev.deletedAt);
+        const relacoes = allRelacoes;
+
+        const evBirth    = eventos.filter(e=>(e.type||'').toUpperCase()==='BIRTH');
+        const evDeath    = eventos.filter(e=>(e.type||'').toUpperCase()==='DEATH');
+        const evMarriage = eventos.filter(e=>(e.type||'').toUpperCase()==='MARRIAGE');
+
+        // ── KPIs ──────────────────────────────────────────────────────
+        document.getElementById('kpi-pessoas').textContent    = pessoas.length;
+        document.getElementById('kpi-nascimentos').textContent = evBirth.length;
+        document.getElementById('kpi-obitos').textContent     = evDeath.length;
+        document.getElementById('kpi-casamentos').textContent = evMarriage.length;
+        document.getElementById('kpi-relacoes').textContent   = relacoes.length;
+
+        const gM = pessoas.filter(p=>(p.gender||'').toLowerCase()==='male').length;
+        const gF = pessoas.filter(p=>(p.gender||'').toLowerCase()==='female').length;
+        const subEl = document.getElementById('kpi-pessoas-sub');
+        if(subEl) subEl.textContent = gM+' masc. · '+gF+' fem.';
+
+        const divorces = eventos.filter(e=>(e.type||'').toUpperCase()==='DIVORCE').length;
+        const casSubEl = document.getElementById('kpi-casamentos-sub');
+        if(casSubEl && divorces>0) casSubEl.textContent = divorces+' divórcio'+(divorces!==1?'s':'');
+
+        const luEl = document.getElementById('lastUpdated');
+        if(luEl) luEl.textContent = 'Atualizado: '+new Date().toLocaleTimeString('pt-BR');
+
+        // ── Distribuição por Género (donut) ───────────────────────────
+        {
+          const gCounts = { Masculino:0, Feminino:0, Outro:0, 'Não informado':0 };
+          pessoas.forEach(p=>{
+            const g=(p.gender||'').toLowerCase();
+            if(g==='male')        gCounts['Masculino']++;
+            else if(g==='female') gCounts['Feminino']++;
+            else if(g==='other')  gCounts['Outro']++;
+            else                  gCounts['Não informado']++;
           });
-          // Render any unknown types that exist in data
-          Object.keys(counts).forEach(t => {
-            const n = counts[t] || 0;
-            const card = document.createElement('div');
-            card.className = 'indicador-card card';
-            card.style.minWidth = '140px';
-            card.innerHTML = `<div class="indicador-icon" title="${t}"><i class="mdi mdi-diamond-stone" aria-hidden="true"></i></div><div class="indicador-num">${n}</div><div class="indicador-label">${t}</div>`;
-            container.appendChild(card);
-          });
-        }
-        // Eventos: contar por tipo e renderizar cards
-        const eventMap = {
-          BIRTH: { label: 'Nascimento', icon: '<i class="mdi mdi-baby" aria-hidden="true"></i>' },
-          BAPTISM: { label: 'Batismo', icon: '<i class="mdi mdi-cross" aria-hidden="true"></i>' },
-          DEATH: { label: 'Óbito', icon: '<i class="mdi mdi-skull" aria-hidden="true"></i>' },
-          MARRIAGE: { label: 'Casamento', icon: '<i class="mdi mdi-ring" aria-hidden="true"></i>' },
-          DIVORCE: { label: 'Divórcio', icon: '<i class="mdi mdi-scale" aria-hidden="true"></i>' },
-          ADOPTION: { label: 'Adoção', icon: '<i class="mdi mdi-handshake" aria-hidden="true"></i>' },
-          CUSTOM: { label: 'Outro', icon: '<i class="mdi mdi-diamond-stone" aria-hidden="true"></i>' }
-        };
-        const evCounts = {};
-        eventos.forEach(ev => { if (ev && ev.type) evCounts[ev.type] = (evCounts[ev.type] || 0) + 1; });
-        const evContainer = document.getElementById('eventTypeCards');
-        if (evContainer) {
-          evContainer.innerHTML = '';
-          Object.keys(eventMap).forEach(t => {
-            const n = evCounts[t] || 0;
-            const card = document.createElement('div');
-            card.className = 'indicador-card card';
-            card.style.minWidth = '140px';
-            card.innerHTML = `<div class="indicador-icon" title="${eventMap[t].label}">${eventMap[t].icon}</div><div class="indicador-num">${n}</div><div class="indicador-label">${eventMap[t].label}</div>`;
-            evContainer.appendChild(card);
-            delete evCounts[t];
-          });
-          // Render any unknown event types
-          Object.keys(evCounts).forEach(t => {
-            const n = evCounts[t] || 0;
-            const card = document.createElement('div');
-            card.className = 'indicador-card card';
-            card.style.minWidth = '140px';
-            card.innerHTML = `<div class="indicador-icon" title="${t}"><i class="mdi mdi-rhombus" aria-hidden="true"></i></div><div class="indicador-num">${n}</div><div class="indicador-label">${t}</div>`;
-            evContainer.appendChild(card);
-          });
-        }
-        // Gêneros: contar por gênero e renderizar cards
-        const genderMap = {
-          male: { label: 'Masculino', icon: '<i class="mdi mdi-gender-male" aria-hidden="true"></i>' },
-          female: { label: 'Feminino', icon: '<i class="mdi mdi-gender-female" aria-hidden="true"></i>' },
-          other: { label: 'Outro', icon: '<i class="mdi mdi-gender-transgender" aria-hidden="true"></i>' },
-          unknown: { label: 'Não informado', icon: '<i class="mdi mdi-help-circle" aria-hidden="true"></i>' }
-        };
-        const gCounts = {};
-        pessoas.forEach(p => { const g = p && p.gender ? p.gender : 'unknown'; gCounts[g] = (gCounts[g] || 0) + 1; });
-        const gContainer = document.getElementById('genderCards');
-        if (gContainer) {
-          gContainer.innerHTML = '';
-          // Render known genders in stable order
-          ['male','female','other','unknown'].forEach(k => {
-            const n = gCounts[k] || 0;
-            const info = genderMap[k] || { label: k, icon: '❓' };
-            const card = document.createElement('div');
-            card.className = 'indicador-card card';
-            card.style.minWidth = '140px';
-            card.innerHTML = `<div class="indicador-icon" title="${info.label}">${info.icon}</div><div class="indicador-num">${n}</div><div class="indicador-label">${info.label}</div>`;
-            gContainer.appendChild(card);
-            delete gCounts[k];
-          });
-          // Any unexpected gender keys
-          Object.keys(gCounts).forEach(k => {
-            const n = gCounts[k] || 0;
-            const card = document.createElement('div');
-            card.className = 'indicador-card card';
-            card.style.minWidth = '140px';
-            card.innerHTML = `<div class="indicador-icon" title="${k}"><i class="mdi mdi-diamond-stone" aria-hidden="true"></i></div><div class="indicador-num">${n}</div><div class="indicador-label">${k}</div>`;
-            gContainer.appendChild(card);
+          const nz = Object.entries(gCounts).filter(([,v])=>v>0);
+          const bgColors = { Masculino:'#5294e2', Feminino:'#ef799e', Outro:'#b877d9', 'Não informado':'#3d4a5c' };
+          mkChart('chartGenero','doughnut',{
+            labels: nz.map(([k])=>k),
+            datasets:[{
+              data: nz.map(([,v])=>v),
+              backgroundColor: nz.map(([k])=>bgColors[k]||'#5294e2'),
+              borderWidth: 2,
+              borderColor: '#1a1d27',
+              hoverOffset: 8
+            }]
+          },{
+            plugins:{
+              legend:{ position:'bottom', labels:{ usePointStyle:true, padding:14, font:{size:11}, color:'#8a9ab5' } },
+              tooltip:{ callbacks:{ label: ctx=>' '+ctx.label+': '+ctx.parsed+' ('+(pessoas.length?Math.round(ctx.parsed/pessoas.length*100):0)+'%)' } }
+            },
+            cutout:'65%'
           });
         }
 
-        // Top 3 first names (separate lists for Masculino / Feminino)
-        try{
-          const topEl = document.getElementById('topNamesCard');
-          if(topEl){
-            const maleCounts = {};
-            const femaleCounts = {};
-            pessoas.forEach(p => {
-              // derive first name from available fields
-              let fn = (p.firstName || '').toString().trim();
-              if(!fn){
-                const alt = (p.fullName || p.name || p.displayName || '').toString().trim();
-                if(alt) fn = alt.split(/\s+/)[0] || '';
-              }
-              if(!fn) return;
-              const key = fn.replace(/\s+/g,' ').toLowerCase();
-              const graw = (p.gender || p.sex || '').toString().toLowerCase();
-              const g = (graw === 'male' || graw === 'masculino' || graw === 'm') ? 'male' : (graw === 'female' || graw === 'feminino' || graw === 'f') ? 'female' : 'unknown';
-              if(g === 'male') maleCounts[key] = (maleCounts[key] || 0) + 1;
-              else if(g === 'female') femaleCounts[key] = (femaleCounts[key] || 0) + 1;
-            });
-            function topN(counts, n){ return Object.keys(counts).map(k=>({ name:k, n: counts[k] })).sort((a,b)=>b.n - a.n).slice(0,n); }
-            const topM = topN(maleCounts, 3);
-            const topF = topN(femaleCounts, 3);
-            // build HTML with two columns
-            let html = `<div class="indicador-icon"><i class="mdi mdi-account-multiple" aria-hidden="true"></i></div><div class="indicador-label">Nomes mais comuns</div>`;
-            html += `<div style="display:flex;gap:10px;padding-top:8px;">`;
-            function colHtml(arr, label){
-              let s = `<div style="flex:1"><div style="font-weight:700;margin-bottom:6px">${label}</div>`;
-              if(!arr || arr.length===0) s += `<div style="color:var(--text-secondary)">Sem dados</div>`;
-              else arr.forEach((t,i) => { const display = t.name.charAt(0).toUpperCase() + t.name.slice(1); s += `<div>${i+1}. ${escapeHtml(display)} (${t.n})</div>`; });
-              s += `</div>`; return s;
-            }
-            html += colHtml(topM, 'Masculino');
-            html += colHtml(topF, 'Feminino');
-            html += `</div>`;
-            topEl.innerHTML = html;
-          }
-        }catch(e){ console.warn('top names render failed', e); }
-      }
-      updateIndicadores();
-      // call births by decade chart after updating counts
-      try{ renderBirthsByDecade(getPeople().filter(p=>!p.deletedAt), getEvents().filter(ev=>!ev.deletedAt)); }catch(e){}
-      // Render births per decade chart based on available events/people
-      function renderBirthsByDecade(pessoas, eventos){
-        try{
+        // ── Nascimentos por Década (bar) ──────────────────────────────
+        {
           const birthDates = [];
-          (eventos||[]).forEach(ev => { if(!ev) return; const t = (ev.type||'').toString().toUpperCase(); if(t === 'BIRTH'){ if(ev.date) birthDates.push(new Date(ev.date)); } });
-          // also collect birth date info from people records if present
-          (pessoas||[]).forEach(p => { try{ if(p && p.birthDate) birthDates.push(new Date(p.birthDate)); }catch(e){} });
-          const counts = {};
-          birthDates.forEach(d => { if(!d || isNaN(d)) return; const dec = Math.floor(d.getFullYear()/10)*10; counts[dec] = (counts[dec]||0) + 1; });
-          const decades = Object.keys(counts).map(k=>Number(k)).sort((a,b)=>a-b);
-          const total = Object.values(counts).reduce((a,b)=>a+b,0);
-          const totalEl = document.getElementById('totalBirths'); if(totalEl) totalEl.textContent = total;
-          const container = document.getElementById('birthDecadeChart'); if(!container) return;
-          const w = 520, h = 140; let svg = '';
-          if(decades.length === 0){ svg = `<div style="color:#888;padding:14px">Sem dados de nascimento</div>`; container.innerHTML = svg; return; }
-          const max = Math.max(...Object.values(counts));
-          const barW = Math.floor((w - 40)/decades.length);
-          svg = `<svg viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" width="100%" height="140" role="img" aria-label="Nascimentos por década">`;
-          decades.forEach((dec,i)=>{
-            const val = counts[dec]||0; const barH = Math.round((val/max) * (h-50)); const x = 20 + i*barW; const y = h - 30 - barH;
-            svg += `<rect x="${x}" y="${y}" width="${Math.max(6, barW-8)}" height="${barH}" fill="#4a90e2"></rect>`;
-            svg += `<text x="${x + (barW-8)/2}" y="${h-10}" font-size="11" fill="#cfd4e6" text-anchor="middle">${dec}s</text>`;
+          const seenBirth = new Set();
+          evBirth.forEach(ev=>{
+            const yr = safeYear(ev.date);
+            if(yr){ birthDates.push(yr); if(ev.personId) seenBirth.add(ev.personId); }
           });
-          svg += `</svg>`;
-          container.innerHTML = svg;
-        }catch(e){ console.warn('renderBirthsByDecade failed', e); }
+          pessoas.forEach(p=>{
+            if(!seenBirth.has(p.id)){
+              const yr = safeYear(p.birthDate);
+              if(yr) birthDates.push(yr);
+            }
+          });
+          document.getElementById('kpi-nascimentos-sub').textContent =
+            birthDates.length > 0 ? 'com data: '+birthDates.length : '';
+          const counts = {};
+          birthDates.forEach(yr=>{ const dec=Math.floor(yr/10)*10; counts[dec]=(counts[dec]||0)+1; });
+          const decades = Object.keys(counts).map(Number).sort((a,b)=>a-b);
+          if(decades.length){
+            mkChart('chartNascimentos','bar',{
+              labels: decades.map(d=>d+'s'),
+              datasets:[{
+                label:'Nascimentos',
+                data: decades.map(d=>counts[d]||0),
+                backgroundColor:'rgba(115,191,105,0.7)',
+                borderColor:'#73bf69',
+                borderWidth:1,
+                borderRadius:3
+              }]
+            },{
+              plugins:{ legend:{ display:false } },
+              scales:{
+                x:{ grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#8a9ab5' } },
+                y:{ grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#8a9ab5', stepSize:1, precision:0 } }
+              }
+            });
+          } else {
+            document.getElementById('chartNascimentos').replaceWith(Object.assign(document.createElement('p'),{className:'no-data',textContent:'Sem datas de nascimento registadas'}));
+          }
+        }
+
+        // ── Eventos por Tipo (horizontal bar) ─────────────────────────
+        {
+          const evLabels = {
+            BIRTH:'Nascimento', BAPTISM:'Batismo', DEATH:'Óbito',
+            MARRIAGE:'Casamento', DIVORCE:'Divórcio', ADOPTION:'Adoção', CUSTOM:'Outro'
+          };
+          const evCounts = {};
+          eventos.forEach(ev=>{ const t=(ev.type||'').toUpperCase(); evCounts[t]=(evCounts[t]||0)+1; });
+          const items = Object.entries(evCounts).sort((a,b)=>b[1]-a[1]);
+          if(items.length){
+            mkChart('chartEventos','bar',{
+              labels: items.map(([t])=>evLabels[t]||t),
+              datasets:[{
+                label:'Quantidade',
+                data: items.map(([,v])=>v),
+                backgroundColor: items.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]+'b0'),
+                borderColor:     items.map((_,i)=>CHART_PALETTE[i%CHART_PALETTE.length]),
+                borderWidth:1, borderRadius:3
+              }]
+            },{
+              indexAxis:'y',
+              plugins:{ legend:{ display:false } },
+              scales:{
+                x:{ grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#8a9ab5', stepSize:1, precision:0 } },
+                y:{ grid:{ display:false }, ticks:{ color:'#d0d8e8', font:{ size:11 } } }
+              }
+            });
+          } else {
+            document.getElementById('chartEventos').replaceWith(Object.assign(document.createElement('p'),{className:'no-data',textContent:'Sem eventos registados'}));
+          }
+        }
+
+        // ── Tipos de Relações (donut) ─────────────────────────────────
+        {
+          const rlLabels = { siblin:'Irmã/Irmão', ancestor:'Pai/Mãe', child:'Filho(a)', mate:'Companheiro(a)' };
+          const rlCounts = {};
+          relacoes.forEach(r=>{ if(r&&r.type) rlCounts[r.type]=(rlCounts[r.type]||0)+1; });
+          const items = Object.entries(rlCounts).sort((a,b)=>b[1]-a[1]);
+          if(items.length){
+            mkChart('chartRelacoes','doughnut',{
+              labels: items.map(([t])=>rlLabels[t]||t),
+              datasets:[{
+                data: items.map(([,v])=>v),
+                backgroundColor:['#b877d9','#5294e2','#73bf69','#f2cc0c','#f25757','#ff9830'],
+                borderWidth:2, borderColor:'#1a1d27', hoverOffset:8
+              }]
+            },{
+              plugins:{
+                legend:{ position:'bottom', labels:{ usePointStyle:true, padding:14, font:{size:11}, color:'#8a9ab5' } }
+              },
+              cutout:'60%'
+            });
+          } else {
+            document.getElementById('chartRelacoes').replaceWith(Object.assign(document.createElement('p'),{className:'no-data',textContent:'Sem relações registadas'}));
+          }
+          const rlSubEl = document.getElementById('kpi-relacoes-sub');
+          if(rlSubEl){
+            const mates = (rlCounts['mate']||0);
+            const children = (rlCounts['child']||0);
+            rlSubEl.textContent = mates ? mates+' laços conjugais' : (children ? children+' filiações':'');
+          }
+        }
+
+        // ── Top Nomes helper ──────────────────────────────────────────
+        function buildTopNamesChart(canvasId, gender, color){
+          const nameCounts = {};
+          pessoas.forEach(p=>{
+            const g=(p.gender||'').toLowerCase();
+            if(gender==='male'   && g!=='male')   return;
+            if(gender==='female' && g!=='female') return;
+            let fn=(p.firstName||'').trim();
+            if(!fn){ const full=(p.fullName||p.name||'').trim(); fn=full.split(/\s+/)[0]||''; }
+            if(!fn) return;
+            nameCounts[fn.toLowerCase()]=(nameCounts[fn.toLowerCase()]||0)+1;
+          });
+          const items = topN(nameCounts, 8);
+          if(items.length){
+            mkChart(canvasId,'bar',{
+              labels: items.map(i=>i.label),
+              datasets:[{
+                label:'Ocorrências',
+                data: items.map(i=>i.value),
+                backgroundColor:color+'b0', borderColor:color, borderWidth:1, borderRadius:3
+              }]
+            },{
+              indexAxis:'y',
+              plugins:{ legend:{ display:false } },
+              scales:{
+                x:{ grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#8a9ab5', stepSize:1, precision:0 } },
+                y:{ grid:{ display:false }, ticks:{ color:'#d0d8e8', font:{ size:11 } } }
+              }
+            });
+          } else {
+            const el = document.getElementById(canvasId);
+            if(el) el.replaceWith(Object.assign(document.createElement('p'),{className:'no-data',textContent:'Sem dados'}));
+          }
+        }
+        buildTopNamesChart('chartNomesM','male','#5294e2');
+        buildTopNamesChart('chartNomesF','female','#ef799e');
+
+        // ── Top Apelidos ──────────────────────────────────────────────
+        {
+          const snCounts = {};
+          pessoas.forEach(p=>{
+            let sn=(p.lastName||'').trim();
+            if(!sn){ const full=(p.fullName||p.name||'').trim(); const parts=full.split(/\s+/); if(parts.length>1) sn=parts[parts.length-1]; }
+            if(!sn||sn.length<2) return;
+            snCounts[sn.toLowerCase()]=(snCounts[sn.toLowerCase()]||0)+1;
+          });
+          const items = topN(snCounts, 8);
+          if(items.length){
+            mkChart('chartApelidos','bar',{
+              labels: items.map(i=>i.label),
+              datasets:[{
+                label:'Ocorrências',
+                data: items.map(i=>i.value),
+                backgroundColor:'#73bf69b0', borderColor:'#73bf69', borderWidth:1, borderRadius:3
+              }]
+            },{
+              indexAxis:'y',
+              plugins:{ legend:{ display:false } },
+              scales:{
+                x:{ grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#8a9ab5', stepSize:1, precision:0 } },
+                y:{ grid:{ display:false }, ticks:{ color:'#d0d8e8', font:{ size:11 } } }
+              }
+            });
+          } else {
+            document.getElementById('chartApelidos').replaceWith(Object.assign(document.createElement('p'),{className:'no-data',textContent:'Sem dados de apelido'}));
+          }
+        }
+
+        // ── Longevidade ───────────────────────────────────────────────
+        {
+          const birthYearMap = {};
+          const deathYearMap = {};
+          evBirth.forEach(ev=>{ if(ev.personId){ const yr=safeYear(ev.date); if(yr) birthYearMap[ev.personId]=yr; } });
+          evDeath.forEach(ev=>{ if(ev.personId){ const yr=safeYear(ev.date); if(yr) deathYearMap[ev.personId]=yr; } });
+          pessoas.forEach(p=>{
+            if(p.birthDate && !birthYearMap[p.id]){ const yr=safeYear(p.birthDate); if(yr) birthYearMap[p.id]=yr; }
+            if(p.deathDate && !deathYearMap[p.id]){ const yr=safeYear(p.deathDate); if(yr) deathYearMap[p.id]=yr; }
+          });
+          const ages = [];
+          Object.keys(birthYearMap).forEach(pid=>{
+            if(deathYearMap[pid]){
+              const age = deathYearMap[pid]-birthYearMap[pid];
+              if(age>=0 && age<130) ages.push(age);
+            }
+          });
+          const mediaEl = document.getElementById('longi-media');
+          const maxEl   = document.getElementById('longi-max');
+          const minEl   = document.getElementById('longi-min');
+          const nodataEl= document.getElementById('longi-nodata');
+          const canvasEl= document.getElementById('chartLongevidade');
+          if(ages.length>0){
+            const avg = Math.round(ages.reduce((a,b)=>a+b,0)/ages.length);
+            if(mediaEl) mediaEl.textContent = avg+' a';
+            if(maxEl)   maxEl.textContent   = Math.max(...ages)+' a';
+            if(minEl)   minEl.textContent   = Math.min(...ages)+' a';
+            if(nodataEl) nodataEl.style.display='none';
+            const buckets={};
+            ages.forEach(a=>{ const b=Math.floor(a/10)*10; buckets[b]=(buckets[b]||0)+1; });
+            const bs=Object.keys(buckets).map(Number).sort((a,b)=>a-b);
+            mkChart('chartLongevidade','bar',{
+              labels: bs.map(b=>b+'–'+(b+9)+' a'),
+              datasets:[{
+                label:'Pessoas',
+                data: bs.map(b=>buckets[b]||0),
+                backgroundColor:'#f2cc0cb0', borderColor:'#f2cc0c', borderWidth:1, borderRadius:3
+              }]
+            },{
+              plugins:{ legend:{ display:false } },
+              scales:{
+                x:{ grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#8a9ab5', font:{ size:10 } } },
+                y:{ grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#8a9ab5', stepSize:1, precision:0 } }
+              }
+            });
+          } else {
+            if(mediaEl) mediaEl.textContent='—';
+            if(maxEl)   maxEl.textContent='—';
+            if(minEl)   minEl.textContent='—';
+            if(canvasEl) canvasEl.style.display='none';
+            if(nodataEl) nodataEl.style.display='';
+          }
+        }
+
+        // ── Óbitos por Década ─────────────────────────────────────────
+        {
+          const deathYrs = [];
+          const seenDeath = new Set();
+          evDeath.forEach(ev=>{ const yr=safeYear(ev.date); if(yr){ deathYrs.push(yr); if(ev.personId) seenDeath.add(ev.personId); } });
+          pessoas.forEach(p=>{ if(!seenDeath.has(p.id)){ const yr=safeYear(p.deathDate); if(yr) deathYrs.push(yr); } });
+          const counts={};
+          deathYrs.forEach(yr=>{ const dec=Math.floor(yr/10)*10; counts[dec]=(counts[dec]||0)+1; });
+          const decades=Object.keys(counts).map(Number).sort((a,b)=>a-b);
+          const obitosEl = document.getElementById('chartObitos');
+          if(decades.length && obitosEl){
+            mkChart('chartObitos','bar',{
+              labels: decades.map(d=>d+'s'),
+              datasets:[{
+                label:'Óbitos',
+                data: decades.map(d=>counts[d]||0),
+                backgroundColor:'rgba(242,87,87,0.65)',
+                borderColor:'#f25757', borderWidth:1, borderRadius:3
+              }]
+            },{
+              plugins:{ legend:{ display:false } },
+              scales:{
+                x:{ grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#8a9ab5' } },
+                y:{ grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#8a9ab5', stepSize:1, precision:0 } }
+              }
+            });
+          } else if(obitosEl){
+            obitosEl.replaceWith(Object.assign(document.createElement('p'),{className:'no-data',textContent:'Sem datas de óbito registadas'}));
+          }
+          const obitosSubEl = document.getElementById('kpi-obitos-sub');
+          if(obitosSubEl) obitosSubEl.textContent = deathYrs.length>0?'com data: '+deathYrs.length:'';
+        }
       }
+
+      buildDashboard();
     </script>
   </body>
 </html>

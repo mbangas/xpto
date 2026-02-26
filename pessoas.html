@@ -91,14 +91,37 @@
         const focusId = getFocusId(); if(!focusId) return { nodes: [], edges: [] };
 
         const nodesMap = new Map(); const edges = [];
+        const parentMap = new Map(); // id -> [fatherId, motherId] (may include nulls)
         function addNode(p){ const id = String(p.id); if(!nodesMap.has(id)) nodesMap.set(id, { data: { id, name: (((p.firstName||'') + ' ' + (p.lastName||'')).trim()) || (p.name||''), img: getThumbnailForPerson(p.id) || genderPlaceholder(p.gender), gender: p.gender || '' } }); }
 
         // helper: collect parent ids from different possible keys used in data
-        function getParentIds(person){ if(!person) return []; const ids = new Set(); const tryPush = v => { if(v===undefined || v===null) return; if(Array.isArray(v)){ v.forEach(x=>{ if(x!==undefined && x!==null) ids.add(String(x)); }); } else ids.add(String(v)); };
-          tryPush(person.fatherId); tryPush(person.father); tryPush(person.paiId);
-          tryPush(person.motherId); tryPush(person.mother); tryPush(person.maeId);
-          if(Array.isArray(person.parents)) person.parents.forEach(x=>{ if(x!==undefined && x!==null) ids.add(String(x)); });
-          return Array.from(ids);
+        function getParentIds(person){ if(!person) return []; const fatherCandidates = [person.fatherId, person.father, person.paiId]; const motherCandidates = [person.motherId, person.mother, person.maeId]; const father = fatherCandidates.find(x=>x!==undefined && x!==null); const mother = motherCandidates.find(x=>x!==undefined && x!==null); const list = []; if(father !== undefined && father !== null) list.push(String(father)); if(mother !== undefined && mother !== null) list.push(String(mother)); // preserve order: father then mother when available
+          if(Array.isArray(person.parents)){
+            // try to fill missing slots from generic parents array (best-effort)
+            const extras = person.parents.filter(x => x!==undefined && x!==null).map(String);
+            extras.forEach(x=>{ if(!list.includes(x)) list.push(x); });
+          }
+          // also check relations store for parent relations (fallback)
+          try{
+            const rels = JSON.parse(localStorage.getItem('relations:myLineage') || '[]');
+            rels.forEach(r => {
+              if(!r) return;
+              const from = r.from || r.personId || r.source || r.a || null;
+              const to = r.to || r.targetId || r.target || r.b || null;
+              const t = (r.type||'').toString().toLowerCase();
+              // detect parent-like relation types
+              if(!t) return;
+              const isParentType = t.includes('parent') || t.includes('pai') || t.includes('mae') || t.includes('mother') || t.includes('father');
+              if(!isParentType) return;
+              try{
+                if(String(from) === String(person.id) && to !== undefined && to !== null){ if(!list.includes(String(to))) list.push(String(to)); }
+                else if(String(to) === String(person.id) && from !== undefined && from !== null){ if(!list.includes(String(from))) list.push(String(from)); }
+              }catch(e){}
+            });
+          }catch(e){}
+          // try to order as father then mother when possible using known genders
+          if(list.length > 1){ const males = []; const females = []; const others = []; list.forEach(id => { const p = idMap.get(String(id)); const g = (p && p.gender) ? p.gender.toString().toLowerCase() : ''; if(g.startsWith('m')) males.push(id); else if(g.startsWith('f')) females.push(id); else others.push(id); }); const ordered = []; if(males.length) males.forEach(x=>{ if(!ordered.includes(x)) ordered.push(x); }); if(females.length) females.forEach(x=>{ if(!ordered.includes(x)) ordered.push(x); }); others.forEach(x=>{ if(!ordered.includes(x)) ordered.push(x); }); return ordered; }
+          return list;
         }
 
         // helper: check nested structures for presence of id (robust fallback)
@@ -109,8 +132,36 @@
         if(!root) return { nodes: [], edges: [] };
         addNode(root);
 
-        // ancestors: recursively add parents (using all known parent keys)
-        function addAncestors(person){ if(!person) return; const parents = getParentIds(person); parents.forEach(pid=>{ if(!pid) return; const parent = idMap.get(String(pid)); if(parent){ addNode(parent); const g = (parent.gender||'').toString().toLowerCase(); const label = g.startsWith('f') ? 'Mãe' : g.startsWith('m') ? 'Pai' : 'Pai / Mãe'; const edgeId = `e_${String(pid)}_${person.id}`; if(!edges.find(e=>e.data && e.data.id === edgeId)) edges.push({ data: { id: edgeId, source: String(pid), target: String(person.id), label } }); addAncestors(parent); } }); }
+        // ancestors: use same algorithm as arvore.html — consult relations:myLineage (types like 'ancestor'/'child')
+        function addAncestors(person){ if(!person) return;
+          // collect possible relations from relations store
+          const targets = [];
+          try{
+            const rels = JSON.parse(localStorage.getItem('relations:myLineage') || '[]');
+            function normalizeType(t){ if(!t) return ''; return (''+t).toLowerCase(); }
+            function invertType(t){ const n = normalizeType(t); if(n === 'ancestor') return 'child'; if(n === 'child') return 'ancestor'; return n; }
+            const relsFrom = rels.filter(r => String(r.from) === String(person.id));
+            const relsTo = rels.filter(r => String(r.to) === String(person.id));
+            relsFrom.forEach(r => { if(r && (r.to !== undefined && r.to !== null)) targets.push({ id: r.to, type: normalizeType(r.type) }); });
+            relsTo.forEach(r => { if(r && (r.from !== undefined && r.from !== null)) targets.push({ id: r.from, type: invertType(r.type) }); });
+          }catch(e){}
+
+          // also include explicit parent fields from the person record as 'ancestor'
+          try{ const explicit = getParentIds(person); explicit.forEach(pid => { if(pid) targets.push({ id: pid, type: 'ancestor' }); }); }catch(e){}
+
+          // unique by id, prefer explicit ancestor type when present
+          const uniqueMap = new Map();
+          targets.forEach(t => { if(!t || t.id === undefined || t.id === null) return; const key = String(t.id); const prev = uniqueMap.get(key); if(!prev) uniqueMap.set(key, t); else { // prefer ancestor type
+              if((prev.type || '') !== 'ancestor' && (t.type || '') === 'ancestor') uniqueMap.set(key, t);
+          } });
+          const unique = Array.from(uniqueMap.values());
+          // parents are those classified as 'ancestor'
+          const parents = unique.filter(u => ((u.type||'') + '').toLowerCase() === 'ancestor').map(u => String(u.id));
+          // fallback: if none found, use previous heuristic
+          const finalParents = parents.length ? parents : getParentIds(person);
+
+          parentMap.set(String(person.id), finalParents.slice());
+          finalParents.forEach(pid=>{ if(!pid) return; const parent = idMap.get(String(pid)); if(parent){ addNode(parent); const g = (parent.gender||'').toString().toLowerCase(); const label = g.startsWith('f') ? 'Mãe' : g.startsWith('m') ? 'Pai' : 'Pai / Mãe'; const edgeId = `e_${String(pid)}_${person.id}`; if(!edges.find(e=>e.data && e.data.id === edgeId)) edges.push({ data: { id: edgeId, source: String(pid), target: String(person.id), label } }); addAncestors(parent); } }); }
         addAncestors(root);
         // fallback: if some parents are referenced in nested fields of root, pick them as well
         try{
@@ -124,19 +175,22 @@
         // partner(s): check spouseId / partnerId and relations store
         function addPartners(person){ if(!person) return; const partners = new Set(); if(person.spouseId) partners.add(String(person.spouseId)); if(person.partnerId) partners.add(String(person.partnerId)); // scan relations store for mate-like relations
           try{ const rels = JSON.parse(localStorage.getItem('relations:myLineage') || '[]'); rels.forEach(r=>{ if(!r) return; const from = String(r.from||r.personId||''); const to = String(r.to||r.targetId||''); const t = (r.type||'').toString().toLowerCase(); if((from === String(person.id) && (t.includes('mate')||t.includes('spouse')||t.includes('compan')||t.includes('parceiro')||t.includes('conjuge'))) && to) partners.add(to); if((to === String(person.id) && (t.includes('mate')||t.includes('spouse')||t.includes('compan')||t.includes('parceiro')||t.includes('conjuge'))) && from) partners.add(from); }); }catch(e){}
-          partners.forEach(pid=>{ const p = idMap.get(pid); if(p){ addNode(p); const g = (p.gender||'').toString().toLowerCase(); const label = (g==='female'||g==='feminino'||g==='f') ? 'Companheira' : (g==='male'||g==='masculino'||g==='m') ? 'Companheiro' : 'Companheiro(a)'; edges.push({ data: { id: `e_partner_${person.id}_${pid}`, source: String(person.id), target: pid, label } }); } }); }
+          partners.forEach(pid=>{ const p = idMap.get(pid); if(p){ addNode(p); const g = (p.gender||'').toString().toLowerCase(); const label = (g==='female'||g==='feminino'||g==='f') ? 'Companheira' : (g==='male'||g==='masculino'||g==='m') ? 'Companheiro' : 'Companheiro(a)'; edges.push({ data: { id: `e_partner_${person.id}_${pid}`, source: String(person.id), target: pid, label, rel: 'partner' } }); } }); }
         addPartners(root);
 
         // children: people where root is listed as a parent in any supported key
         function addChildren(person){ if(!person) return; const rootId = String(person.id); people.forEach(p=>{ const pid = String(p.id); const parentIds = getParentIds(p); if(parentIds.includes(rootId) || containsId(p, rootId)){ addNode(p); const g=(p.gender||'').toString().toLowerCase(); const label = (g==='female'||g==='feminino'||g==='f') ? 'Filha' : (g==='male'||g==='masculino'||g==='m') ? 'Filho' : 'Filho(a)'; const edgeId = `e_child_${person.id}_${pid}`; if(!edges.find(e=>e.data && e.data.id === edgeId)) edges.push({ data: { id: edgeId, source: rootId, target: pid, label } }); } }); }
         addChildren(root);
 
+        // Build positions for an ancestor-oriented layout (parents above). We'll compute a simple horizontal packing
+        // preserve father then mother order using parentMap. We'll produce positions later in renderGraph via preset layout.
+
         // produce arrays
         const nodes = Array.from(nodesMap.values());
-        return { nodes, edges };
+        return { nodes, edges, parentMap, rootId: String(root.id) };
       }
 
-      // Render with Cytoscape + dagre
+      // Render with Cytoscape using preset positions computed from ancestor tree
       let _cy = null;
       function renderGraph(){
         const data = buildGraphData();
@@ -144,22 +198,56 @@
         container.innerHTML = '';
         if(_cy){ try{ _cy.destroy(); }catch(e){} _cy = null; }
 
+        // compute tree positions
+        const nodeWidth = 180; const nodeHeight = 140; const hGap = 40; const vGap = 160;
+        const parentMap = data.parentMap || new Map();
+        const positions = new Map();
+        const widths = new Map();
+        const visited = new Set();
+
+        function measure(id){ if(widths.has(id)) return widths.get(id); if(visited.has(id)){ widths.set(id, nodeWidth); return nodeWidth; } visited.add(id); const parents = parentMap.get(String(id)) || []; if(!parents || parents.length===0){ widths.set(id, nodeWidth); return nodeWidth; } let sum = 0; parents.forEach(pid=>{ if(!pid) return; if(!idMapHas(pid)) return; sum += measure(pid); }); if(sum === 0) sum = nodeWidth; widths.set(id, sum); return sum; }
+
+        // helper to know if id exists in nodes
+        const nodeIds = new Set((data.nodes||[]).map(n=>String(n.data.id)));
+        function idMapHas(id){ return nodeIds.has(String(id)); }
+
+        // measure all starting from root
+        const rootId = data.rootId;
+        if(rootId){ measure(rootId); }
+
+        // compute depth (generation) where root is depth 0, parents depth 1, etc.
+        const depthMemo = new Map();
+        function getDepth(id){ if(depthMemo.has(id)) return depthMemo.get(id); const parents = parentMap.get(String(id)) || []; if(!parents || parents.length===0){ depthMemo.set(id, 0); return 0; } const d = 1 + Math.max(...parents.map(pid=> idMapHas(pid) ? getDepth(pid) : 0)); depthMemo.set(id, d); return d; }
+
+        // place parents recursively and set positions
+        function placeWithY(id, xStart){ const parents = parentMap.get(String(id)) || []; if(!parents || parents.length===0){ const w = widths.get(id) || nodeWidth; const x = xStart + w/2; const y = (getDepth(id) * vGap) * -1; positions.set(String(id), { x, y }); return { left: xStart, right: xStart + w }; }
+          let curr = xStart; const centers = []; parents.forEach(pid=>{ if(!idMapHas(pid)) return; const pw = widths.get(pid) || nodeWidth; const r = placeWithY(pid, curr); const center = (r.left + r.right)/2; centers.push(center); curr = r.right + hGap; }); const myX = centers.length ? centers.reduce((a,b)=>a+b,0)/centers.length : xStart + (widths.get(id)||nodeWidth)/2; const y = (getDepth(id) * vGap) * -1; positions.set(String(id), { x: myX, y }); return { left: (centers.length ? Math.min(...centers) - (nodeWidth/2) : xStart), right: (centers.length ? Math.max(...centers) + (nodeWidth/2) : xStart + (widths.get(id)||nodeWidth)) } }
+
+        if(rootId){ const total = widths.get(rootId) || nodeWidth; const startX = - (total/2); placeWithY(rootId, startX); }
+
+        // translate positions into node positions and default y for root if missing
+        const positionedNodes = (data.nodes||[]).map(n=>{ const id = String(n.data.id); const pos = positions.get(id) || { x: 0, y: 0 }; return { data: n.data, position: { x: Math.round(pos.x), y: Math.round(pos.y) } }; });
+
+        // ensure edge labels are visible
+        const cyElements = { nodes: positionedNodes, edges: data.edges };
+
         _cy = cytoscape({
           container: container,
-          elements: { nodes: data.nodes, edges: data.edges },
+          elements: cyElements,
           style: [
             { selector: 'node', style: {
-              'shape':'round-rectangle', 'width': 140, 'height': 140, 'background-fit':'cover', 'background-image':'data(img)', 'border-width':3,
-              'label':'data(name)', 'text-valign':'bottom','text-wrap':'wrap','text-max-width':120,'font-size':12,'color':'#222','text-margin-y':6
+              'shape':'round-rectangle', 'width': nodeWidth, 'height': nodeHeight, 'background-fit':'cover', 'background-image':'data(img)', 'border-width':3,
+              'label':'data(name)', 'text-valign':'bottom','text-wrap':'wrap','text-max-width':nodeWidth - 20,'font-size':12,'color':'#222','text-margin-y':6
             }},
             { selector: 'node[gender]', style: { 'border-color': function(ele){ const g = (ele.data('gender')||'').toString().toLowerCase(); return (g==='female'||g==='feminino'||g==='f') ? '#e26aa6' : (g==='male'||g==='masculino'||g==='m') ? '#4a90e2' : '#9aa0a6'; } }},
-            { selector: 'edge', style: { 'width':2,'line-color':'#888','target-arrow-shape':'triangle','target-arrow-color':'#888','curve-style':'bezier' } }
+            { selector: 'edge', style: { 'width':2,'line-color':'#888','target-arrow-shape':'triangle','target-arrow-color':'#888','curve-style':'bezier','label':'data(label)','font-size':11,'text-rotation':'autorotate','text-margin-y':-6,'color':'#333' } },
+            { selector: 'edge[rel = "partner"]', style: { 'line-style':'dashed','target-arrow-shape':'none','source-arrow-shape':'none' } }
           ],
-          layout: { name: 'dagre', rankDir: (document.getElementById('rankDir')||{}).value || 'TB', nodeSep: 60, edgeSep: 10, rankSep: 100 }
+          layout: { name: 'preset' }
         });
 
         _cy.on('tap', 'node', function(evt){ const id = evt.target.id(); window.location.href = `pessoa-detalhe.html?id=${encodeURIComponent(id)}`; });
-        _cy.fit(30);
+        _cy.fit(40);
       }
 
       document.addEventListener('DOMContentLoaded', function(){

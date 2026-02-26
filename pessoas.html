@@ -90,6 +90,8 @@
       }
       function getThumbnailForPerson(personId){ try{ const rels = getPhotoRelations(); const photos = getPhotos(); const ids = rels[personId] || []; if(Array.isArray(ids) && ids.length){ for(const id of ids){ const ph = photos.find(p=>String(p.id)===String(id)); if(ph){ return ph.originalDataUrl || ph.dataUrl || null; } } } return null; }catch(e){ return null; } }
 
+      
+
       // ensure RuntimeFocus exists on window for compatibility
       window.RuntimeFocus = window.RuntimeFocus || null;
 
@@ -569,6 +571,7 @@
         _cy.on('tap', 'node', function(evt){});
         // toggle highlight class when an edge is tapped
         _cy.on('tap', 'edge', function(evt){ try{ const edge = evt.target; if(edge && typeof edge.toggleClass === 'function') edge.toggleClass('highlighted'); }catch(e){} });
+
         _cy.fit(40);
       }
 

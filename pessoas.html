@@ -69,7 +69,28 @@
       function getPhotos(){ try{ const raw = localStorage.getItem('photos:myLineage'); return raw ? JSON.parse(raw) : []; }catch(e){ return []; } }
       function getPhotoRelations(){ try{ const raw = localStorage.getItem('photoRelations:myLineage'); return raw ? JSON.parse(raw) : {}; }catch(e){ return {}; } }
       function getEvents(){ try{ const raw = localStorage.getItem('events:myLineage'); return raw ? JSON.parse(raw) : []; }catch(e){ return []; } }
-      function genderPlaceholder(g){ const gender = (g||'').toString().toLowerCase(); const color = (gender==='female' || gender==='feminino' || gender==='f') ? '#e26aa6' : (gender==='male' || gender==='masculino' || gender==='m') ? '#4a90e2' : '#9aa0a6'; const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 120 120'><rect width='100%' height='100%' fill='${color}' rx='12'/></svg>`; return 'data:image/svg+xml;base64,' + btoa(svg); }
+      function genderPlaceholder(g){
+        const gender = (g||'').toString().toLowerCase();
+        const color = (gender==='female' || gender==='feminino' || gender==='f') ? '#e26aa6' : (gender==='male' || gender==='masculino' || gender==='m') ? '#4a90e2' : '#9aa0a6';
+        // simple silhouette on colored rounded rect background
+        const svg = `<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 120 120'>
+          <rect width='100%' height='100%' fill='${color}' rx='12'/>
+          <g fill='#ffffff' transform='translate(30,20)'>
+            <circle cx='30' cy='24' r='16'/>
+            <path d='M6 80c0-18 36-18 48-18s48 0 48 18v6H6v-6z' />
+          </g>
+        </svg>`;
+        return 'data:image/svg+xml;base64,' + base64EncodeUnicode(svg);
+      }
+      // base64 encode supporting Unicode characters
+      function base64EncodeUnicode(str) {
+        try{
+          return btoa(unescape(encodeURIComponent(str)));
+        }catch(e){
+          // fallback to plain btoa if above fails
+          return btoa(str);
+        }
+      }
       function getThumbnailForPerson(personId){ try{ const rels = getPhotoRelations(); const photos = getPhotos(); const ids = rels[personId] || []; if(Array.isArray(ids) && ids.length){ for(const id of ids){ const ph = photos.find(p=>String(p.id)===String(id)); if(ph){ return ph.originalDataUrl || ph.dataUrl || null; } } } return null; }catch(e){ return null; } }
 
       // ensure RuntimeFocus exists on window for compatibility
@@ -260,7 +281,9 @@
         if(_cy){ try{ _cy.destroy(); }catch(e){} _cy = null; }
 
         // compute tree positions
-        const nodeWidth = 180; const nodeHeight = 140; const hGap = 40; const vGap = 160;
+        const nodeWidth = 260; const nodeHeight = 150; const hGap = 40; const vGap = 160;
+        // compute thumbnail and text layout inside each node so label doesn't overlap image
+        const thumbWidth = Math.round(nodeWidth * 0.28); const thumbHeight = Math.round(nodeHeight * 0.8); const thumbLeft = 12; const textMaxWidthCalc = nodeWidth - thumbWidth - (thumbLeft + 18); const textMarginXCalc = thumbLeft + thumbWidth + 12;
         const parentMap = data.parentMap || new Map();
         const positions = new Map();
         const widths = new Map();
@@ -305,6 +328,62 @@
         // translate positions into node positions and default y for root if missing
         const positionedNodes = (data.nodes||[]).map(n=>{ const id = String(n.data.id); const pos = positions.get(id) || { x: 0, y: 0 }; return { data: n.data, position: { x: Math.round(pos.x), y: Math.round(pos.y) } }; });
 
+        // helper to escape XML for embedding text inside SVG
+        function escapeXml(unsafe){ if(!unsafe && unsafe !== 0) return ''; return String(unsafe).replace(/&/g, '&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+        // simple word-wrap: split text into lines that fit approx maxChars
+        function wrapTextToLines(text, maxPx, fontSize){
+          if(!text) return [''];
+          const approxCharWidth = fontSize * 0.6; // rough estimate
+          const maxChars = Math.max(8, Math.floor(maxPx / approxCharWidth));
+          const words = String(text).split(/\s+/).filter(Boolean);
+          const lines = [];
+          let cur = '';
+          for(const w of words){
+            if((cur + (cur? ' ' : '') + w).length <= maxChars){ cur = cur ? (cur + ' ' + w) : w; }
+            else { if(cur) lines.push(cur); cur = w; }
+          }
+          if(cur) lines.push(cur);
+          return lines;
+        }
+
+        // Compose an SVG per-node that places the thumbnail on the left and name (wrapped) + birth + death on the right.
+        positionedNodes.forEach(n => {
+          const d = n.data || {};
+          const imgUrl = d.img || '';
+          const name = d.name || '';
+          const birth = d.birth || '';
+          const death = d.death || '';
+          const fontSize = 14;
+          const lineHeight = Math.round(fontSize * 1.25);
+          const textX = textMarginXCalc;
+          const topPadding = 18;
+          const nameLines = wrapTextToLines(name, textMaxWidthCalc, fontSize);
+          // limit name lines to max 3 to keep birth/death visible; if more, truncate
+          const maxNameLines = 3;
+          if(nameLines.length > maxNameLines){ nameLines.length = maxNameLines; nameLines[maxNameLines-1] = nameLines[maxNameLines-1] + '...'; }
+          // compute y for name first line
+          const nameStartY = topPadding + fontSize;
+          // compute y for birth and death after name block
+          const birthY = nameStartY + (nameLines.length * lineHeight) + 8;
+          const deathY = birthY + lineHeight;
+          const bg = '#9aa0a6';
+          // build tspan elements for name
+          const nameTspans = nameLines.map((ln, idx) => `<tspan x='${textX}' dy='${ idx===0 ? 0 : lineHeight }'>${escapeXml(ln)}</tspan>`).join('');
+          const svg = `<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='${nodeWidth}' height='${nodeHeight}' viewBox='0 0 ${nodeWidth} ${nodeHeight}'>
+            <rect rx='12' width='100%' height='100%' fill='${bg}' />
+            <image href='${escapeXml(imgUrl)}' x='${thumbLeft}' y='${Math.round((nodeHeight - thumbHeight)/2)}' width='${thumbWidth}' height='${thumbHeight}' preserveAspectRatio='xMidYMid slice' />
+            <g fill='#222' font-family='Arial, Helvetica, sans-serif' font-size='${fontSize}' text-anchor='start'>
+              <text x='${textX}' y='${nameStartY}'>${nameTspans}</text>
+              <text x='${textX}' y='${birthY}'>${escapeXml(birth ? ('Nasc: ' + birth) : '')}</text>
+              <text x='${textX}' y='${deathY}'>${escapeXml(death ? ('Óbito: ' + death) : '')}</text>
+            </g>
+          </svg>`;
+          try{ d.img = 'data:image/svg+xml;base64,' + base64EncodeUnicode(svg); }catch(e){ d.img = d.img; }
+          // clear label so Cytoscape doesn't draw external text
+          d.displayLabel = '';
+        });
+
         // ensure edge labels are visible
         // create visual partner edges (do not include them in ancestor calculations)
         const partnerEdges = [];
@@ -325,8 +404,8 @@
           elements: cyElements,
           style: [
             { selector: 'node', style: {
-              'shape':'round-rectangle', 'width': nodeWidth, 'height': nodeHeight, 'background-fit':'cover', 'background-image':'data(img)', 'border-width':3,
-              'label':'data(displayLabel)', 'text-valign':'center','text-halign':'center','text-wrap':'wrap','text-max-width':nodeWidth - 20,'font-size':12,'color':'#222','text-margin-y':0
+              'shape':'round-rectangle', 'width': nodeWidth, 'height': nodeHeight, 'background-image':'data(img)', 'background-fit':'cover', 'background-width':'100%', 'background-height':'100%', 'background-position-x':'50%', 'background-position-y':'50%', 'border-width':3,
+              'label':'data(displayLabel)', 'text-valign':'top','text-halign':'left','text-wrap':'wrap','text-max-width': textMaxWidthCalc,'font-size':13,'color':'#222','text-margin-x': textMarginXCalc,'text-margin-y':12
             }},
             { selector: 'node[gender]', style: { 'border-color': function(ele){ const g = (ele.data('gender')||'').toString().toLowerCase(); return (g==='female'||g==='feminino'||g==='f') ? '#e26aa6' : (g==='male'||g==='masculino'||g==='m') ? '#4a90e2' : '#9aa0a6'; } }},
             { selector: 'edge', style: { 'width':2,'line-color':'#888','target-arrow-shape':'triangle','target-arrow-color':'#888','curve-style':'bezier','label':'data(label)','font-size':11,'text-rotation':'autorotate','text-margin-y':-6,'color':'#333' } },

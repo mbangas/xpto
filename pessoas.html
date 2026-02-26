@@ -411,309 +411,315 @@
         container.innerHTML = '';
         if(_cy){ try{ _cy.destroy(); }catch(e){} _cy = null; }
 
-        // compute tree positions
-        const nodeWidth = 260; const nodeHeight = 150; const hGap = 40; const vGap = 160;
-        // gap used for pairing partners/parents (matches partner spacing used for focus)
-        const partnerGap = hGap * 3;
-        // compute thumbnail and text layout inside each node so label doesn't overlap image
-        const thumbWidth = Math.round(nodeWidth * 0.28); const thumbHeight = Math.round(nodeHeight * 0.8); const thumbLeft = 12; const textMaxWidthCalc = nodeWidth - thumbWidth - (thumbLeft + 18); const textMarginXCalc = thumbLeft + thumbWidth + 12;
+        // ── Geometry constants ────────────────────────────────────────────────
+        const nodeWidth = 220;
+        const nodeHeight = 140;
+        const hGap = 30;           // min horizontal gap between nodes
+        const partnerGap = 50;     // gap between partners on the same row
+        const rowHeight = nodeHeight + 180; // full row height (320px) between generations
+
+        // thumbnail/text metrics (used also in SVG composition below)
+        const thumbWidth = Math.round(nodeWidth * 0.28);
+        const thumbHeight = Math.round(nodeHeight * 0.8);
+        const thumbLeft = 12;
+        const textMaxWidthCalc = nodeWidth - thumbWidth - (thumbLeft + 18);
+        const textMarginXCalc = thumbLeft + thumbWidth + 12;
+
         const parentMap = data.parentMap || new Map();
         const positions = new Map();
-        const widths = new Map();
-        const visited = new Set();
 
-        function measure(id){ if(widths.has(id)) return widths.get(id); if(visited.has(id)){ widths.set(id, nodeWidth); return nodeWidth; } visited.add(id); const parents = parentMap.get(String(id)) || []; if(!parents || parents.length===0){ widths.set(id, nodeWidth); return nodeWidth; } let sum = 0; parents.forEach(pid=>{ if(!pid) return; if(!idMapHas(pid)) return; sum += measure(pid); }); if(sum === 0) sum = nodeWidth; widths.set(id, sum); return sum; }
-
-        // helper to know if id exists in nodes
-        const nodeIds = new Set((data.nodes||[]).map(n=>String(n.data.id)));
+        // helper: is this id a real person node (not a junction placeholder)?
+        const nodeIds = new Set((data.nodes||[]).map(n => String(n.data.id)));
         function idMapHas(id){ return nodeIds.has(String(id)); }
 
-        // measure all starting from root
         const rootId = data.rootId;
-        if(rootId){ measure(rootId); }
 
-        // compute depth (generation) where root is depth 0, parents depth 1, etc.
-        const depthMemo = new Map();
-        function getDepth(id){ if(depthMemo.has(id)) return depthMemo.get(id); const parents = parentMap.get(String(id)) || []; if(!parents || parents.length===0){ depthMemo.set(id, 0); return 0; } const d = 1 + Math.max(...parents.map(pid=> idMapHas(pid) ? getDepth(pid) : 0)); depthMemo.set(id, d); return d; }
-
-        // place parents recursively and set positions
-        function placeWithY(id, xStart){ const parents = parentMap.get(String(id)) || []; if(!parents || parents.length===0){ const w = widths.get(id) || nodeWidth; const x = xStart + w/2; const y = (getDepth(id) * vGap); positions.set(String(id), { x, y }); return { left: xStart, right: xStart + w }; }
-          let curr = xStart; const centers = [];
-          // choose gap: when exactly two parents, use partnerGap to match focus/partner spacing
-          const gapForThis = (parents.length === 2) ? partnerGap : hGap;
-          parents.forEach(pid=>{ if(!idMapHas(pid)) return; const pw = widths.get(pid) || nodeWidth; const r = placeWithY(pid, curr); const center = (r.left + r.right)/2; centers.push(center); curr = r.right + gapForThis; }); const myX = centers.length ? centers.reduce((a,b)=>a+b,0)/centers.length : xStart + (widths.get(id)||nodeWidth)/2; const y = (getDepth(id) * vGap); positions.set(String(id), { x: myX, y }); return { left: (centers.length ? Math.min(...centers) - (nodeWidth/2) : xStart), right: (centers.length ? Math.max(...centers) + (nodeWidth/2) : xStart + (widths.get(id)||nodeWidth)) } }
-
-        if(rootId){ const total = widths.get(rootId) || nodeWidth; const startX = - (total/2); placeWithY(rootId, startX);
-          // position partner(s) side-by-side at the same vertical level as root
-          try{
-            // place partners to the right of the focused person using the focused card width
-            // increase horizontal gap between focused person and partner by 100%
-            const partnerIds = (data.partners || []).filter(id => idMapHas(id));
-            if(partnerIds.length){
-              const rootPos = positions.get(String(rootId)) || { x: 0, y: 0 };
-              // use a larger gap for partners (increase by 150% of default hGap -> total 3x)
-              const partnerGap = hGap * 3;
-              // right edge of root center + half width + partnerGap
-              const firstCenterX = rootPos.x + (nodeWidth / 2) + partnerGap + (nodeWidth / 2);
-              for(let i = 0; i < partnerIds.length; i++){
-                const pid = String(partnerIds[i]);
-                const x = firstCenterX + i * (nodeWidth + partnerGap);
-                positions.set(pid, { x: Math.round(x), y: Math.round(rootPos.y) });
-              }
-            }
-          }catch(e){ /* ignore partner positioning errors */ }
-
-          // Position co-parents of children (the "other parent" for each child of the focused person)
-          // These are nodes in parentMap[child] that are not root and not yet positioned.
-          try{
-            const rootPos = positions.get(String(rootId)) || { x: 0, y: 0 };
-            // collect all unpositioned co-parents
-            const coParents = [];
-            for(const [childId, parents] of parentMap.entries()){
-              if(!parents || parents.length < 2) continue;
-              parents.forEach(pid => {
-                if(String(pid) === String(rootId)) return;
-                if(positions.has(String(pid))) return; // already positioned
-                if(!idMapHas(String(pid))) return;
-                if(!coParents.includes(String(pid))) coParents.push(String(pid));
-              });
-            }
-            if(coParents.length){
-              // place co-parents to the right of any already-placed partners
-              // find rightmost positioned node at root Y
-              let rightmostX = rootPos.x + (nodeWidth / 2);
-              for(const [id, pos] of positions.entries()){
-                if(Math.round(pos.y) === Math.round(rootPos.y) && String(id) !== String(rootId)){
-                  const r = pos.x + (nodeWidth / 2);
-                  if(r > rightmostX) rightmostX = r;
-                }
-              }
-              const coParentGap = hGap * 3;
-              coParents.forEach((pid, idx) => {
-                const x = rightmostX + coParentGap + (nodeWidth / 2) + idx * (nodeWidth + coParentGap);
-                positions.set(String(pid), { x: Math.round(x), y: Math.round(rootPos.y) });
-              });
-            }
-            // Pre-position child nodes (children of root) spread horizontally below their parents.
-            // Group siblings by their parent pair so they are distributed side-by-side.
-            const childSlotW = nodeWidth + hGap;
-            // Build groups: parentKey -> { parents, children[] }
-            const childGroups = new Map();
-            for(const [childId, parents] of parentMap.entries()){
-              if(!parents) continue;
-              const parentIds = parents.map(String);
-              if(!parentIds.includes(String(rootId))) continue; // only children of root
-              if(!idMapHas(String(childId))) continue;
-              if(positions.has(String(childId))) continue; // already positioned
-              const key = [...parentIds].sort().join('|');
-              if(!childGroups.has(key)) childGroups.set(key, { parents: parentIds, children: [] });
-              childGroups.get(key).children.push(String(childId));
-            }
-            childGroups.forEach(({ parents: groupParents, children: groupChildren }) => {
-              const parentPos = groupParents.map(pid => positions.get(String(pid))).filter(Boolean);
-              if(parentPos.length === 0) return;
-              const midX = Math.round(parentPos.reduce((s,p) => s + p.x, 0) / parentPos.length);
-              const midY = Math.round(parentPos.reduce((s,p) => s + p.y, 0) / parentPos.length);
-              const n = groupChildren.length;
-              const startX = Math.round(midX - ((n - 1) * childSlotW) / 2);
-              groupChildren.forEach((cid, idx) => {
-                positions.set(String(cid), { x: startX + idx * childSlotW, y: midY + vGap * 2 });
-              });
-            });
-          }catch(e){ /* ignore co-parent positioning errors */ }
+        // ── Build a childMap (parentId → [childIds]) from parentMap ──────────
+        const childMap = new Map();
+        for(const [cid, pars] of parentMap.entries()){
+          (pars||[]).forEach(pid => {
+            if(!pid) return;
+            const k = String(pid);
+            if(!childMap.has(k)) childMap.set(k, []);
+            const arr = childMap.get(k);
+            if(!arr.includes(String(cid))) arr.push(String(cid));
+          });
         }
 
-        // Adjust vertical orientation: place ancestors above the focus and descendants below
-        try{
-          const rootY = (positions.get(rootId) || { x: 0, y: 0 }).y || 0;
-          const ancestorDist = new Map();
-          const descendantDist = new Map();
-          // compute ancestor distances (upwards via parentMap)
-          (function(){
-            const q = [rootId];
-            const seen = new Set([String(rootId)]);
-            let idx = 0;
-            while(idx < q.length){ const cur = String(q[idx++]); const parents = parentMap.get(String(cur)) || []; parents.forEach(p=>{ try{ p = String(p); if(!seen.has(p)){ seen.add(p); ancestorDist.set(p, (ancestorDist.get(cur) || 0) + 1); q.push(p); } }catch(e){} }); }
-          })();
-          // build childMap and compute descendant distances (downwards)
-          (function(){
-            const childMap = new Map();
-            for(const [childId, parents] of parentMap.entries()){
-              try{
-                (parents || []).forEach(p => { if(p == null) return; const key = String(p); if(!childMap.has(key)) childMap.set(key, []); childMap.get(key).push(String(childId)); });
-              }catch(e){}
+        // ── Compute levels above root (BFS upward from root through parentMap) ──
+        // root = level 0, root's parents = level 1, grandparents = level 2, etc.
+        const ancestorLevel = new Map();
+        ancestorLevel.set(rootId, 0);
+        (function bfsUp(id, level){
+          (parentMap.get(String(id)) || []).filter(p => idMapHas(p)).forEach(pid => {
+            const prev = ancestorLevel.get(String(pid));
+            if(prev === undefined || prev < level + 1){
+              ancestorLevel.set(String(pid), level + 1);
+              bfsUp(pid, level + 1);
             }
-            const q = [rootId]; const seen = new Set([String(rootId)]); let idx = 0;
-            while(idx < q.length){ const cur = String(q[idx++]); const kids = childMap.get(String(cur)) || []; kids.forEach(k => { if(!seen.has(k)){ seen.add(k); descendantDist.set(k, (descendantDist.get(cur) || 0) + 1); q.push(k); } }); }
-          })();
-          // apply vertical positions preserving x
-          for(const [id, pos] of positions.entries()){
-            try{
-              const pid = String(id);
-              const p = positions.get(pid) || pos || { x: 0, y: 0 };
-              if(pid === String(rootId)) { positions.set(pid, { x: Math.round(p.x), y: Math.round(rootY) }); }
-              else if(ancestorDist.has(pid)) { positions.set(pid, { x: Math.round(p.x), y: Math.round(rootY - ancestorDist.get(pid) * vGap) }); }
-              else if(descendantDist.has(pid)) { positions.set(pid, { x: Math.round(p.x), y: Math.round(rootY + descendantDist.get(pid) * vGap * 2) }); }
-            }catch(e){}
-          }
-        }catch(e){}
+          });
+        })(rootId, 0);
 
-        // Overlap resolution: for each Y level, ensure no two person nodes overlap horizontally
-        try{
+        // ── Subtree-width measurement (for ancestor X placement) ──────────────
+        const widths = new Map();
+        const widthVisited = new Set();
+        function measure(id){
+          if(widths.has(id)) return widths.get(id);
+          if(widthVisited.has(id)){ widths.set(id, nodeWidth); return nodeWidth; }
+          widthVisited.add(id);
+          const pars = (parentMap.get(String(id)) || []).filter(p => idMapHas(p));
+          if(!pars.length){ widths.set(id, nodeWidth); return nodeWidth; }
+          let sum = pars.reduce((s, p) => s + measure(String(p)), 0) + (pars.length - 1) * partnerGap;
+          sum = Math.max(sum, nodeWidth);
+          widths.set(id, sum);
+          return sum;
+        }
+
+        // ── Place ancestors recursively ───────────────────────────────────────
+        // Y = -(levelsAboveRoot) * rowHeight  →  ancestors go UPWARD (negative Y)
+        function placeAncestors(id, xStart){
+          const pars = (parentMap.get(String(id)) || []).filter(p => idMapHas(p));
+          const level = ancestorLevel.get(String(id)) || 0;
+          const y = -level * rowHeight;   // root=0, parents=-rowHeight, grandparents=-2*rowHeight
+
+          if(!pars.length){
+            const w = widths.get(String(id)) || nodeWidth;
+            positions.set(String(id), { x: Math.round(xStart + w / 2), y });
+            return { left: xStart, right: xStart + w };
+          }
+
+          let curr = xStart;
+          const centers = [];
+          const gap = pars.length === 2 ? partnerGap : hGap;
+          pars.forEach(pid => {
+            const r = placeAncestors(String(pid), curr);
+            centers.push((r.left + r.right) / 2);
+            curr = r.right + gap;
+          });
+          const myX = centers.reduce((a, b) => a + b, 0) / centers.length;
+          positions.set(String(id), { x: Math.round(myX), y });
+          return {
+            left: Math.min(...centers) - nodeWidth / 2,
+            right: Math.max(...centers) + nodeWidth / 2
+          };
+        }
+
+        if(rootId){
+          measure(rootId);
+          const total = widths.get(rootId) || nodeWidth;
+          placeAncestors(rootId, -total / 2);
+
+          const rootPos = positions.get(rootId) || { x: 0, y: 0 };
+
+          // ── Partners: placed to the right of root at root's Y ──────────────
+          const partnerIds = (data.partners || []).filter(id => idMapHas(id));
+          partnerIds.forEach((pid, i) => {
+            const x = rootPos.x + nodeWidth / 2 + partnerGap + nodeWidth / 2 + i * (nodeWidth + partnerGap);
+            positions.set(pid, { x: Math.round(x), y: rootPos.y });
+          });
+
+          // ── Co-parents: other parents of root's children, placed right of partners ──
+          const coParents = [];
+          for(const [, pars] of parentMap.entries()){
+            if(!pars || pars.length < 2) continue;
+            pars.forEach(pid => {
+              const s = String(pid);
+              if(s === rootId || positions.has(s) || !idMapHas(s)) return;
+              if(!coParents.includes(s)) coParents.push(s);
+            });
+          }
+          let rightmost = rootPos.x + nodeWidth / 2;
+          for(const [, pos] of positions.entries()){
+            if(Math.abs(pos.y - rootPos.y) < 10) rightmost = Math.max(rightmost, pos.x + nodeWidth / 2);
+          }
+          coParents.forEach((pid, idx) => {
+            const x = rightmost + partnerGap + nodeWidth / 2 + idx * (nodeWidth + partnerGap);
+            positions.set(pid, { x: Math.round(x), y: rootPos.y });
+          });
+
+          // ── Descendant BFS to get generation distance from root ────────────
+          const descendantDist = new Map();
+          {
+            const q = [rootId];
+            const seen = new Set([rootId]);
+            let qi = 0;
+            while(qi < q.length){
+              const cur = q[qi++];
+              (childMap.get(String(cur)) || []).forEach(k => {
+                if(!seen.has(k) && idMapHas(k)){
+                  seen.add(k);
+                  descendantDist.set(k, (descendantDist.get(cur) || 0) + 1);
+                  q.push(k);
+                }
+              });
+            }
+          }
+
+          // ── Position children: ONE junction per parent pair, spread under it ─
+          // Process generation by generation so parents are placed before their children
+          const maxGen = descendantDist.size ? Math.max(...descendantDist.values()) : 0;
+          for(let gen = 1; gen <= maxGen; gen++){
+            // Group children of this generation by their parent pair
+            const pairGroups = new Map(); // pairKey → { parents[], children[] }
+            for(const [cid, pars] of parentMap.entries()){
+              if(descendantDist.get(String(cid)) !== gen) continue;
+              if(!idMapHas(String(cid))) continue;
+              const validPars = (pars||[]).map(String).filter(p => idMapHas(p));
+              if(!validPars.length) continue;
+              const pairKey = [...validPars].sort().join('__');
+              if(!pairGroups.has(pairKey)) pairGroups.set(pairKey, { parents: validPars, children: [] });
+              pairGroups.get(pairKey).children.push(String(cid));
+            }
+            // Place each group's children centered under their parents' midpoint
+            for(const [, group] of pairGroups.entries()){
+              const pPos = group.parents.map(p => positions.get(p)).filter(Boolean);
+              if(!pPos.length) continue;
+              const jx = Math.round(pPos.reduce((s, p) => s + p.x, 0) / pPos.length);
+              const jy = Math.round(pPos.reduce((s, p) => s + p.y, 0) / pPos.length);
+              const slot = nodeWidth + hGap * 2;
+              const n = group.children.length;
+              const startX = Math.round(jx - (n - 1) * slot / 2);
+              group.children.forEach((cid, idx) => {
+                positions.set(cid, { x: startX + idx * slot, y: jy + rowHeight });
+              });
+            }
+          }
+        }
+
+        // ── Overlap resolution per row ─────────────────────────────────────────
+        {
           const minSpacing = nodeWidth + hGap;
-          const yTolerance = Math.round(nodeHeight / 3);
+          const yTol = 20;
           const yBuckets = new Map();
           for(const [id, pos] of positions.entries()){
-            if(!idMapHas(String(id))) continue; // skip junction placeholders (not in nodeIds)
-            const yKey = Math.round(pos.y / yTolerance) * yTolerance;
+            if(!idMapHas(String(id))) continue;
+            const yKey = Math.round(pos.y / yTol) * yTol;
             if(!yBuckets.has(yKey)) yBuckets.set(yKey, []);
             yBuckets.get(yKey).push(String(id));
           }
           for(const [, ids] of yBuckets.entries()){
             if(ids.length < 2) continue;
             ids.sort((a, b) => (positions.get(a)||{x:0}).x - (positions.get(b)||{x:0}).x);
-            let needsSpread = false;
+            let needs = false;
             for(let i = 1; i < ids.length; i++){
-              const xPrev = (positions.get(ids[i-1])||{x:0}).x;
-              const xCur = (positions.get(ids[i])||{x:0}).x;
-              if(xCur - xPrev < minSpacing){ needsSpread = true; break; }
+              if((positions.get(ids[i])||{x:0}).x - (positions.get(ids[i-1])||{x:0}).x < minSpacing){ needs = true; break; }
             }
-            if(!needsSpread) continue;
-            const center = Math.round(ids.reduce((s, id) => s + (positions.get(id)||{x:0}).x, 0) / ids.length);
-            const totalWidth = (ids.length - 1) * minSpacing;
-            const startX = Math.round(center - totalWidth / 2);
-            ids.forEach((id, idx) => {
-              const pos = positions.get(id);
-              if(pos) positions.set(id, { x: startX + idx * minSpacing, y: pos.y });
+            if(!needs) continue;
+            const cx = Math.round(ids.reduce((s, id) => s + (positions.get(id)||{x:0}).x, 0) / ids.length);
+            const sx = cx - Math.round((ids.length - 1) * minSpacing / 2);
+            ids.forEach((id, i) => {
+              const p = positions.get(id);
+              if(p) positions.set(id, { x: sx + i * minSpacing, y: p.y });
             });
           }
-        }catch(e){}
-
-        // translate positions into node positions and default y for root if missing
-        const positionedNodes = (data.nodes||[]).map(n=>{ const id = String(n.data.id); const pos = positions.get(id) || { x: 0, y: 0 }; return { data: n.data, position: { x: Math.round(pos.x), y: Math.round(pos.y) } }; });
-
-        // helper to escape XML for embedding text inside SVG
-        function escapeXml(unsafe){ if(!unsafe && unsafe !== 0) return ''; return String(unsafe).replace(/&/g, '&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
-
-        // simple word-wrap: split text into lines that fit approx maxChars
-        function wrapTextToLines(text, maxPx, fontSize){
-          if(!text) return [''];
-          const approxCharWidth = fontSize * 0.6; // rough estimate
-          const maxChars = Math.max(8, Math.floor(maxPx / approxCharWidth));
-          const words = String(text).split(/\s+/).filter(Boolean);
-          const lines = [];
-          let cur = '';
-          for(const w of words){
-            if((cur + (cur? ' ' : '') + w).length <= maxChars){ cur = cur ? (cur + ' ' + w) : w; }
-            else { if(cur) lines.push(cur); cur = w; }
-          }
-          if(cur) lines.push(cur);
-          return lines;
         }
 
-        // Compose an SVG per-node that places the thumbnail on the left and name (wrapped) + birth + death on the right.
+        // ── Build positionedNodes ─────────────────────────────────────────────
+        const positionedNodes = (data.nodes||[]).map(n => {
+          const id = String(n.data.id);
+          const pos = positions.get(id) || { x: 0, y: 0 };
+          return { data: n.data, position: { x: Math.round(pos.x), y: Math.round(pos.y) } };
+        });
+
+        // ── SVG node composition (thumbnail left, text right) ─────────────────
+        function escapeXml(unsafe){ if(!unsafe && unsafe !== 0) return ''; return String(unsafe).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+        function wrapTextToLines(text, maxPx, fontSize){ if(!text) return ['']; const approxCharWidth = fontSize * 0.6; const maxChars = Math.max(8, Math.floor(maxPx / approxCharWidth)); const words = String(text).split(/\s+/).filter(Boolean); const lines = []; let cur = ''; for(const w of words){ if((cur + (cur? ' ' : '') + w).length <= maxChars){ cur = cur ? (cur + ' ' + w) : w; } else { if(cur) lines.push(cur); cur = w; } } if(cur) lines.push(cur); return lines; }
+
         positionedNodes.forEach(n => {
           const d = n.data || {};
+          if(!d.name) return; // skip junction placeholder nodes
           const imgUrl = d.img || '';
           const name = d.name || '';
           const birth = d.birth || '';
           const death = d.death || '';
-          const fontSize = 14;
-          const lineHeight = Math.round(fontSize * 1.25);
+          const fontSize = 13;
+          const lineHeight = Math.round(fontSize * 1.3);
           const textX = textMarginXCalc;
-          const topPadding = 18;
+          const topPadding = 16;
           const nameLines = wrapTextToLines(name, textMaxWidthCalc, fontSize);
-          // limit name lines to max 3 to keep birth/death visible; if more, truncate
           const maxNameLines = 3;
-          if(nameLines.length > maxNameLines){ nameLines.length = maxNameLines; nameLines[maxNameLines-1] = nameLines[maxNameLines-1] + '...'; }
-          // compute y for name first line
+          if(nameLines.length > maxNameLines){ nameLines.length = maxNameLines; nameLines[maxNameLines-1] = nameLines[maxNameLines-1] + '…'; }
           const nameStartY = topPadding + fontSize;
-          // compute y for birth and death after name block
-          const birthY = nameStartY + (nameLines.length * lineHeight) + 8;
+          const birthY = nameStartY + nameLines.length * lineHeight + 6;
           const deathY = birthY + lineHeight;
           const bg = '#9aa0a6';
-          // build tspan elements for name
-          const nameTspans = nameLines.map((ln, idx) => `<tspan x='${textX}' dy='${ idx===0 ? 0 : lineHeight }'>${escapeXml(ln)}</tspan>`).join('');
-          // add two small icons (eye and tree) at the bottom-right corner for actions
-          const svg = `<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='${nodeWidth}' height='${nodeHeight}' viewBox='0 0 ${nodeWidth} ${nodeHeight}'>
-            <rect rx='12' width='100%' height='100%' fill='${bg}' />
-            <image href='${escapeXml(imgUrl)}' x='${thumbLeft}' y='${Math.round((nodeHeight - thumbHeight)/2)}' width='${thumbWidth}' height='${thumbHeight}' preserveAspectRatio='xMidYMid slice' />
-            <g fill='#222' font-family='Arial, Helvetica, sans-serif' font-size='${fontSize}' text-anchor='start'>
-              <text x='${textX}' y='${nameStartY}'>${nameTspans}</text>
-              <text x='${textX}' y='${birthY}'>${escapeXml(birth ? ('Nasc: ' + birth) : '')}</text>
-              <text x='${textX}' y='${deathY}'>${escapeXml(death ? ('Óbito: ' + death) : '')}</text>
-            </g>
-          </svg>`;
-          try{ d.img = 'data:image/svg+xml;base64,' + base64EncodeUnicode(svg); }catch(e){ d.img = d.img; }
-          // clear label so Cytoscape doesn't draw external text
+          const nameTspans = nameLines.map((ln, idx) => `<tspan x='${textX}' dy='${idx===0 ? 0 : lineHeight}'>${escapeXml(ln)}</tspan>`).join('');
+          const svg = `<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='${nodeWidth}' height='${nodeHeight}' viewBox='0 0 ${nodeWidth} ${nodeHeight}'><rect rx='10' width='100%' height='100%' fill='${bg}'/><image href='${escapeXml(imgUrl)}' x='${thumbLeft}' y='${Math.round((nodeHeight-thumbHeight)/2)}' width='${thumbWidth}' height='${thumbHeight}' preserveAspectRatio='xMidYMid slice'/><g fill='#222' font-family='Arial,Helvetica,sans-serif' font-size='${fontSize}' text-anchor='start'><text x='${textX}' y='${nameStartY}'>${nameTspans}</text><text x='${textX}' y='${birthY}'>${escapeXml(birth ? 'Nasc: '+birth : '')}</text><text x='${textX}' y='${deathY}'>${escapeXml(death ? 'Óbito: '+death : '')}</text></g></svg>`;
+          try{ d.img = 'data:image/svg+xml;base64,' + base64EncodeUnicode(svg); }catch(e){}
           d.displayLabel = '';
         });
 
-        // ensure edge labels are visible
-        // create visual partner edges (do not include them in ancestor calculations)
+        // ── Partner edges (dashed horizontal lines) ───────────────────────────
         const partnerEdges = [];
-        try{
-          (data.partners || []).forEach(pid => {
-            if(!idMapHas(pid)) return;
-            const nodeInfo = (data.nodes||[]).find(n => String(n.data.id) === String(pid));
-            const g = (nodeInfo && nodeInfo.data && nodeInfo.data.gender) ? String(nodeInfo.data.gender).toLowerCase() : '';
-            const label = (g==='female'||g==='feminino'||g==='f') ? 'Companheira' : (g==='male'||g==='masculino'||g==='m') ? 'Companheiro' : 'Companheiro(a)';
-            partnerEdges.push({ data: { id: `e_partner_${rootId}_${pid}`, source: String(rootId), target: String(pid), label, rel: 'partner' } });
-          });
-        }catch(e){}
-
-        // also add partner-style edges between parent pairs for each child (father <-> mother)
-        // deduplicate: only add if no edge between this pair already exists
-        try{
-          // parentMap is a Map(childId -> [parentId...])
-          if(data.parentMap){
-            for(const [childId, parents] of data.parentMap.entries()){
-              if(!parents || parents.length < 2) continue;
-              const p1 = String(parents[0]); const p2 = String(parents[1]);
-              if(!idMapHas(p1) || !idMapHas(p2)) continue;
-              if(partnerEdgeExists(partnerEdges, p1, p2)) continue; // already have an edge for this pair
-              // find node info for gender-based label (use second parent as target for label semantics)
-              const nodeInfo = (data.nodes||[]).find(n => String(n.data.id) === p2);
-              const g = (nodeInfo && nodeInfo.data && nodeInfo.data.gender) ? String(nodeInfo.data.gender).toLowerCase() : '';
-              const label = (g==='female'||g==='feminino'||g==='f') ? 'Companheira' : (g==='male'||g==='masculino'||g==='m') ? 'Companheiro' : 'Companheiro(a)';
-              const edgeId = `e_parents_${childId}_${p1}_${p2}`;
-              partnerEdges.push({ data: { id: edgeId, source: p1, target: p2, label, rel: 'partner' } });
-            }
+        // root ↔ partner(s)
+        (data.partners || []).forEach(pid => {
+          if(!idMapHas(pid)) return;
+          partnerEdges.push({ data: { id: `e_partner_${rootId}_${pid}`, source: String(rootId), target: String(pid), rel: 'partner' } });
+        });
+        // parent pairs for children (ONE edge per unique pair)
+        if(data.parentMap){
+          for(const [, pars] of data.parentMap.entries()){
+            if(!pars || pars.length < 2) continue;
+            const p1 = String(pars[0]), p2 = String(pars[1]);
+            if(!idMapHas(p1) || !idMapHas(p2)) continue;
+            if(partnerEdgeExists(partnerEdges, p1, p2)) continue;
+            partnerEdges.push({ data: { id: `e_pp_${[p1,p2].sort().join('_')}`, source: p1, target: p2, rel: 'partner' } });
           }
-        }catch(e){}
+        }
 
-        // build elements and replace parent->child edges with a single junction->child edge when two parents exist
-        let edgesCombined = (data.edges||[]).concat(partnerEdges);
+        // ── Filter edges: remove sibling direct-edges and parent→child direct edges ─
+        // (sibling connections are shown via shared junction; direct edges create crossing lines)
+        let edgesCombined = (data.edges||[]).filter(e => {
+          if(!e || !e.data) return false;
+          const id = String(e.data.id || '');
+          return !id.startsWith('e_sib_') && !id.startsWith('e_child_');
+        }).concat(partnerEdges);
+
+        // ── ONE junction node per unique parent pair, then junction→child edges ──
         const junctionNodes = [];
         const junctionEdges = [];
-        try{
-          if(data.parentMap){
-            for(const [childId, parents] of data.parentMap.entries()){
-              if(!parents || parents.length < 2) continue;
-              const p1 = String(parents[0]); const p2 = String(parents[1]);
-              if(!idMapHas(p1) || !idMapHas(p2)) continue;
-              const pos1 = positions.get(p1); const pos2 = positions.get(p2);
+        if(data.parentMap){
+          const pairJunctionMap = new Map(); // pairKey → junctionId
+          for(const [childId, pars] of data.parentMap.entries()){
+            if(!pars || pars.length < 2) continue;
+            const p1 = String(pars[0]), p2 = String(pars[1]);
+            if(!idMapHas(p1) || !idMapHas(p2) || !idMapHas(childId)) continue;
+            const pairKey = [p1, p2].sort().join('__');
+            if(!pairJunctionMap.has(pairKey)){
+              const pos1 = positions.get(p1), pos2 = positions.get(p2);
               if(!pos1 || !pos2) continue;
-              const jx = Math.round((pos1.x + pos2.x) / 2); const jy = Math.round((pos1.y + pos2.y) / 2);
-              const junctionId = `junction_${childId}`;
-              junctionNodes.push({ data: { id: junctionId, junctionFor: String(childId) }, position: { x: jx, y: jy } });
-              // remove existing parent->child edges for these two parents
-              edgesCombined = edgesCombined.filter(e => {
-                try{ if(!e || !e.data) return true; const src = String(e.data.source||''); const tgt = String(e.data.target||''); if(tgt === String(childId) && (src === p1 || src === p2) && String(e.data.id||'').startsWith('e_child_')) return false; }catch(err){}
-                return true;
-              });
-              // create single junction->child edge with child's label
-              const childNode = (data.nodes||[]).find(n => String(n.data.id) === String(childId));
-              const childGender = (childNode && childNode.data && childNode.data.gender) ? String(childNode.data.gender).toLowerCase() : '';
-              const childLabel = (childGender==='female'||childGender==='feminino'||childGender==='f') ? 'Filha' : (childGender==='male'||childGender==='masculino'||childGender==='m') ? 'Filho' : 'Filho(a)';
-              junctionEdges.push({ data: { id: `e_child_junction_${childId}`, source: junctionId, target: String(childId), label: childLabel } });
+              const jx = Math.round((pos1.x + pos2.x) / 2);
+              const jy = Math.round((pos1.y + pos2.y) / 2);
+              const junctionId = `junction_${pairKey}`;
+              junctionNodes.push({ data: { id: junctionId, junctionFor: pairKey }, position: { x: jx, y: jy } });
+              pairJunctionMap.set(pairKey, junctionId);
             }
-            if(junctionNodes.length){
-              positionedNodes.push(...junctionNodes);
-              edgesCombined = edgesCombined.concat(junctionEdges);
+            const junctionId = pairJunctionMap.get(pairKey);
+            if(!junctionId) continue;
+            const eId = `e_jc_${junctionId}_${childId}`;
+            if(!junctionEdges.find(e => e.data.id === eId)){
+              const childNode = (data.nodes||[]).find(n => String(n.data.id) === childId);
+              const cg = (childNode && childNode.data && childNode.data.gender) ? String(childNode.data.gender).toLowerCase() : '';
+              const cLabel = (cg==='female'||cg==='feminino'||cg==='f') ? 'Filha' : (cg==='male'||cg==='masculino'||cg==='m') ? 'Filho' : 'Filho(a)';
+              junctionEdges.push({ data: { id: eId, source: junctionId, target: childId, label: cLabel } });
             }
           }
-        }catch(e){}
+          // single-parent→child edges (when only one parent exists in parentMap)
+          for(const [childId, pars] of data.parentMap.entries()){
+            if(!pars || pars.length !== 1) continue;
+            const p1 = String(pars[0]);
+            if(!idMapHas(p1) || !idMapHas(childId)) continue;
+            const eId = `e_sp_${p1}_${childId}`;
+            if(!junctionEdges.find(e => e.data.id === eId) && !edgesCombined.find(e => e.data && e.data.id === eId)){
+              const childNode = (data.nodes||[]).find(n => String(n.data.id) === childId);
+              const cg = (childNode && childNode.data && childNode.data.gender) ? String(childNode.data.gender).toLowerCase() : '';
+              const cLabel = (cg==='female'||cg==='feminino'||cg==='f') ? 'Filha' : (cg==='male'||cg==='masculino'||cg==='m') ? 'Filho' : 'Filho(a)';
+              junctionEdges.push({ data: { id: eId, source: p1, target: childId, label: cLabel } });
+            }
+          }
+          if(junctionNodes.length){ positionedNodes.push(...junctionNodes); }
+          edgesCombined = edgesCombined.concat(junctionEdges);
+        }
 
         const cyElements = { nodes: positionedNodes, edges: edgesCombined };
 
@@ -722,20 +728,75 @@
           elements: cyElements,
           style: [
             { selector: 'node', style: {
-              'shape':'round-rectangle', 'width': nodeWidth, 'height': nodeHeight, 'background-image':'data(img)', 'background-fit':'cover', 'background-width':'100%', 'background-height':'100%', 'background-position-x':'50%', 'background-position-y':'50%', 'border-width':3,
-              'label':'data(displayLabel)', 'text-valign':'top','text-halign':'left','text-wrap':'wrap','text-max-width': textMaxWidthCalc,'font-size':13,'color':'#222','text-margin-x': textMarginXCalc,'text-margin-y':12
+              'shape': 'round-rectangle', 'width': nodeWidth, 'height': nodeHeight,
+              'background-image': 'data(img)', 'background-fit': 'cover',
+              'background-width': '100%', 'background-height': '100%',
+              'background-position-x': '50%', 'background-position-y': '50%',
+              'border-width': 3, 'label': ''
             }},
-            { selector: 'node[junctionFor]', style: { 'background-opacity': 0, 'width': 4, 'height': 4, 'label': '' } },
-            { selector: 'node[gender]', style: { 'border-color': function(ele){ const g = (ele.data('gender')||'').toString().toLowerCase(); return (g==='female'||g==='feminino'||g==='f') ? '#e26aa6' : (g==='male'||g==='masculino'||g==='m') ? '#4a90e2' : '#9aa0a6'; } }},
-            { selector: 'edge', style: { 'width':2,'line-color':'#888','target-arrow-shape':'triangle','target-arrow-color':'#888','curve-style':'bezier','label':'data(label)','font-size':11,'text-rotation':'autorotate','text-margin-y':-6,'color':'#333' } },
-            { selector: 'edge[rel = "partner"]', style: { 'line-style':'dashed','target-arrow-shape':'none','source-arrow-shape':'none' } },
-            { selector: 'edge.highlighted', style: { 'line-color':'#4a90e2','target-arrow-color':'#4a90e2','width':4,'opacity':1,'z-index':9999,'font-size':12,'text-outline-color':'#ffffff','text-outline-width':3 } }
+            // junction dot: small visible circle
+            { selector: 'node[junctionFor]', style: {
+              'shape': 'ellipse', 'background-color': '#666', 'background-opacity': 1,
+              'border-width': 0, 'width': 10, 'height': 10, 'label': ''
+            }},
+            { selector: 'node[gender]', style: { 'border-color': function(ele){
+              const g = (ele.data('gender')||'').toString().toLowerCase();
+              return (g==='female'||g==='feminino'||g==='f') ? '#e26aa6' : (g==='male'||g==='masculino'||g==='m') ? '#4a90e2' : '#9aa0a6';
+            }}},
+            // parent→child via junction: smooth bezier curves
+            { selector: 'edge', style: {
+              'width': 2, 'line-color': '#888',
+              'target-arrow-shape': 'none',
+              'curve-style': 'bezier',
+              'control-point-step-size': 80,
+              'label': ''
+            }},
+            // partner edges: straight dashed horizontal line, no arrows
+            { selector: 'edge[rel = "partner"]', style: {
+              'line-style': 'dashed',
+              'curve-style': 'straight',
+              'target-arrow-shape': 'none',
+              'source-arrow-shape': 'none',
+              'line-color': '#aaa',
+              'label': ''
+            }},
+            { selector: 'edge.highlighted', style: {
+              'line-color': '#4a90e2', 'target-arrow-color': '#4a90e2',
+              'width': 4, 'opacity': 1, 'z-index': 9999
+            }}
           ],
           layout: { name: 'preset' }
         });
 
         // disable selection so clicking a node doesn't trigger selection effects on other nodes
         try{ _cy.unselectify(); }catch(e){}
+
+        // ── Keep junction nodes centred between their parent pair when dragged ──
+        // Build map: personNodeId → [junctionId, ...]
+        const _personToJunctions = new Map();
+        _cy.nodes('[junctionFor]').forEach(function(jNode){
+          const pairKey = jNode.data('junctionFor');
+          if(!pairKey) return;
+          pairKey.split('__').forEach(function(pid){
+            if(!_personToJunctions.has(pid)) _personToJunctions.set(pid, []);
+            _personToJunctions.get(pid).push(jNode.id());
+          });
+        });
+        _cy.on('drag', 'node[name]', function(evt){
+          const movedId = String(evt.target.id());
+          const jIds = _personToJunctions.get(movedId) || [];
+          jIds.forEach(function(jId){
+            const jNode = _cy.getElementById(jId);
+            if(!jNode || !jNode.length) return;
+            const pairKey = jNode.data('junctionFor');
+            if(!pairKey) return;
+            const parts = pairKey.split('__');
+            const n1 = _cy.getElementById(parts[0]), n2 = _cy.getElementById(parts[1]);
+            if(!n1.length || !n2.length) return;
+            const p1 = n1.position(), p2 = n2.position();
+            jNode.position({ x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 });
+          });
+        });
 
         // create DOM overlay buttons for nodes so icons are truly clickable
         let overlay = document.getElementById('cy-overlay');

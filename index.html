@@ -3,103 +3,540 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>myLineage — Bem-vindo</title>
-    <link rel="stylesheet" href="landing.css">
+    <title>myLineage — Início</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
     <script src="remote-storage.js"></script>
+    <style>
+      /* ── Home page extras ──────────────────────────────────────────── */
+      .home-wrap {
+        padding: 0 32px 56px;
+        margin-top: 40px !important;
+        display: flex;
+        flex-direction: column;
+        gap: 32px;
+        width: 100%;
+        box-sizing: border-box;
+      }
+
+      /* Hero */
+      .home-hero {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 24px;
+        align-items: center;
+        background: linear-gradient(135deg, #161b22 60%, #1a2236);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        padding: 32px 36px;
+        position: relative;
+        overflow: hidden;
+      }
+      .home-hero::before {
+        content: '';
+        position: absolute;
+        top: -60px; right: -80px;
+        width: 320px; height: 320px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(68,147,248,0.12) 0%, transparent 70%);
+        pointer-events: none;
+      }
+      .home-hero-title {
+        font-size: 2rem;
+        font-weight: 800;
+        color: var(--text-main);
+        margin: 0 0 8px;
+        line-height: 1.2;
+      }
+      .home-hero-sub {
+        color: var(--text-secondary);
+        font-size: 0.95rem;
+        margin: 0 0 22px;
+        max-width: 480px;
+      }
+      .home-hero-cta {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .home-hero-icon {
+        font-size: 5rem;
+        line-height: 1;
+        color: var(--green);
+        opacity: 0.85;
+        flex-shrink: 0;
+        user-select: none;
+        filter: drop-shadow(0 4px 12px rgba(63,185,80,0.3));
+      }
+
+      /* Section titles */
+      .home-section-title {
+        font-size: 0.7rem;
+        font-weight: 700;
+        color: var(--text-disabled);
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        margin: 0 0 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .home-section-title::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: var(--border-subtle);
+      }
+
+      /* Nav cards grid */
+      .home-nav-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+        gap: 10px;
+      }
+      .home-nav-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 18px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        text-decoration: none !important;
+        color: var(--text-main);
+        transition: background var(--transition), border-color var(--transition), transform var(--transition), box-shadow var(--transition);
+        cursor: pointer;
+      }
+      .home-nav-card:hover {
+        background: var(--bg-surface-2);
+        border-color: var(--border-accent);
+        transform: translateY(-2px);
+        box-shadow: var(--shadow);
+        color: var(--text-main);
+      }
+      .home-nav-card .nav-card-icon {
+        font-size: 1.5rem;
+        color: var(--accent);
+        margin-bottom: 2px;
+      }
+      .home-nav-card .nav-card-label {
+        font-weight: 700;
+        font-size: 0.9rem;
+      }
+      .home-nav-card .nav-card-desc {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        line-height: 1.4;
+      }
+
+      /* Stats bar */
+      .home-stats {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      .home-stat {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 12px 20px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        min-width: 140px;
+      }
+      .home-stat-icon {
+        font-size: 1.4rem;
+        color: var(--text-disabled);
+        flex-shrink: 0;
+      }
+      .home-stat-num {
+        font-size: 1.6rem;
+        font-weight: 700;
+        color: var(--text-main);
+        line-height: 1;
+      }
+      .home-stat-label {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top: 2px;
+      }
+
+      /* GEDCOM resources */
+      .gedcom-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 10px;
+      }
+      .gedcom-link-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-sm);
+        padding: 14px 16px;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        text-decoration: none !important;
+        transition: background var(--transition), border-color var(--transition);
+      }
+      .gedcom-link-card:hover {
+        background: var(--bg-surface-2);
+        border-color: var(--border-accent);
+      }
+      .gedcom-link-icon {
+        font-size: 1.2rem;
+        color: var(--accent);
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+      .gedcom-link-body {}
+      .gedcom-link-title {
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .gedcom-link-title .mdi-open-in-new {
+        font-size: 0.7rem;
+        color: var(--text-disabled);
+      }
+      .gedcom-link-desc {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 3px;
+        line-height: 1.4;
+      }
+      .gedcom-badge {
+        font-size: 0.6rem;
+        font-weight: 700;
+        padding: 1px 5px;
+        border-radius: 3px;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        background: var(--accent-soft);
+        color: var(--accent);
+        flex-shrink: 0;
+        align-self: flex-start;
+        margin-top: 2px;
+      }
+      .gedcom-badge.green { background: var(--green-soft); color: var(--green); }
+      .gedcom-badge.amber { background: var(--amber-soft); color: var(--amber); }
+
+      /* Footer */
+      .home-footer {
+        margin-top: auto;
+        padding: 14px 28px;
+        border-top: 1px solid var(--border-subtle);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.75rem;
+        color: var(--text-disabled);
+      }
+
+      @media (max-width: 900px) {
+        .home-hero { grid-template-columns: 1fr; }
+        .home-hero-icon { display: none; }
+        .home-wrap { padding: 24px 16px 40px; }
+        .gedcom-grid { grid-template-columns: 1fr; }
+        .home-nav-grid { grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+      }
+    </style>
   </head>
   <body>
-    <header class="lp-header">
-      <div class="lp-brand">
-        <div class="lp-logo" aria-hidden="true">🌳</div>
-        <div>
-          <h1>myLineage</h1>
-          <p class="muted">Explorar e gerir a sua história familiar</p>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a href="index.html" class="logo active"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></a>
+        <nav>
+          <a href="app.html"><i class="mdi mdi-account-multiple" aria-hidden="true"></i>Cadastro</a>
+          <a href="indicadores.html"><i class="mdi mdi-chart-bar" aria-hidden="true"></i>Indicadores</a>
+          <a href="arvore.html"><i class="mdi mdi-sitemap" aria-hidden="true"></i>Árvore</a>
+          <a href="import.html"><i class="mdi mdi-file-import" aria-hidden="true"></i>Importar</a>
+          <a href="export.html"><i class="mdi mdi-file-export" aria-hidden="true"></i>Exportar</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="configuracao.html"><i class="mdi mdi-cog" aria-hidden="true"></i>Definições</a>
         </div>
-      </div>
-      <div class="lp-actions">
-        <button id="themeToggle" class="icon-btn" aria-label="Alternar tema">🌓</button>
-      </div>
-    </header>
+      </aside>
 
-    <main class="lp-main">
-      <section class="hero">
-        <div class="hero-content">
-          <h2>Descubra gerações, preserve memórias</h2>
-          <p class="lead">Importe, explore e conecte registos genealógicos com ferramentas simples e seguras.</p>
-          <div class="hero-cta">
-            <a class="btn primary" href="app.html">Abrir Aplicação</a>
-            <a class="btn" href="arvore.html">Ver Árvore</a>
+      <main class="content" style="display:flex;flex-direction:column;">
+        <div class="topbar">
+          <div style="display:flex;align-items:center;gap:10px">
+            <h1 style="margin:0">Início</h1>
           </div>
+          <a href="app.html" class="btn" style="font-size:0.8rem;padding:6px 14px">
+            <i class="mdi mdi-play" aria-hidden="true"></i> Abrir Aplicação
+          </a>
         </div>
-        <div class="hero-visual" aria-hidden="true">
-          <svg viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet">
-            <defs>
-              <linearGradient id="g1" x1="0" x2="1">
-                <stop offset="0" stop-color="var(--accent)" stop-opacity="0.9"/>
-                <stop offset="1" stop-color="var(--accent-2)" stop-opacity="0.7"/>
-              </linearGradient>
-            </defs>
-            <rect width="100%" height="100%" fill="url(#g1)"></rect>
-            <g fill="rgba(255,255,255,0.15)">
-              <circle cx="480" cy="80" r="60"></circle>
-              <circle cx="520" cy="140" r="40"></circle>
-              <circle cx="420" cy="200" r="28"></circle>
-            </g>
-            <text x="40" y="260" fill="rgba(255,255,255,0.9)" font-size="34">Árvore genealógica</text>
-          </svg>
-        </div>
-      </section>
 
-      <section class="links-grid">
-        <div class="card">
-          <h3>Entrar na aplicação</h3>
-          <p>Aceda ao modo aplicação com todas as ferramentas de gestão.</p>
-          <div class="card-links">
-            <a href="app.html">Modo Aplicação (UI Completa)</a>
-            <a href="import.html">Importar GEDCOM</a>
-            <a href="export.html">Exportar dados</a>
+        <div class="home-wrap">
+
+          <!-- Hero ─────────────────────────────────────────────────────── -->
+          <div class="home-hero">
+            <div>
+              <h2 class="home-hero-title">Bem-vindo ao myLineage</h2>
+              <p class="home-hero-sub">Explore, preserve e conecte a sua história familiar. Importe ficheiros GEDCOM, construa a sua árvore genealógica e analise os dados com indicadores detalhados.</p>
+              <div class="home-hero-cta">
+                <a href="app.html" class="btn"><i class="mdi mdi-account-multiple" aria-hidden="true"></i> Cadastro</a>
+                <a href="arvore.html" class="btn btn-ghost"><i class="mdi mdi-sitemap" aria-hidden="true"></i> Ver Árvore</a>
+                <a href="import.html" class="btn btn-ghost"><i class="mdi mdi-file-import" aria-hidden="true"></i> Importar GEDCOM</a>
+              </div>
+            </div>
+            <div class="home-hero-icon" aria-hidden="true"><i class="mdi mdi-tree"></i></div>
           </div>
-        </div>
 
-        <div class="card">
-          <h3>Pesquisar genealogia</h3>
-          <p>Links rápidos para sites de pesquisa genealógica.</p>
-          <div class="card-links">
-            <a href="https://www.myheritage.com" target="_blank" rel="noopener noreferrer">MyHeritage</a>
-            <a href="https://www.familysearch.org" target="_blank" rel="noopener noreferrer">FamilySearch</a>
-            <a href="https://www.ancestry.com" target="_blank" rel="noopener noreferrer">Ancestry</a>
-            <a href="https://www.findmypast.com" target="_blank" rel="noopener noreferrer">Findmypast</a>
+          <!-- Stats ────────────────────────────────────────────────────── -->
+          <div>
+            <div class="home-section-title"><i class="mdi mdi-database-outline"></i> Dados actuais</div>
+            <div class="home-stats">
+              <div class="home-stat">
+                <div class="home-stat-icon"><i class="mdi mdi-account-group" aria-hidden="true"></i></div>
+                <div>
+                  <div class="home-stat-num" id="stat-pessoas">—</div>
+                  <div class="home-stat-label">Pessoas</div>
+                </div>
+              </div>
+              <div class="home-stat">
+                <div class="home-stat-icon"><i class="mdi mdi-calendar-multiple" aria-hidden="true"></i></div>
+                <div>
+                  <div class="home-stat-num" id="stat-eventos">—</div>
+                  <div class="home-stat-label">Eventos</div>
+                </div>
+              </div>
+              <div class="home-stat">
+                <div class="home-stat-icon"><i class="mdi mdi-graph" aria-hidden="true"></i></div>
+                <div>
+                  <div class="home-stat-num" id="stat-relacoes">—</div>
+                  <div class="home-stat-label">Relações</div>
+                </div>
+              </div>
+              <div class="home-stat">
+                <div class="home-stat-icon"><i class="mdi mdi-baby-carriage" aria-hidden="true"></i></div>
+                <div>
+                  <div class="home-stat-num" id="stat-nascimentos">—</div>
+                  <div class="home-stat-label">Nascimentos</div>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div class="card">
-          <h3>Recursos</h3>
-          <p>Configurações e indicadores.</p>
-          <div class="card-links">
-            <a href="configuracao.html">Definições</a>
-            <a href="indicadores.html">Indicadores</a>
-            <a href="pessoa-detalhe.html">Detalhe de Pessoa</a>
+          <!-- Navigation cards ─────────────────────────────────────────── -->
+          <div>
+            <div class="home-section-title"><i class="mdi mdi-apps"></i> Módulos</div>
+            <div class="home-nav-grid">
+              <a href="app.html" class="home-nav-card">
+                <div class="nav-card-icon"><i class="mdi mdi-account-multiple" aria-hidden="true"></i></div>
+                <div class="nav-card-label">Cadastro</div>
+                <div class="nav-card-desc">Gerir pessoas, dados pessoais e notas biográficas.</div>
+              </a>
+              <a href="indicadores.html" class="home-nav-card">
+                <div class="nav-card-icon"><i class="mdi mdi-chart-bar" aria-hidden="true"></i></div>
+                <div class="nav-card-label">Indicadores</div>
+                <div class="nav-card-desc">Dashboard com gráficos de distribuição, longevidade e top nomes.</div>
+              </a>
+              <a href="arvore.html" class="home-nav-card">
+                <div class="nav-card-icon"><i class="mdi mdi-sitemap" aria-hidden="true"></i></div>
+                <div class="nav-card-label">Árvore Genealógica</div>
+                <div class="nav-card-desc">Visualização interactiva das relações familiares em grafo.</div>
+              </a>
+              <a href="import.html" class="home-nav-card">
+                <div class="nav-card-icon"><i class="mdi mdi-file-import" aria-hidden="true"></i></div>
+                <div class="nav-card-label">Importar</div>
+                <div class="nav-card-desc">Importar ficheiros GEDCOM (.ged) de outras aplicações.</div>
+              </a>
+              <a href="export.html" class="home-nav-card">
+                <div class="nav-card-icon"><i class="mdi mdi-file-export" aria-hidden="true"></i></div>
+                <div class="nav-card-label">Exportar</div>
+                <div class="nav-card-desc">Exportar os dados no formato GEDCOM para backup ou partilha.</div>
+              </a>
+              <a href="configuracao.html" class="home-nav-card">
+                <div class="nav-card-icon"><i class="mdi mdi-cog" aria-hidden="true"></i></div>
+                <div class="nav-card-label">Definições</div>
+                <div class="nav-card-desc">Configurar preferências e opções da aplicação.</div>
+              </a>
+            </div>
           </div>
-        </div>
-      </section>
-    </main>
 
-    <footer class="lp-footer">
-      <div>© <span id="year"></span> myLineage</div>
-      <div class="muted">Feito para gestão de arquivos familiares • GEDCOM ready</div>
-    </footer>
+          <!-- GEDCOM Resources ─────────────────────────────────────────── -->
+          <div>
+            <div class="home-section-title"><i class="mdi mdi-file-document-outline"></i> Norma GEDCOM — recursos</div>
+            <div class="gedcom-grid">
+
+              <a href="https://gedcom.io" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-book-open-variant" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">gedcom.io <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Site oficial da especificação GEDCOM 7 (FamilySearch). Documentação completa, exemplos e FAQ.</div>
+                </div>
+                <span class="gedcom-badge green">v7</span>
+              </a>
+
+              <a href="https://github.com/FamilySearch/GEDCOM" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-github" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">FamilySearch/GEDCOM (GitHub) <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Repositório oficial da especificação GEDCOM 7 — ficheiros de especificação, issues e changelog.</div>
+                </div>
+                <span class="gedcom-badge green">v7</span>
+              </a>
+
+              <a href="https://gedcom.net/gedcom55.pdf" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-file-pdf-box" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">Especificação GEDCOM 5.5.1 (PDF) <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Documento oficial da versão 5.5.1, amplamente usada pela maioria das aplicações de genealogia.</div>
+                </div>
+                <span class="gedcom-badge amber">v5.5.1</span>
+              </a>
+
+              <a href="https://en.wikipedia.org/wiki/GEDCOM" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-wikipedia" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">GEDCOM — Wikipedia <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Visão geral da norma, história, estrutura do formato e comparação de versões.</div>
+                </div>
+              </a>
+
+              <a href="https://www.familysearch.org/en/help/helpcenter/article/how-do-i-create-a-gedcom-file-from-familysearch" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-account-search" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">FamilySearch — Criar GEDCOM <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Guia passo‑a‑passo para exportar a sua árvore do FamilySearch como ficheiro .ged.</div>
+                </div>
+              </a>
+
+              <a href="https://gramps-project.org/wiki/index.php/GEDCOM" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-information-outline" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">Gramps Wiki — GEDCOM <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Documentação detalhada de tags, estrutura de registos e boas práticas de importação/exportação.</div>
+                </div>
+              </a>
+
+              <a href="https://gedcom.io/specifications/FamilySearchGEDCOMv7.html" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-code-braces" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">Especificação GEDCOM 7 (HTML) <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Versão integral da especificação em formato HTML, pesquisável e com hiperligações internas.</div>
+                </div>
+                <span class="gedcom-badge green">v7</span>
+              </a>
+
+              <a href="https://www.gedcom.org" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-web" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">gedcom.org <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Arquivo histórico das versões anteriores da norma GEDCOM (5.5, 5.5.1, 5.5.5).</div>
+                </div>
+                <span class="gedcom-badge amber">Arquivo</span>
+              </a>
+
+            </div>
+          </div>
+
+          <!-- Genealogy Links ───────────────────────────────────────── -->
+          <div>
+            <div class="home-section-title"><i class="mdi mdi-earth"></i> Genealogia online — links úteis</div>
+            <div class="gedcom-grid">
+
+              <a href="https://www.myheritage.com" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-dna" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">MyHeritage <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Plataforma global de genealogia com árvores, registos históricos e comparação de DNA.</div>
+                </div>
+              </a>
+
+              <a href="https://www.familysearch.org" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-account-search" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">FamilySearch <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Base de dados gratuita da Igreja SUD com mais de 1 bilião de registos históricos digitalizados.</div>
+                </div>
+                <span class="gedcom-badge green">Grátis</span>
+              </a>
+
+              <a href="https://www.ancestry.com" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-family-tree" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">Ancestry <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">O maior arquivo genealógico do mundo com censos, registos paroquiais e testes de ADN.</div>
+                </div>
+              </a>
+
+              <a href="https://www.findmypast.com" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-map-search" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">Findmypast <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Especializado em registos britânicos e irlandeses — censos, registos de nascimento, casamento e óbito.</div>
+                </div>
+              </a>
+
+              <a href="https://www.geneanet.org" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-web" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">Geneanet <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Rede colaborativa europeia com foco em França e países lusófonos. Partilha de árvores e fontes.</div>
+                </div>
+                <span class="gedcom-badge green">Grátis</span>
+              </a>
+
+              <a href="https://www.geni.com" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-share-variant" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">Geni <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Árvore genealógica colaborativa e mundial — encontre ramos já construídos por outros utilizadores.</div>
+                </div>
+              </a>
+
+              <a href="https://www.archivesportaleurope.net" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-bank" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">Archives Portal Europe <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Portal de acesso a arquivos históricos de mais de 30 países europeus.</div>
+                </div>
+                <span class="gedcom-badge green">Grátis</span>
+              </a>
+
+              <a href="https://antt.dglab.gov.pt" target="_blank" rel="noopener noreferrer" class="gedcom-link-card">
+                <div class="gedcom-link-icon"><i class="mdi mdi-flag" aria-hidden="true"></i></div>
+                <div class="gedcom-link-body">
+                  <div class="gedcom-link-title">ANTT — Arquivo Nacional de Portugal <i class="mdi mdi-open-in-new" aria-hidden="true"></i></div>
+                  <div class="gedcom-link-desc">Arquivo Nacional Torre do Tombo — registos paroquiais, notariais e judiciais portugueses digitalizados.</div>
+                </div>
+                <span class="gedcom-badge green">Grátis</span>
+              </a>
+
+            </div>
+          </div>
+
+        </div><!-- /.home-wrap -->
+
+        <footer class="home-footer">
+          <span>© <span id="year"></span> myLineage</span>
+          <span>Feito para gestão de arquivos familiares · GEDCOM ready</span>
+        </footer>
+      </main>
+    </div><!-- /.app-shell -->
 
     <script>
-      // Theme toggle persisted in localStorage
-      const body = document.documentElement;
-      const btn = document.getElementById('themeToggle');
-      const current = localStorage.getItem('mylineage:theme') || 'light';
-      if (current === 'dark') body.classList.add('dark');
-      btn.addEventListener('click', () => {
-        const dark = body.classList.toggle('dark');
-        localStorage.setItem('mylineage:theme', dark ? 'dark' : 'light');
-      });
       document.getElementById('year').textContent = new Date().getFullYear();
+      // Quick stats
+      try {
+        const people   = JSON.parse(localStorage.getItem('people:myLineage')   || '[]').filter(p  => !p.deletedAt);
+        const events   = JSON.parse(localStorage.getItem('events:myLineage')   || '[]').filter(ev => !ev.deletedAt);
+        const relations= JSON.parse(localStorage.getItem('relations:myLineage')|| '[]');
+        const births   = events.filter(e => (e.type||'').toUpperCase() === 'BIRTH');
+        document.getElementById('stat-pessoas').textContent    = people.length;
+        document.getElementById('stat-eventos').textContent    = events.length;
+        document.getElementById('stat-relacoes').textContent   = relations.length;
+        document.getElementById('stat-nascimentos').textContent= births.length;
+      } catch(e) {}
     </script>
   </body>
 </html>

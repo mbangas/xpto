@@ -304,14 +304,17 @@
           // position partner(s) side-by-side at the same vertical level as root
           try{
             // place partners to the right of the focused person using the focused card width
+            // increase horizontal gap between focused person and partner by 100%
             const partnerIds = (data.partners || []).filter(id => idMapHas(id));
             if(partnerIds.length){
               const rootPos = positions.get(String(rootId)) || { x: 0, y: 0 };
-              // right edge of root center + half width
-              const firstCenterX = rootPos.x + (nodeWidth / 2) + hGap + (nodeWidth / 2); // root right edge + gap + half partner
+              // use a larger gap for partners (increase by 150% of default hGap -> total 3x)
+              const partnerGap = hGap * 3;
+              // right edge of root center + half width + partnerGap
+              const firstCenterX = rootPos.x + (nodeWidth / 2) + partnerGap + (nodeWidth / 2);
               for(let i = 0; i < partnerIds.length; i++){
                 const pid = String(partnerIds[i]);
-                const x = firstCenterX + i * (nodeWidth + hGap);
+                const x = firstCenterX + i * (nodeWidth + partnerGap);
                 positions.set(pid, { x: Math.round(x), y: Math.round(rootPos.y) });
               }
             }

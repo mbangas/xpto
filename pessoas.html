@@ -42,7 +42,7 @@
         </div>
 
         <div class="card">
-          <div id="cy" style="width:100%;height:620px;"></div>
+          <div id="cy" style="width:100%;height:620px;position:relative;"></div>
           <div class="legend" style="margin-top:12px;">
             <div><span class="avatar" style="background:#4a90e2"></span> Masculino</div>
             <div><span class="avatar" style="background:#e26aa6"></span> Feminino</div>
@@ -370,6 +370,7 @@
           const bg = '#9aa0a6';
           // build tspan elements for name
           const nameTspans = nameLines.map((ln, idx) => `<tspan x='${textX}' dy='${ idx===0 ? 0 : lineHeight }'>${escapeXml(ln)}</tspan>`).join('');
+          // add two small icons (eye and tree) at the bottom-right corner for actions
           const svg = `<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='${nodeWidth}' height='${nodeHeight}' viewBox='0 0 ${nodeWidth} ${nodeHeight}'>
             <rect rx='12' width='100%' height='100%' fill='${bg}' />
             <image href='${escapeXml(imgUrl)}' x='${thumbLeft}' y='${Math.round((nodeHeight - thumbHeight)/2)}' width='${thumbWidth}' height='${thumbHeight}' preserveAspectRatio='xMidYMid slice' />
@@ -414,7 +415,97 @@
           layout: { name: 'preset' }
         });
 
-        _cy.on('tap', 'node', function(evt){ const id = evt.target.id(); window.location.href = `pessoa-detalhe.html?id=${encodeURIComponent(id)}`; });
+        // create DOM overlay buttons for nodes so icons are truly clickable
+        let overlay = document.getElementById('cy-overlay');
+        if(!overlay){
+          overlay = document.createElement('div');
+          overlay.id = 'cy-overlay';
+          overlay.setAttribute('aria-hidden','true');
+          container.appendChild(overlay);
+        }
+        // ensure overlay is correctly positioned and accepts pointer events
+        overlay.style.position = 'absolute';
+        overlay.style.inset = '0';
+        overlay.style.zIndex = '1000';
+        overlay.style.pointerEvents = 'auto';
+        function clearOverlay(){ if(overlay) overlay.innerHTML = ''; }
+        function createOverlayButtons(){
+          if(!overlay) return;
+          clearOverlay();
+          // set transform origin to top-left so model coords map correctly
+          overlay.style.transformOrigin = '0 0';
+          // initialize transform based on cy pan/zoom
+          const p = _cy.pan(); const z = _cy.zoom(); overlay.style.transform = `translate(${p.x}px, ${p.y}px) scale(${z})`;
+          (data.nodes || []).forEach(n => {
+            const id = String(n.data.id);
+            const node = _cy.getElementById(id);
+            if(!node || node.empty()) return;
+            const pos = node.position(); // model coordinates
+            // button size in model units relative to nodeWidth/nodeHeight
+            const btnSize = Math.max(18, Math.round(Math.min(nodeWidth, nodeHeight) * 0.18));
+            const padding = Math.max(6, Math.round(btnSize * 0.4));
+
+            const treeBtn = document.createElement('button');
+            treeBtn.className = 'node-action tree';
+            treeBtn.dataset.nodeId = id;
+            treeBtn.title = 'Refazer árvore com esta pessoa em foco (temporário)';
+            treeBtn.textContent = '🌳';
+            treeBtn.style.position = 'absolute';
+            treeBtn.style.left = (Math.round(pos.x + (nodeWidth/2) - padding - (btnSize * 2) - 8)) + 'px';
+            treeBtn.style.top = (Math.round(pos.y + (nodeHeight/2) - padding - btnSize)) + 'px';
+            treeBtn.style.width = btnSize + 'px';
+            treeBtn.style.height = btnSize + 'px';
+            treeBtn.style.borderRadius = (btnSize/2) + 'px';
+            treeBtn.style.border = 'none';
+            treeBtn.style.background = 'white';
+            treeBtn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.15)';
+            treeBtn.style.pointerEvents = 'auto';
+            treeBtn.style.zIndex = '1010';
+            treeBtn.addEventListener('click', function(e){ e.stopPropagation(); window.RuntimeFocus = { id: id }; try{ renderGraph(); }catch(err){} });
+
+            const eyeBtn = document.createElement('button');
+            eyeBtn.className = 'node-action eye';
+            eyeBtn.dataset.nodeId = id;
+            eyeBtn.title = 'Ver detalhe desta pessoa';
+            eyeBtn.textContent = '👁';
+            eyeBtn.style.position = 'absolute';
+            eyeBtn.style.left = (Math.round(pos.x + (nodeWidth/2) - padding - btnSize)) + 'px';
+            eyeBtn.style.top = (Math.round(pos.y + (nodeHeight/2) - padding - btnSize)) + 'px';
+            eyeBtn.style.width = btnSize + 'px';
+            eyeBtn.style.height = btnSize + 'px';
+            eyeBtn.style.borderRadius = (btnSize/2) + 'px';
+            eyeBtn.style.border = 'none';
+            eyeBtn.style.background = 'white';
+            eyeBtn.style.boxShadow = '0 1px 2px rgba(0,0,0,0.15)';
+            eyeBtn.style.pointerEvents = 'auto';
+            eyeBtn.style.zIndex = '1010';
+            eyeBtn.addEventListener('click', function(e){ e.stopPropagation(); window.location.href = `pessoa-detalhe.html?id=${encodeURIComponent(id)}`; });
+
+            overlay.appendChild(treeBtn);
+            overlay.appendChild(eyeBtn);
+          });
+        }
+
+        function repositionOverlay(){ if(!overlay) return; // update overlay transform to track pan/zoom and reposition buttons
+          const p = _cy.pan(); const z = _cy.zoom(); overlay.style.transform = `translate(${p.x}px, ${p.y}px) scale(${z})`;
+          overlay.querySelectorAll('button.node-action').forEach(btn => {
+            const id = btn.dataset.nodeId; const node = _cy.getElementById(id); if(!node || node.empty()){ btn.remove(); return; }
+            const pos = node.position(); const btnSize = Math.max(18, Math.round(Math.min(nodeWidth, nodeHeight) * 0.18)); const padding = Math.max(6, Math.round(btnSize * 0.4));
+            if(btn.classList.contains('tree')){
+              btn.style.left = (Math.round(pos.x + (nodeWidth/2) - padding - (btnSize * 2) - 8)) + 'px';
+              btn.style.top = (Math.round(pos.y + (nodeHeight/2) - padding - btnSize)) + 'px';
+            } else {
+              btn.style.left = (Math.round(pos.x + (nodeWidth/2) - padding - btnSize)) + 'px';
+              btn.style.top = (Math.round(pos.y + (nodeHeight/2) - padding - btnSize)) + 'px';
+            }
+            btn.style.width = btnSize + 'px'; btn.style.height = btnSize + 'px'; btn.style.borderRadius = (btnSize/2) + 'px';
+          }); }
+
+        createOverlayButtons();
+        _cy.on('pan zoom resize', function(){ repositionOverlay(); });
+
+        // ignore node body taps now that overlay buttons handle actions
+        _cy.on('tap', 'node', function(evt){});
         _cy.fit(40);
       }
 

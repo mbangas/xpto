@@ -1,0 +1,402 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GEDCOM</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
+    <script src="remote-storage.js"></script>
+    <style>
+      .tab-bar {
+        display: flex;
+        gap: 4px;
+        border-bottom: 1px solid var(--border-subtle);
+        margin-bottom: 24px;
+      }
+      .tab-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        padding: 9px 18px;
+        border: none;
+        background: transparent;
+        color: var(--text-secondary);
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -1px;
+        border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+      }
+      .tab-btn:hover { color: var(--text-main); background: rgba(163,163,255,0.06); }
+      .tab-btn.active { color: var(--text-main); border-bottom-color: var(--accent); font-weight: 600; }
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a href="index.html" class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></a>
+        <nav>
+          <a href="app.html"><i class="mdi mdi-account-multiple" aria-hidden="true"></i>Cadastro</a>
+          <a href="indicadores.html"><i class="mdi mdi-chart-bar" aria-hidden="true"></i>Indicadores</a>
+          <a href="arvore.html"><i class="mdi mdi-sitemap" aria-hidden="true"></i>Árvore</a>
+          <a href="gedcom.html" class="active"><i class="mdi mdi-dna" aria-hidden="true"></i>GEDCOM</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="apis.html"><i class="mdi mdi-api" aria-hidden="true"></i>APIs</a>
+          <a href="configuracao.html"><i class="mdi mdi-cog" aria-hidden="true"></i>Definições</a>
+        </div>
+      </aside>
+
+      <main class="content">
+        <div class="topbar">
+          <div><h1>GEDCOM</h1></div>
+          <div></div>
+        </div>
+
+        <div class="card centered-panel" style="max-width:760px;">
+
+          <!-- Tab bar -->
+          <div class="tab-bar">
+            <button class="tab-btn active" data-tab="import" onclick="switchTab('import')">
+              <i class="mdi mdi-file-import"></i> Importar
+            </button>
+            <button class="tab-btn" data-tab="export" onclick="switchTab('export')">
+              <i class="mdi mdi-file-export"></i> Exportar
+            </button>
+          </div>
+
+          <!-- ── Import panel ────────────────────────────────────────── -->
+          <div id="tab-import" class="tab-panel active">
+            <p style="color:var(--text-secondary);margin:0 0 16px 0;">
+              Carregue um ficheiro GEDCOM (.ged). A importação irá substituir todos os dados atuais (Pessoas, Eventos e Relações) no armazenamento local. Faça um export antes se quiser preservar os dados atuais.
+            </p>
+
+            <div style="display:flex;gap:12px;align-items:center;">
+              <input type="file" id="gedcomFile" accept=".ged,text/plain" />
+              <button class="btn" id="importBtn">Importar GEDCOM</button>
+            </div>
+
+            <div id="importLog" style="margin-top:16px;color:var(--text-secondary);font-size:0.95rem;white-space:pre-wrap;"></div>
+
+            <div id="importHistoryContainer" style="margin-top:18px;">
+              <h3 style="margin:0 0 8px 0;font-size:1rem;">Histórico de importações (últimos 5)</h3>
+              <div id="importHistory" style="color:var(--text-secondary);font-size:0.95rem;"></div>
+            </div>
+          </div>
+
+          <!-- ── Export panel ────────────────────────────────────────── -->
+          <div id="tab-export" class="tab-panel">
+            <p style="color:var(--text-secondary);margin:0 0 16px 0;">
+              Exporta os dados atuais (Pessoas, Eventos e Relações) para um ficheiro GEDCOM (.ged). O ficheiro gerado é compatível com ferramentas básicas de genealogia; apenas campos principais e eventos de nascimento/óbito são incluídos.
+            </p>
+
+            <div style="display:flex;gap:12px;align-items:center;">
+              <button class="btn" id="exportBtn">Exportar GEDCOM</button>
+            </div>
+
+            <div id="exportLog" style="margin-top:16px;color:var(--text-secondary);font-size:0.95rem;white-space:pre-wrap;"></div>
+          </div>
+
+        </div>
+      </main>
+    </div>
+
+    <script>
+      /* ── Tab switching ─────────────────────────────────────────────── */
+      function switchTab(name) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === 'tab-' + name));
+      }
+
+      /* Open export tab directly if URL has #export */
+      if (location.hash === '#export') switchTab('export');
+
+      /* ── Shared helpers ────────────────────────────────────────────── */
+      function nowISO() { return new Date().toISOString(); }
+      function loadJSON(key) { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : []; } catch(e) { return []; } }
+
+      /* ── Import ────────────────────────────────────────────────────── */
+      function showImportLog(msg) { document.getElementById('importLog').textContent = msg; }
+
+      function getImportHistory() { try { return JSON.parse(localStorage.getItem('importHistory:myLineage') || '[]'); } catch(e) { return []; } }
+      function saveImportHistory(hist) { localStorage.setItem('importHistory:myLineage', JSON.stringify(hist)); }
+
+      function renderImportHistory() {
+        const container = document.getElementById('importHistory');
+        const hist = getImportHistory() || [];
+        if (!hist || hist.length === 0) {
+          container.innerHTML = '<div style="font-style:italic;color:var(--text-secondary);">Sem importações anteriores.</div>';
+          return;
+        }
+        hist.sort((a, b) => {
+          const da = a && a.when ? new Date(a.when).getTime() : 0;
+          const db = b && b.when ? new Date(b.when).getTime() : 0;
+          return db - da;
+        });
+        function fmtWhen(iso) {
+          try {
+            const d = new Date(iso);
+            const pad = n => String(n).padStart(2, '0');
+            return `${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+          } catch(e) { return iso || ''; }
+        }
+        let html = '<table style="width:100%;border-collapse:collapse;font-size:0.95rem;"><thead><tr style="text-align:left;color:var(--text-secondary)"><th>Quando</th><th>Ficheiro</th><th>Apagados</th><th>Inseridos</th></tr></thead><tbody>';
+        hist.forEach(row => {
+          const when = fmtWhen(row.when);
+          html += `<tr><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${when}</td><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${row.fileName || ''}</td><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${row.deleted}</td><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${row.inserted}</td></tr>`;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+      }
+
+      try { renderImportHistory(); } catch(e) { /* ignore */ }
+
+      document.getElementById('importBtn').addEventListener('click', function() {
+        const f = document.getElementById('gedcomFile').files[0];
+        if (!f) return alert('Selecione um ficheiro GEDCOM (.ged)');
+        if (!confirm('Confirma substituição de TODOS os dados existentes com os do ficheiro GEDCOM?')) return;
+
+        const prevPeople    = JSON.parse(localStorage.getItem('people:myLineage')    || '[]');
+        const prevEvents    = JSON.parse(localStorage.getItem('events:myLineage')    || '[]');
+        const prevRelations = JSON.parse(localStorage.getItem('relations:myLineage') || '[]');
+        const deletedCount  = (prevPeople.length || 0) + (prevEvents.length || 0) + (prevRelations.length || 0);
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+          try {
+            const txt = e.target.result;
+            const { people, events, relations, report } = parseGedcom(txt);
+            localStorage.setItem('people:myLineage',    JSON.stringify(people));
+            localStorage.setItem('events:myLineage',    JSON.stringify(events));
+            localStorage.setItem('relations:myLineage', JSON.stringify(relations));
+
+            const insertedCount = (people.length || 0) + (events.length || 0) + (relations.length || 0);
+
+            const hist = getImportHistory();
+            hist.unshift({ when: nowISO(), fileName: f.name || '', deleted: deletedCount, inserted: insertedCount });
+            saveImportHistory(hist.slice(0, 5));
+            renderImportHistory();
+
+            let summary = `Import concluído.\nPessoas importadas: ${people.length}\nEventos importados: ${events.length}\nRelações importadas: ${relations.length}\n\n`;
+            if (report.peopleWarnings && report.peopleWarnings.length) {
+              summary += 'Avisos sobre pessoas importadas:\n';
+              report.peopleWarnings.forEach(w => summary += `- ${w.id || '(sem id)'}: ${w.reason}\n`);
+              summary += '\n';
+            }
+            if (report.skippedEvents && report.skippedEvents.length) {
+              summary += 'Eventos não importados:\n';
+              report.skippedEvents.forEach(s => summary += `- ${s.id || '(sem id)'}: ${s.reason}\n`);
+              summary += '\n';
+            }
+            if (report.skippedRelations && report.skippedRelations.length) {
+              summary += 'Relações não importadas:\n';
+              report.skippedRelations.forEach(s => summary += `- ${s.description || s.id || '(sem descrição)'}: ${s.reason}\n`);
+              summary += '\n';
+            }
+            showImportLog(summary.trim());
+          } catch(err) {
+            console.error(err);
+            showImportLog('Erro ao importar: ' + (err && err.message || err));
+          }
+        };
+        reader.readAsText(f, 'utf-8');
+      });
+
+      function parseGedcom(text) {
+        const lines = text.split(/\r?\n/).map(l => l.replace(/\t/g, ' ').trimEnd());
+        const records = [];
+        let cur = null;
+        for (const raw of lines) {
+          if (!raw) continue;
+          const m = raw.match(/^(\d+)\s+(.*)$/);
+          if (!m) continue;
+          const level = parseInt(m[1], 10);
+          const rest = m[2];
+          if (level === 0) {
+            if (cur) records.push(cur);
+            cur = { raw: [rest], lines: [raw] };
+          } else if (cur) {
+            cur.raw.push(rest);
+            cur.lines.push(raw);
+          }
+        }
+        if (cur) records.push(cur);
+
+        const individuals = {};
+        const families    = {};
+
+        for (const r of records) {
+          const first = r.raw[0];
+          const indMatch = first.match(/^@([^@]+)@\s+INDI/);
+          if (indMatch) {
+            const xref = indMatch[1];
+            const obj  = { id: xref, raw: r.raw.slice() };
+            let i = 1;
+            while (i < r.raw.length) {
+              const part = r.raw[i];
+              if (part.startsWith('NAME')) {
+                const name = part.replace(/^NAME\s+/, '').trim();
+                const surnameMatch = name.match(/\/(.*?)\//);
+                obj.lastName  = surnameMatch ? surnameMatch[1].trim() : '';
+                obj.firstName = name.replace(/\/(.*?)\//,'').trim();
+              } else if (part.startsWith('SEX')) {
+                const sex = part.replace(/^SEX\s+/, '').trim();
+                obj.gender = (sex === 'M') ? 'male' : (sex === 'F') ? 'female' : 'other';
+              } else if (part.startsWith('BIRT')) {
+                if (r.raw[i+1] && r.raw[i+1].startsWith('DATE'))
+                  obj.birth = r.raw[i+1].replace(/^DATE\s+/, '').trim();
+              } else if (part.startsWith('DEAT')) {
+                if (r.raw[i+1] && r.raw[i+1].startsWith('DATE'))
+                  obj.death = r.raw[i+1].replace(/^DATE\s+/, '').trim();
+              }
+              i++;
+            }
+            individuals[xref] = obj;
+            continue;
+          }
+          const famMatch = first.match(/^@([^@]+)@\s+FAM/);
+          if (famMatch) {
+            const xref = famMatch[1];
+            const fam  = { id: xref, raw: r.raw.slice(), HUSB: null, WIFE: null, CHIL: [] };
+            r.raw.forEach(line => {
+              if      (line.startsWith('HUSB')) { const m = line.match(/@([^@]+)@/); if (m) fam.HUSB = m[1]; }
+              else if (line.startsWith('WIFE')) { const m = line.match(/@([^@]+)@/); if (m) fam.WIFE = m[1]; }
+              else if (line.startsWith('CHIL')) { const m = line.match(/@([^@]+)@/); if (m) fam.CHIL.push(m[1]); }
+            });
+            families[xref] = fam;
+            continue;
+          }
+        }
+
+        const importedPeople   = [];
+        const peopleWarnings   = [];
+        Object.values(individuals).forEach(ind => {
+          const person = { id: ind.id, firstName: ind.firstName || '', lastName: ind.lastName || '', gender: ind.gender || '', notes: '', createdAt: nowISO(), updatedAt: nowISO(), deletedAt: null };
+          importedPeople.push(person);
+          if (!(person.firstName && person.firstName.trim()) && !(person.lastName && person.lastName.trim()))
+            peopleWarnings.push({ id: person.id, reason: 'Nome ausente' });
+        });
+
+        const importedEvents = [];
+        const skippedEvents  = [];
+        Object.values(individuals).forEach(ind => {
+          if (ind.birth) {
+            if (ind.birth.trim()) importedEvents.push({ id: ind.id + '_BIRT', personId: ind.id, type: 'BIRTH', date: ind.birth, location: null, notes: '', createdAt: nowISO(), updatedAt: nowISO(), deletedAt: null });
+            else skippedEvents.push({ id: ind.id + '_BIRT', reason: 'Data de nascimento ausente' });
+          }
+          if (ind.death) {
+            if (ind.death.trim()) importedEvents.push({ id: ind.id + '_DEAT', personId: ind.id, type: 'DEATH', date: ind.death, location: null, notes: '', createdAt: nowISO(), updatedAt: nowISO(), deletedAt: null });
+            else skippedEvents.push({ id: ind.id + '_DEAT', reason: 'Data de óbito ausente' });
+          }
+        });
+
+        const importedRelations = [];
+        const skippedRelations  = [];
+        Object.values(families).forEach(fam => {
+          if (fam.HUSB && fam.WIFE) {
+            if (individuals[fam.HUSB] && individuals[fam.WIFE]) {
+              importedRelations.push({ from: fam.HUSB, to: fam.WIFE, type: 'mate' });
+              importedRelations.push({ from: fam.WIFE, to: fam.HUSB, type: 'mate' });
+            } else {
+              skippedRelations.push({ description: `fam ${fam.id} mate`, reason: 'Referência a pessoa desconhecida' });
+            }
+          }
+          fam.CHIL.forEach(ch => {
+            if (fam.HUSB) {
+              if (individuals[ch] && individuals[fam.HUSB]) importedRelations.push({ from: ch, to: fam.HUSB, type: 'ancestor' });
+              else skippedRelations.push({ description: `fam ${fam.id} filho->pai ${ch}->${fam.HUSB}`, reason: 'Referência a pessoa desconhecida' });
+            }
+            if (fam.WIFE) {
+              if (individuals[ch] && individuals[fam.WIFE]) importedRelations.push({ from: ch, to: fam.WIFE, type: 'ancestor' });
+              else skippedRelations.push({ description: `fam ${fam.id} filho->mãe ${ch}->${fam.WIFE}`, reason: 'Referência a pessoa desconhecida' });
+            }
+            fam.CHIL.forEach(sib => {
+              if (sib !== ch) {
+                if (individuals[sib] && individuals[ch]) importedRelations.push({ from: ch, to: sib, type: 'siblin' });
+                else skippedRelations.push({ description: `fam ${fam.id} irmão ${ch}->${sib}`, reason: 'Referência a pessoa desconhecida' });
+              }
+            });
+          });
+        });
+
+        return { people: importedPeople, events: importedEvents, relations: importedRelations, report: { peopleWarnings, skippedEvents, skippedRelations } };
+      }
+
+      /* ── Export ────────────────────────────────────────────────────── */
+      function showExportLog(msg) { document.getElementById('exportLog').textContent = msg; }
+
+      function buildGedcom() {
+        const people    = loadJSON('people:myLineage');
+        const events    = loadJSON('events:myLineage');
+        const relations = loadJSON('relations:myLineage');
+
+        const lines = [];
+        lines.push('0 HEAD');
+        lines.push('1 SOUR myLineage');
+        lines.push('1 DATE ' + (new Date()).toISOString().slice(0, 10));
+        lines.push('1 CHAR UTF-8');
+
+        people.forEach(p => {
+          const id   = p.id || ('I' + Math.random().toString(36).slice(2, 10));
+          const name = ((p.firstName || '') + ' /' + (p.lastName || '') + '/').trim();
+          lines.push(`0 @${id}@ INDI`);
+          lines.push(`1 NAME ${name}`);
+          if (p.gender) lines.push(`1 SEX ${p.gender === 'male' ? 'M' : (p.gender === 'female' ? 'F' : 'U')}`);
+          const birth = events.find(ev => ev.personId === p.id && ev.type === 'BIRTH' && !ev.deletedAt);
+          const death = events.find(ev => ev.personId === p.id && ev.type === 'DEATH' && !ev.deletedAt);
+          if (birth && birth.date) { lines.push('1 BIRT'); lines.push('2 DATE ' + birth.date); }
+          if (death && death.date) { lines.push('1 DEAT'); lines.push('2 DATE ' + death.date); }
+        });
+
+        let famIndex = 1;
+        relations.filter(r => r.type === 'mate').forEach(r => {
+          const famId = 'F' + famIndex++;
+          lines.push(`0 @${famId}@ FAM`);
+          const a = people.find(pp => pp.id === r.from);
+          const b = people.find(pp => pp.id === r.to);
+          if (a && b) {
+            if (a.gender === 'male')   lines.push(`1 HUSB @${a.id}@`); else if (a.gender === 'female') lines.push(`1 WIFE @${a.id}@`); else lines.push(`1 CHIL @${a.id}@`);
+            if (b.gender === 'male')   lines.push(`1 HUSB @${b.id}@`); else if (b.gender === 'female') lines.push(`1 WIFE @${b.id}@`); else lines.push(`1 CHIL @${b.id}@`);
+          }
+        });
+
+        relations.filter(r => r.type === 'ancestor').forEach(r => {
+          const famId = 'F' + famIndex++;
+          lines.push(`0 @${famId}@ FAM`);
+          const parent = people.find(pp => pp.id === r.to);
+          const child  = people.find(pp => pp.id === r.from);
+          if (parent) {
+            if (parent.gender === 'male')   lines.push(`1 HUSB @${parent.id}@`);
+            else if (parent.gender === 'female') lines.push(`1 WIFE @${parent.id}@`);
+            else lines.push(`1 _PARENT @${parent.id}@`);
+          }
+          if (child) lines.push(`1 CHIL @${child.id}@`);
+        });
+
+        lines.push('0 TRLR');
+        return lines.join('\n');
+      }
+
+      function download(filename, text) {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(new Blob([text], { type: 'text/plain;charset=utf-8' }));
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      }
+
+      document.getElementById('exportBtn').addEventListener('click', function() {
+        const ged  = buildGedcom();
+        const name = 'myLineage_export_' + (new Date()).toISOString().slice(0, 10) + '.ged';
+        download(name, ged);
+        showExportLog('GEDCOM gerado: ' + name + '\nTamanho: ' + ged.length + ' bytes');
+      });
+    </script>
+  </body>
+</html>

@@ -68,6 +68,7 @@
       function getPeople(){ try{ const raw = localStorage.getItem('people:myLineage'); return raw ? JSON.parse(raw) : []; }catch(e){ return []; } }
       function getPhotos(){ try{ const raw = localStorage.getItem('photos:myLineage'); return raw ? JSON.parse(raw) : []; }catch(e){ return []; } }
       function getPhotoRelations(){ try{ const raw = localStorage.getItem('photoRelations:myLineage'); return raw ? JSON.parse(raw) : {}; }catch(e){ return {}; } }
+      function getEvents(){ try{ const raw = localStorage.getItem('events:myLineage'); return raw ? JSON.parse(raw) : []; }catch(e){ return []; } }
       function genderPlaceholder(g){ const gender = (g||'').toString().toLowerCase(); const color = (gender==='female' || gender==='feminino' || gender==='f') ? '#e26aa6' : (gender==='male' || gender==='masculino' || gender==='m') ? '#4a90e2' : '#9aa0a6'; const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 120 120'><rect width='100%' height='100%' fill='${color}' rx='12'/></svg>`; return 'data:image/svg+xml;base64,' + btoa(svg); }
       function getThumbnailForPerson(personId){ try{ const rels = getPhotoRelations(); const photos = getPhotos(); const ids = rels[personId] || []; if(Array.isArray(ids) && ids.length){ for(const id of ids){ const ph = photos.find(p=>String(p.id)===String(id)); if(ph){ return ph.originalDataUrl || ph.dataUrl || null; } } } return null; }catch(e){ return null; } }
 
@@ -92,7 +93,66 @@
 
         const nodesMap = new Map(); const edges = [];
         const parentMap = new Map(); // id -> [fatherId, motherId] (may include nulls)
-        function addNode(p){ const id = String(p.id); if(!nodesMap.has(id)) nodesMap.set(id, { data: { id, name: (((p.firstName||'') + ' ' + (p.lastName||'')).trim()) || (p.name||''), img: getThumbnailForPerson(p.id) || genderPlaceholder(p.gender), gender: p.gender || '' } }); }
+        function addNode(p){ const id = String(p.id); if(!nodesMap.has(id)){
+          const name = ((((p.firstName||'') + ' ' + (p.lastName||'')).trim()) || (p.name||''));
+
+          function resolveDate(v){ try{
+              if(v === undefined || v === null) return '';
+              if(typeof v === 'string' || typeof v === 'number'){
+                const s = String(v).trim(); return s;
+              }
+              if(Array.isArray(v)) return resolveDate(v[0]);
+              if(typeof v === 'object'){
+                const keys = ['date','value','original','text','when','iso','isoDate'];
+                for(const k of keys) if(v[k]) return resolveDate(v[k]);
+                for(const val of Object.values(v)){
+                  const r = resolveDate(val); if(r) return r;
+                }
+              }
+              return '';
+            }catch(e){ return ''; } }
+
+          function searchForDate(obj, patterns){ try{
+              if(obj === undefined || obj === null) return '';
+              if(typeof obj === 'string' || typeof obj === 'number') return '';
+              if(Array.isArray(obj)){
+                for(const it of obj){ const r = searchForDate(it, patterns); if(r) return r; }
+                return '';
+              }
+              for(const k of Object.keys(obj)){
+                const lower = k.toString().toLowerCase();
+                for(const pat of patterns){ if(lower.includes(pat)){
+                  const r = resolveDate(obj[k]); if(r) return r;
+                } }
+                const val = obj[k]; if(typeof val === 'object'){
+                  const r = searchForDate(val, patterns); if(r) return r;
+                }
+              }
+              return '';
+            }catch(e){ return ''; } }
+
+          const possibleBirth = p.birthDate || p.birth || p.dob || p.nasc || p.dataNascimento || p.dateOfBirth || '';
+          const possibleDeath = p.deathDate || p.death || p.dod || p.obito || p.dataObito || '';
+          // prefer events store (Árvore page uses events:BIRTH / events:DEATH)
+          let b = '';
+          let o = '';
+          try{
+            const evs = getEvents().filter(ev => ev && (String(ev.personId) === String(p.id) || String(ev.personId) === String(p.id + '')) && !ev.deletedAt);
+            const birthEv = evs.find(e => (''+ (e.type||'')).toUpperCase() === 'BIRTH' || (''+ (e.type||'')).toUpperCase().includes('BIRTH'));
+            const deathEv = evs.find(e => (''+ (e.type||'')).toUpperCase() === 'DEATH' || (''+ (e.type||'')).toUpperCase().includes('DEATH'));
+            if(birthEv && (birthEv.date || birthEv.dates || birthEv.value)) b = resolveDate(birthEv.date || birthEv.value || birthEv.dates || '');
+            if(deathEv && (deathEv.date || deathEv.dates || deathEv.value)) o = resolveDate(deathEv.date || deathEv.value || deathEv.dates || '');
+          }catch(e){ /* ignore event parsing errors */ }
+          // fallback to person fields / nested values
+          if(!b) b = resolveDate(possibleBirth) || searchForDate(p, ['birth','birt','nasc','dob','nascimento']);
+          if(!o) o = resolveDate(possibleDeath) || searchForDate(p, ['death','deat','obito','dod']);
+
+          const lines = [name];
+          if(b) lines.push('Nasc: ' + b);
+          if(o) lines.push('Óbito: ' + o);
+          const displayLabel = lines.join('\n');
+          nodesMap.set(id, { data: { id, name, img: getThumbnailForPerson(p.id) || genderPlaceholder(p.gender), gender: p.gender || '', birth: b, death: o, displayLabel } });
+        } }
 
         // helper: collect parent ids from different possible keys used in data
         function getParentIds(person){ if(!person) return []; const fatherCandidates = [person.fatherId, person.father, person.paiId]; const motherCandidates = [person.motherId, person.mother, person.maeId]; const father = fatherCandidates.find(x=>x!==undefined && x!==null); const mother = motherCandidates.find(x=>x!==undefined && x!==null); const list = []; if(father !== undefined && father !== null) list.push(String(father)); if(mother !== undefined && mother !== null) list.push(String(mother)); // preserve order: father then mother when available
@@ -237,7 +297,7 @@
           style: [
             { selector: 'node', style: {
               'shape':'round-rectangle', 'width': nodeWidth, 'height': nodeHeight, 'background-fit':'cover', 'background-image':'data(img)', 'border-width':3,
-              'label':'data(name)', 'text-valign':'bottom','text-wrap':'wrap','text-max-width':nodeWidth - 20,'font-size':12,'color':'#222','text-margin-y':6
+              'label':'data(displayLabel)', 'text-valign':'center','text-halign':'center','text-wrap':'wrap','text-max-width':nodeWidth - 20,'font-size':12,'color':'#222','text-margin-y':0
             }},
             { selector: 'node[gender]', style: { 'border-color': function(ele){ const g = (ele.data('gender')||'').toString().toLowerCase(); return (g==='female'||g==='feminino'||g==='f') ? '#e26aa6' : (g==='male'||g==='masculino'||g==='m') ? '#4a90e2' : '#9aa0a6'; } }},
             { selector: 'edge', style: { 'width':2,'line-color':'#888','target-arrow-shape':'triangle','target-arrow-color':'#888','curve-style':'bezier','label':'data(label)','font-size':11,'text-rotation':'autorotate','text-margin-y':-6,'color':'#333' } },

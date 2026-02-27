@@ -138,8 +138,12 @@ h3 { font-size: 0.95rem; font-weight: 600; margin: 0 0 6px;  color: var(--text-s
   flex-direction: column;
   gap: 2px;
   flex: 1;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  scrollbar-width: none;
 }
+.sidebar nav::-webkit-scrollbar { display: none; }
 .sidebar a,
 .sidebar .sidebar-footer a {
   display: flex;

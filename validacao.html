@@ -1,0 +1,719 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Validação – myLineage</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
+    <script src="remote-storage.js"></script>
+    <style>
+      /* ── Layout ───────────────────────────────────────────────────────── */
+      .val-content { background: #0f1117; }
+
+      .val-grid {
+        padding: 0 20px 40px;
+        margin-top: 24px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      /* KPI row */
+      .val-kpi-row {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 10px;
+      }
+
+      .kpi-card {
+        background: #1a1d27;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 6px;
+        padding: 14px 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        border-left: 4px solid var(--kpi-clr, #5294e2);
+      }
+      .kpi-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: #9fa7b3;
+      }
+      .kpi-value {
+        font-size: 2.2rem;
+        font-weight: 700;
+        color: #fff;
+        line-height: 1;
+      }
+      .kpi-sub {
+        font-size: 0.74rem;
+        color: #9fa7b3;
+      }
+      .kpi-erro   { --kpi-clr: #e05252; }
+      .kpi-aviso  { --kpi-clr: #e0a132; }
+      .kpi-info   { --kpi-clr: #5294e2; }
+      .kpi-ok     { --kpi-clr: #52c47a; }
+
+      /* Section panel */
+      .val-section {
+        background: #1a1d27;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .val-section-header {
+        padding: 10px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        font-size: 0.73rem;
+        font-weight: 700;
+        color: #9fa7b3;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        user-select: none;
+        cursor: pointer;
+      }
+      .val-section-header .mdi { font-size: 1rem; }
+      .val-section-header .badge {
+        margin-left: auto;
+        background: rgba(255,255,255,0.08);
+        border-radius: 12px;
+        padding: 1px 9px;
+        font-size: 0.68rem;
+        color: #ccc;
+        font-weight: 600;
+      }
+      .val-section-body {
+        overflow: hidden;
+      }
+
+      /* Issue table */
+      .issue-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.83rem;
+      }
+      .issue-table th {
+        text-align: left;
+        padding: 8px 16px;
+        background: rgba(255,255,255,0.03);
+        color: #9fa7b3;
+        font-weight: 600;
+        font-size: 0.71rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+      }
+      .issue-table td {
+        padding: 9px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        color: #d0d5e0;
+        vertical-align: middle;
+      }
+      .issue-table tr:last-child td { border-bottom: none; }
+      .issue-table tr:hover td { background: rgba(255,255,255,0.025); }
+
+      /* Severity pill */
+      .severity {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 2px 9px;
+        border-radius: 12px;
+        font-size: 0.69rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        white-space: nowrap;
+      }
+      .sev-erro   { background: rgba(224,82,82,0.18);  color: #f07070; border: 1px solid rgba(224,82,82,0.35); }
+      .sev-aviso  { background: rgba(224,161,50,0.18); color: #f0b84a; border: 1px solid rgba(224,161,50,0.35); }
+      .sev-info   { background: rgba(82,148,226,0.18); color: #6dabee; border: 1px solid rgba(82,148,226,0.35); }
+
+      /* Person link */
+      .person-link {
+        color: #7eb8f7;
+        text-decoration: none;
+        font-weight: 500;
+      }
+      .person-link:hover { text-decoration: underline; }
+
+      /* Empty state */
+      .empty-state {
+        padding: 32px 16px;
+        text-align: center;
+        color: #556;
+        font-size: 0.88rem;
+      }
+      .empty-state .mdi { font-size: 2rem; display: block; margin-bottom: 8px; color: #52c47a; }
+
+      /* Toolbar */
+      .val-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .filter-btn {
+        padding: 5px 14px;
+        border-radius: 18px;
+        border: 1px solid rgba(255,255,255,0.1);
+        background: transparent;
+        color: #9fa7b3;
+        font-size: 0.78rem;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+      }
+      .filter-btn.active {
+        background: rgba(82,148,226,0.18);
+        color: #7eb8f7;
+        border-color: rgba(82,148,226,0.4);
+      }
+      .filter-btn:hover:not(.active) { background: rgba(255,255,255,0.05); color: #ccc; }
+
+      .run-btn {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 16px;
+        border-radius: 6px;
+        border: none;
+        background: #5294e2;
+        color: #fff;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .run-btn:hover { background: #3d7cc9; }
+
+      @media (max-width: 700px) {
+        .val-kpi-row { grid-template-columns: repeat(2, 1fr); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a href="index.html" class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></a>
+        <nav>
+          <a href="app.html"><i class="mdi mdi-account-multiple" aria-hidden="true"></i>Cadastro</a>
+          <a href="indicadores.html"><i class="mdi mdi-chart-bar" aria-hidden="true"></i>Indicadores</a>
+          <a href="arvore.html"><i class="mdi mdi-sitemap" aria-hidden="true"></i>Árvore</a>
+          <a href="gedcom.html"><i class="mdi mdi-dna" aria-hidden="true"></i>GEDCOM</a>
+          <a href="album.html"><i class="mdi mdi-image-multiple" aria-hidden="true"></i>Álbum</a>
+          <a href="documentos.html"><i class="mdi mdi-folder-open" aria-hidden="true"></i>Documentos</a>
+          <a href="validacao.html" class="active"><i class="mdi mdi-shield-check" aria-hidden="true"></i>Validação</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="apis.html"><i class="mdi mdi-api" aria-hidden="true"></i>APIs</a>
+          <a href="configuracao.html"><i class="mdi mdi-cog" aria-hidden="true"></i>Definições</a>
+        </div>
+      </aside>
+
+      <main class="content val-content">
+        <div class="topbar">
+          <div style="display:flex;align-items:center;gap:12px">
+            <h1>Validação de Dados</h1>
+          </div>
+        </div>
+
+        <div class="val-grid">
+          <!-- KPI Summary -->
+          <div class="val-kpi-row" id="kpiRow">
+            <div class="kpi-card kpi-erro">
+              <div class="kpi-label">Erros</div>
+              <div class="kpi-value" id="kpiErros">–</div>
+              <div class="kpi-sub">impacto crítico</div>
+            </div>
+            <div class="kpi-card kpi-aviso">
+              <div class="kpi-label">Avisos</div>
+              <div class="kpi-value" id="kpiAvisos">–</div>
+              <div class="kpi-sub">requer atenção</div>
+            </div>
+            <div class="kpi-card kpi-info">
+              <div class="kpi-label">Informações</div>
+              <div class="kpi-value" id="kpiInfos">–</div>
+              <div class="kpi-sub">boa prática</div>
+            </div>
+            <div class="kpi-card kpi-ok">
+              <div class="kpi-label">Pessoas</div>
+              <div class="kpi-value" id="kpiPessoas">–</div>
+              <div class="kpi-sub">registos analisados</div>
+            </div>
+          </div>
+
+          <!-- Toolbar -->
+          <div class="val-toolbar">
+            <button class="filter-btn active" data-filter="all" onclick="setFilter('all',this)">Todos</button>
+            <button class="filter-btn" data-filter="erro" onclick="setFilter('erro',this)"><i class="mdi mdi-alert-circle-outline"></i> Erros</button>
+            <button class="filter-btn" data-filter="aviso" onclick="setFilter('aviso',this)"><i class="mdi mdi-alert-outline"></i> Avisos</button>
+            <button class="filter-btn" data-filter="info" onclick="setFilter('info',this)"><i class="mdi mdi-information-outline"></i> Informações</button>
+            <button class="filter-btn" data-filter="funcional" onclick="setFilter('funcional',this)">Funcional</button>
+            <button class="filter-btn" data-filter="tecnico" onclick="setFilter('tecnico',this)">Técnico</button>
+            <button class="run-btn" onclick="runValidation()"><i class="mdi mdi-refresh"></i> Executar Análise</button>
+          </div>
+
+          <!-- Functional Issues Section -->
+          <div class="val-section" id="sectionFuncional">
+            <div class="val-section-header" onclick="toggleSection('bodyFuncional','arrowFuncional')">
+              <i class="mdi mdi-account-group-outline"></i>
+              Inconsistências Funcionais
+              <span style="font-size:0.7rem;font-weight:400;color:#666;text-transform:none;letter-spacing:0;margin-left:4px;">Impacto na apresentação e navegação da família</span>
+              <span class="badge" id="badgeFuncional">0</span>
+              <i class="mdi mdi-chevron-down" id="arrowFuncional" style="margin-left:4px;transition:transform 0.2s;"></i>
+            </div>
+            <div class="val-section-body" id="bodyFuncional">
+              <div class="empty-state"><i class="mdi mdi-check-circle-outline"></i>Sem problemas funcionais encontrados</div>
+            </div>
+          </div>
+
+          <!-- Technical Issues Section -->
+          <div class="val-section" id="sectionTecnico">
+            <div class="val-section-header" onclick="toggleSection('bodyTecnico','arrowTecnico')">
+              <i class="mdi mdi-wrench-outline"></i>
+              Inconsistências Técnicas
+              <span style="font-size:0.7rem;font-weight:400;color:#666;text-transform:none;letter-spacing:0;margin-left:4px;">Integridade dos dados armazenados</span>
+              <span class="badge" id="badgeTecnico">0</span>
+              <i class="mdi mdi-chevron-down" id="arrowTecnico" style="margin-left:4px;transition:transform 0.2s;"></i>
+            </div>
+            <div class="val-section-body" id="bodyTecnico">
+              <div class="empty-state"><i class="mdi mdi-check-circle-outline"></i>Sem problemas técnicos encontrados</div>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+
+    <script>
+    // ── Data helpers ────────────────────────────────────────────────────────
+    function getPeople()    { try{ const r=localStorage.getItem('people:myLineage');    return r?JSON.parse(r):[]; }catch(e){ return []; } }
+    function getRelations() { try{ const r=localStorage.getItem('relations:myLineage'); return r?JSON.parse(r):[]; }catch(e){ return []; } }
+    function getEvents()    { try{ const r=localStorage.getItem('events:myLineage');    return r?JSON.parse(r):[]; }catch(e){ return []; } }
+
+    function personName(p){ return (((p.firstName||'')+' '+(p.lastName||'')).trim()) || ('<id:'+p.id+'>'); }
+    function personLink(p){ const n=personName(p); return `<a class="person-link" href="app.html" title="Ver no Cadastro">${esc(n)}</a>`; }
+    function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+    // Parse a rough year from an event with dateYear / date fields
+    function eventYear(ev){
+      if(ev.dateYear) return parseInt(ev.dateYear,10);
+      if(ev.date){ const m=String(ev.date).match(/^(\d{4})/); if(m) return parseInt(m[1],10); }
+      return null;
+    }
+
+    // ── Filter state ─────────────────────────────────────────────────────────
+    let currentFilter = 'all';
+    function setFilter(f, btn){
+      currentFilter = f;
+      document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      renderTables();
+    }
+
+    // ── Section toggle ────────────────────────────────────────────────────────
+    function toggleSection(bodyId, arrowId){
+      const body  = document.getElementById(bodyId);
+      const arrow = document.getElementById(arrowId);
+      const hidden = body.style.display === 'none';
+      body.style.display = hidden ? '' : 'none';
+      if(arrow) arrow.style.transform = hidden ? '' : 'rotate(-90deg)';
+    }
+
+    // ── Global issues storage ─────────────────────────────────────────────────
+    let allIssues = [];
+
+    // ── Main validation engine ────────────────────────────────────────────────
+    function runValidation(){
+      const people    = getPeople();
+      const relations = getRelations();
+      const events    = getEvents();
+      const issues    = [];
+
+      // Active (non-deleted) people map
+      const active = people.filter(p => !p.deletedAt);
+      const activeIds = new Set(active.map(p=>String(p.id)));
+      const peopleMap = {};
+      people.forEach(p=>{ peopleMap[String(p.id)]=p; });
+
+      // Active events
+      const activeEvents = events.filter(e=>!e.deletedAt);
+
+      // ── Functional checks ─────────────────────────────────────────────────
+
+      // F1 – Person without first name or only `<desconhecido>`
+      active.forEach(p=>{
+        const fn=(p.firstName||'').trim();
+        const ln=(p.lastName||'').trim();
+        const isUnknown = fn==='<desconhecido>'||fn==='desconhecido'||fn==='';
+        if(isUnknown){
+          issues.push({
+            tipo:'funcional', severidade:'aviso',
+            codigo:'F1',
+            titulo:'Pessoa sem nome identificado',
+            descricao:`A pessoa <b>${esc(fn||ln||'(sem nome)')}</b> não tem nome definido. Pode comprometer a apresentação na árvore.`,
+            pessoa: p,
+            sugestao:'Atualizar o nome no Cadastro.'
+          });
+        }
+      });
+
+      // F2 – Person without gender
+      active.forEach(p=>{
+        if(!p.gender||p.gender===''){
+          issues.push({
+            tipo:'funcional', severidade:'info',
+            codigo:'F2',
+            titulo:'Género não definido',
+            descricao:`${personLink(p)} não tem género definido. A árvore usa o género para colorir e posicionar nós.`,
+            pessoa: p,
+            sugestao:'Definir o género (Masculino / Feminino) no Cadastro.'
+          });
+        }
+      });
+
+      // F3 – Child without any parent
+      active.forEach(p=>{
+        const ancestors = relations.filter(r=>String(r.from)===String(p.id)&&r.type==='ancestor'&&activeIds.has(String(r.to)));
+        const isRoot = relations.filter(r=>String(r.to)===String(p.id)&&r.type==='child'&&activeIds.has(String(r.from))).length === 0;
+        // Only flag if they also have no ancestor relations at all AND are not an orphan root consciously
+        if(ancestors.length===0 && isRoot){
+          // Has at least one child or sibling? Then flagging as isolated root could be noise; only flag if completely isolated
+          const hasSomething = relations.some(r=>(String(r.from)===String(p.id)||String(r.to)===String(p.id))&&activeIds.has(String(r.from))&&activeIds.has(String(r.to)));
+          if(!hasSomething && active.length > 1){
+            issues.push({
+              tipo:'funcional', severidade:'info',
+              codigo:'F3',
+              titulo:'Pessoa sem ligações familiares',
+              descricao:`${personLink(p)} não tem qualquer relação com outros membros. Não aparecerá na árvore.`,
+              pessoa: p,
+              sugestao:'Adicionar relações (progenitor, filho, irmão ou cônjuge) no Cadastro.'
+            });
+          }
+        }
+      });
+
+      // F4 – More than 2 parents
+      active.forEach(p=>{
+        const parents = relations.filter(r=>String(r.from)===String(p.id)&&r.type==='ancestor'&&activeIds.has(String(r.to)));
+        if(parents.length>2){
+          issues.push({
+            tipo:'funcional', severidade:'erro',
+            codigo:'F4',
+            titulo:'Mais de 2 progenitores',
+            descricao:`${personLink(p)} tem ${parents.length} progenitores registados. Uma pessoa não pode ter mais de 2 progenitores biológicos.`,
+            pessoa: p,
+            sugestao:'Revisar e remover relações de ascendência redundantes.'
+          });
+        }
+      });
+
+      // F5 – Birth after death
+      active.forEach(p=>{
+        const births = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='BIRTH');
+        const deaths = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='DEATH');
+        births.forEach(b=>{
+          deaths.forEach(d=>{
+            const by=eventYear(b), dy=eventYear(d);
+            if(by!==null&&dy!==null&&by>dy){
+              issues.push({
+                tipo:'funcional', severidade:'erro',
+                codigo:'F5',
+                titulo:'Data de nascimento posterior à morte',
+                descricao:`${personLink(p)} tem nascimento em <b>${by}</b> mas morte em <b>${dy}</b>.`,
+                pessoa: p,
+                sugestao:'Corrigir as datas dos eventos de nascimento ou morte.'
+              });
+            }
+          });
+        });
+      });
+
+      // F6 – Birth in the future
+      const currentYear = new Date().getFullYear();
+      active.forEach(p=>{
+        const births = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='BIRTH');
+        births.forEach(b=>{
+          const by=eventYear(b);
+          if(by!==null&&by>currentYear){
+            issues.push({
+              tipo:'funcional', severidade:'aviso',
+              codigo:'F6',
+              titulo:'Nascimento no futuro',
+              descricao:`${personLink(p)} tem data de nascimento em <b>${by}</b>, que é posterior ao ano atual (${currentYear}).`,
+              pessoa: p,
+              sugestao:'Verificar se o ano foi introduzido corretamente.'
+            });
+          }
+        });
+      });
+
+      // F7 – Age over 120 years
+      active.forEach(p=>{
+        const births = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='BIRTH');
+        const deaths = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='DEATH');
+        const isAlive = deaths.length===0;
+        births.forEach(b=>{
+          const by=eventYear(b);
+          if(by!==null){
+            const age = isAlive ? currentYear-by : null;
+            if(age!==null&&age>120){
+              issues.push({
+                tipo:'funcional', severidade:'aviso',
+                codigo:'F7',
+                titulo:'Idade implausível (> 120 anos)',
+                descricao:`${personLink(p)} nasceu em <b>${by}</b> e não tem registo de falecimento, o que implicaria ${age} anos de vida.`,
+                pessoa: p,
+                sugestao:'Verificar se falta registar um evento de falecimento.'
+              });
+            }
+          }
+        });
+      });
+
+      // F8 – Child born before parent
+      active.forEach(p=>{
+        const childBirths = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='BIRTH');
+        const childYear = childBirths.length>0?eventYear(childBirths[0]):null;
+        if(childYear===null) return;
+        const parents = relations.filter(r=>String(r.from)===String(p.id)&&r.type==='ancestor'&&activeIds.has(String(r.to)));
+        parents.forEach(rel=>{
+          const par=peopleMap[String(rel.to)];
+          if(!par||par.deletedAt) return;
+          const parBirths=activeEvents.filter(e=>String(e.personId)===String(par.id)&&e.type==='BIRTH');
+          if(!parBirths.length) return;
+          const parYear=eventYear(parBirths[0]);
+          if(parYear===null) return;
+          if(childYear<=parYear){
+            issues.push({
+              tipo:'funcional', severidade:'erro',
+              codigo:'F8',
+              titulo:'Filho nascido antes do progenitor',
+              descricao:`${personLink(p)} (nascimento <b>${childYear}</b>) foi registado como filho de ${personLink(par)} (nascimento <b>${parYear}</b>).`,
+              pessoa: p,
+              sugestao:'Verificar as datas ou a relação de descendência.'
+            });
+          } else if(childYear-parYear<13){
+            issues.push({
+              tipo:'funcional', severidade:'aviso',
+              codigo:'F8b',
+              titulo:'Progenitor com idade improvável ao nascimento do filho',
+              descricao:`${personLink(par)} teria apenas <b>${childYear-parYear} anos</b> quando ${personLink(p)} nasceu.`,
+              pessoa: par,
+              sugestao:'Verificar as datas ou a relação de descendência.'
+            });
+          }
+        });
+      });
+
+      // F9 – Multiple birth or death events
+      active.forEach(p=>{
+        ['BIRTH','DEATH'].forEach(evType=>{
+          const evs=activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type===evType);
+          if(evs.length>1){
+            issues.push({
+              tipo:'funcional', severidade:'aviso',
+              codigo:'F9',
+              titulo:`Múltiplos eventos de ${evType==='BIRTH'?'nascimento':'falecimento'}`,
+              descricao:`${personLink(p)} tem <b>${evs.length}</b> eventos de ${evType==='BIRTH'?'nascimento':'falecimento'} registados.`,
+              pessoa: p,
+              sugestao:'Manter apenas um evento de nascimento e um de falecimento por pessoa.'
+            });
+          }
+        });
+      });
+
+      // ── Technical checks ──────────────────────────────────────────────────
+
+      // T1 – Relations pointing to non-existent people
+      relations.forEach((r,idx)=>{
+        const fromExists = !!peopleMap[String(r.from||'')];
+        const toExists   = !!peopleMap[String(r.to||'')];
+        if(!fromExists||!toExists){
+          const srcLabel = fromExists ? esc(personName(peopleMap[String(r.from)]||{})) : `<span style="color:#f07070">${esc(String(r.from))}</span>`;
+          const dstLabel = toExists   ? esc(personName(peopleMap[String(r.to)]||{}))   : `<span style="color:#f07070">${esc(String(r.to))}</span>`;
+          issues.push({
+            tipo:'tecnico', severidade:'erro',
+            codigo:'T1',
+            titulo:'Relação com ID inexistente',
+            descricao:`Relação #${idx} (tipo <b>${esc(r.type)}</b>) referencia ${!fromExists?'origem':'destino'} <b>${!fromExists?srcLabel:dstLabel}</b> que não existe na base de dados.`,
+            pessoa: null,
+            sugestao:'Limpar relações órfãs. Exportar e reimportar via GEDCOM pode resolver.'
+          });
+        }
+      });
+
+      // T2 – Missing reciprocal relations
+      const relSet = new Set(relations.map(r=>`${r.from}|${r.to}|${r.type}`));
+      relations.forEach(r=>{
+        if(!activeIds.has(String(r.from))||!activeIds.has(String(r.to))) return;
+        let expectedType=null, label='';
+        if(r.type==='child')    { expectedType='ancestor'; label='ancestor recíproco'; }
+        if(r.type==='ancestor') { expectedType='child';    label='child recíproco'; }
+        if(r.type==='mate')     { expectedType='mate';     label='mate recíproco'; }
+        if(r.type==='siblin')   { expectedType='siblin';   label='siblin recíproco'; }
+        if(!expectedType) return;
+        const recip=`${r.to}|${r.from}|${expectedType}`;
+        if(!relSet.has(recip)){
+          const pA=peopleMap[String(r.from)], pB=peopleMap[String(r.to)];
+          if(!pA||!pB||pA.deletedAt||pB.deletedAt) return;
+          issues.push({
+            tipo:'tecnico', severidade:'aviso',
+            codigo:'T2',
+            titulo:'Relação sem reciprocidade',
+            descricao:`${personLink(pA)} → <b>${esc(r.type)}</b> → ${personLink(pB)}, mas falta o ${label} inverso.`,
+            pessoa: pA,
+            sugestao:'Reeditar a relação no Cadastro para regenerar os índices recíprocos.'
+          });
+        }
+      });
+
+      // T3 – Duplicate relations (same from/to/type)
+      const seen = new Map();
+      relations.forEach((r,idx)=>{
+        const key=`${r.from}|${r.to}|${r.type}`;
+        if(seen.has(key)){
+          const pA=peopleMap[String(r.from)], pB=peopleMap[String(r.to)];
+          if(pA&&pB&&!pA.deletedAt&&!pB.deletedAt)
+            issues.push({
+              tipo:'tecnico', severidade:'aviso',
+              codigo:'T3',
+              titulo:'Relação duplicada',
+              descricao:`Existe mais de uma entrada para ${personLink(pA)} → <b>${esc(r.type)}</b> → ${personLink(pB)}.`,
+              pessoa: pA,
+              sugestao:'Remover entradas duplicadas na tabela de relações (poderá ser feito via exportação/importação GEDCOM).'
+            });
+        } else {
+          seen.set(key,idx);
+        }
+      });
+
+      // T4 – Duplicate person IDs
+      const idCount = {};
+      people.forEach(p=>{ idCount[String(p.id)]=(idCount[String(p.id)]||0)+1; });
+      Object.entries(idCount).forEach(([id,count])=>{
+        if(count>1){
+          const p=peopleMap[id];
+          issues.push({
+            tipo:'tecnico', severidade:'erro',
+            codigo:'T4',
+            titulo:'ID de pessoa duplicado',
+            descricao:`O ID <b>${esc(id)}</b> ${p?`(${esc(personName(p))}) `:''} aparece <b>${count}</b> vezes na lista de pessoas.`,
+            pessoa: p||null,
+            sugestao:'Exportar os dados, remover duplicados manualmente no JSON e reimportar.'
+          });
+        }
+      });
+
+      // T5 – Circular ancestry (A is ancestor of B and B is ancestor of A)
+      const ancestorRels = relations.filter(r=>r.type==='ancestor'&&activeIds.has(String(r.from))&&activeIds.has(String(r.to)));
+      ancestorRels.forEach(r=>{
+        const reverse=ancestorRels.find(x=>String(x.from)===String(r.to)&&String(x.to)===String(r.from));
+        if(reverse){
+          const pA=peopleMap[String(r.from)], pB=peopleMap[String(r.to)];
+          if(pA&&pB&&!pA.deletedAt&&!pB.deletedAt){
+            // avoid duplicate alerts
+            const alreadyFlagged=issues.some(i=>i.codigo==='T5'&&i.pessoa&&String(i.pessoa.id)===String(pB.id));
+            if(!alreadyFlagged)
+              issues.push({
+                tipo:'tecnico', severidade:'erro',
+                codigo:'T5',
+                titulo:'Ciclo de ascendência',
+                descricao:`${personLink(pA)} é ancestral de ${personLink(pB)} e vice-versa, formando um ciclo impossível.`,
+                pessoa: pA,
+                sugestao:'Rever a cadeia de ascendência e corrigir a relação incorreta.'
+              });
+          }
+        }
+      });
+
+      // T6 – Events with no valid date (optional, info only)
+      active.forEach(p=>{
+        const evs=activeEvents.filter(e=>String(e.personId)===String(p.id)&&(e.type==='BIRTH'||e.type==='DEATH'));
+        evs.forEach(ev=>{
+          const y=eventYear(ev);
+          if(y===null){
+            issues.push({
+              tipo:'tecnico', severidade:'info',
+              codigo:'T6',
+              titulo:'Evento sem data válida',
+              descricao:`${personLink(p)} tem um evento de <b>${ev.type==='BIRTH'?'nascimento':'falecimento'}</b> sem data ou com data incompleta.`,
+              pessoa: p,
+              sugestao:'Preencher o ano no evento para ativar cálculos de idade e deteção de inconsistências.'
+            });
+          }
+        });
+      });
+
+      allIssues = issues;
+      updateKPIs(active.length);
+      renderTables();
+    }
+
+    // ── Update KPI cards ──────────────────────────────────────────────────────
+    function updateKPIs(totalPeople){
+      const erros  = allIssues.filter(i=>i.severidade==='erro').length;
+      const avisos = allIssues.filter(i=>i.severidade==='aviso').length;
+      const infos  = allIssues.filter(i=>i.severidade==='info').length;
+      document.getElementById('kpiErros').textContent   = erros;
+      document.getElementById('kpiAvisos').textContent  = avisos;
+      document.getElementById('kpiInfos').textContent   = infos;
+      document.getElementById('kpiPessoas').textContent = totalPeople;
+    }
+
+    // ── Render issue tables ───────────────────────────────────────────────────
+    function renderTables(){
+      const filtered = filterIssues(allIssues, currentFilter);
+      const funcional = filtered.filter(i=>i.tipo==='funcional');
+      const tecnico   = filtered.filter(i=>i.tipo==='tecnico');
+
+      document.getElementById('badgeFuncional').textContent = funcional.length;
+      document.getElementById('badgeTecnico').textContent   = tecnico.length;
+
+      document.getElementById('bodyFuncional').innerHTML = buildTable(funcional);
+      document.getElementById('bodyTecnico').innerHTML   = buildTable(tecnico);
+    }
+
+    function filterIssues(issues, filter){
+      if(filter==='all')       return issues;
+      if(filter==='funcional') return issues.filter(i=>i.tipo==='funcional');
+      if(filter==='tecnico')   return issues.filter(i=>i.tipo==='tecnico');
+      return issues.filter(i=>i.severidade===filter);
+    }
+
+    function buildTable(issues){
+      if(!issues.length){
+        return '<div class="empty-state"><i class="mdi mdi-check-circle-outline"></i>Nenhum problema nesta categoria</div>';
+      }
+      let rows='';
+      issues.forEach(issue=>{
+        const sevClass = {erro:'sev-erro',aviso:'sev-aviso',info:'sev-info'}[issue.severidade]||'sev-info';
+        const sevLabel = {erro:'Erro',aviso:'Aviso',info:'Info'}[issue.severidade]||'Info';
+        const sevIcon  = {erro:'mdi-alert-circle-outline',aviso:'mdi-alert-outline',info:'mdi-information-outline'}[issue.severidade]||'mdi-information-outline';
+        rows+=`<tr>
+          <td style="width:90px;"><span class="severity ${sevClass}"><i class="mdi ${sevIcon}"></i>${sevLabel}</span></td>
+          <td style="width:60px;color:#666;font-family:monospace;font-size:0.75rem;">${esc(issue.codigo)}</td>
+          <td style="font-weight:600;color:#e0e4ef;">${esc(issue.titulo)}</td>
+          <td>${issue.descricao}</td>
+          <td style="color:#8a949e;font-size:0.78rem;">${esc(issue.sugestao)}</td>
+        </tr>`;
+      });
+      return `<table class="issue-table">
+        <thead><tr>
+          <th>Severidade</th><th>Código</th><th>Problema</th><th>Detalhe</th><th>Sugestão</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>`;
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    runValidation();
+    </script>
+  </body>
+</html>

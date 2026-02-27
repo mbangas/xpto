@@ -1054,7 +1054,7 @@
             '</select></div>',
           '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
           '<div><textarea id="df_notes" rows="3" placeholder="Notas...">' + esc(notes) + '</textarea></div>',
-          person ? '<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Relações</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="_drawerShowAddPerson(\'' + person.id + '\')"><i class="mdi mdi-account-plus-outline"></i> Adicionar</button></div>' : ''
+          person ? '<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Relações</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="_drawerShowAddPerson(\'' + person.id + '\')"><i class="mdi mdi-account-plus-outline"></i> Adicionar</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="_drawerShowLinkPerson(\'' + person.id + '\')"><i class="mdi mdi-link-variant"></i> Ligar</button></div>' : ''
         ].join('');
 
         drawer.classList.add('open');
@@ -1271,6 +1271,10 @@
         const already = relations.some(r => String(r.from)===String(personId) && String(r.to)===String(toId) && String(r.type)===String(type));
         if(already){ alert('Esta relação já existe.'); return; }
         relations.push({ from: String(personId), to: String(toId), type });
+        // guardar também no sentido inverso
+        const revType = type==='ancestor'?'child':type==='child'?'ancestor':type;
+        const alreadyRev = relations.some(r => String(r.from)===String(toId) && String(r.to)===String(personId) && String(r.type)===revType);
+        if(!alreadyRev) relations.push({ from: String(toId), to: String(personId), type: revType });
         localStorage.setItem('relations:myLineage', JSON.stringify(relations));
         openDrawerSection(personId, 'relacoes');
         renderGraph();
@@ -1280,7 +1284,11 @@
         if(!confirm('Apagar esta relação?')) return;
         let relations = [];
         try{ relations = JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        // apagar no sentido direto
         relations = relations.filter(r => !(String(r.from)===String(fromId) && String(r.to)===String(toId) && String(r.type)===String(relType)));
+        // apagar no sentido inverso
+        const reverseType = relType === 'ancestor' ? 'child' : relType === 'child' ? 'ancestor' : relType;
+        relations = relations.filter(r => !(String(r.from)===String(toId) && String(r.to)===String(fromId) && String(r.type)===reverseType));
         localStorage.setItem('relations:myLineage', JSON.stringify(relations));
         const body = document.getElementById('drawerBody');
         if(body) body.innerHTML = _renderDrawerRelations(fromId, getPeople());
@@ -1447,6 +1455,174 @@
           }
           localStorage.setItem('relations:myLineage', JSON.stringify(relations));
         }
+        openDrawer('edit', personId);
+        renderGraph();
+      }
+
+      // ── Ligar pessoa existente ────────────────────────────────────────────
+      function _drawerShowLinkPerson(personId){
+        const people = getPeople();
+        const person = people.find(p => String(p.id) === String(personId));
+        if(!person) return;
+        let relations = [];
+        try{ relations = JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const parentCount = relations.filter(r => String(r.from) === String(personId) && r.type === 'ancestor').length;
+        const footer = document.querySelector('.drawer-footer');
+        if(footer) footer.style.display = 'none';
+        const phdr = document.getElementById('drawerPersonHeader');
+        if(phdr) phdr.style.display = 'none';
+        const backBtn = document.getElementById('drawerBackBtn');
+        if(backBtn){ backBtn.style.display = ''; backBtn._personId = String(personId); }
+        const personName = (((person.firstName||'') + ' ' + (person.lastName||'')).trim()) || '';
+        document.getElementById('drawerTitle').textContent = 'Ligar \u2014 ' + personName;
+        const body = document.getElementById('drawerBody');
+        if(!body) return;
+        let kinshipOpts = `
+          <option value="sibling_male">Irm\u00e3o</option>
+          <option value="sibling_female">Irm\u00e3</option>
+          <option value="child_male">Filho</option>
+          <option value="child_female">Filha</option>`;
+        if(parentCount < 2){
+          kinshipOpts += `
+          <option value="ancestor_male">Pai</option>
+          <option value="ancestor_female">M\u00e3e</option>`;
+        }
+        kinshipOpts += `
+          <option value="mate_male">Companheiro</option>
+          <option value="mate_female">Companheira</option>`;
+        const otherPeople = people.filter(p => String(p.id) !== String(personId));
+        const peopleOpts = otherPeople.map(p => {
+          const name = (((p.firstName||'') + ' ' + (p.lastName||'')).trim()) || p.id;
+          const _g = ((p.gender||'')+'').toLowerCase();
+          const _pg = (_g==='male'||_g==='masculino'||_g==='m')?'male':(_g==='female'||_g==='feminino'||_g==='f')?'female':'';
+          return `<option value="${_esc(String(p.id))}" data-gender="${_pg}">${_esc(name)}</option>`;
+        }).join('');
+        body.innerHTML = `
+          <div style="padding:4px 0 8px;">
+            <h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Ligar Pessoa Existente</h3>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Grau de parentesco</label>
+              <select id="linkPersKinship" class="form-control" style="width:100%;" onchange="_drawerUpdateLinkCoParentSection('${_esc(personId)}');_drawerFilterLinkPersons()">${kinshipOpts}</select>
+            </div>
+            <div id="linkPersCoParentSection" class="form-group" style="margin-bottom:10px;display:none;"></div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pesquisar pessoa</label>
+              <input id="linkPersSearch" type="text" class="form-control" placeholder="Pesquisar por nome..." style="width:100%;margin-bottom:6px;" oninput="_drawerFilterLinkPersons()" />
+              <select id="linkPersTarget" size="6" class="form-control" style="width:100%;min-height:110px;">${peopleOpts}</select>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
+              <button class="btn btn-ghost btn-sm" onclick="openDrawer('edit','${_esc(personId)}')">Cancelar</button>
+              <button class="btn btn-sm" onclick="_drawerSaveLinkPerson('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button>
+            </div>
+          </div>`;
+        const sel = document.getElementById('linkPersTarget');
+        if(sel) sel._allOptions = Array.from(sel.options).map(o => ({value: o.value, text: o.text, gender: o.getAttribute('data-gender')||''}));
+        _drawerFilterLinkPersons();
+        const si = document.getElementById('linkPersSearch');
+        if(si) si.focus();
+      }
+
+      function _drawerFilterLinkPersons(){
+        const search = ((document.getElementById('linkPersSearch')||{}).value||'').toLowerCase();
+        const kinship = ((document.getElementById('linkPersKinship')||{}).value||'');
+        const _kg = {sibling_male:'male',child_male:'male',ancestor_male:'male',mate_male:'male',sibling_female:'female',child_female:'female',ancestor_female:'female',mate_female:'female'};
+        const expectedGender = _kg[kinship] || '';
+        const sel = document.getElementById('linkPersTarget');
+        if(!sel) return;
+        const all = sel._allOptions || [];
+        sel.innerHTML = all.filter(o => {
+          if(search && !o.text.toLowerCase().includes(search)) return false;
+          if(expectedGender && o.gender && o.gender !== expectedGender) return false;
+          return true;
+        }).map(o => `<option value="${_esc(o.value)}">${_esc(o.text)}</option>`).join('');
+      }
+
+      function _drawerUpdateLinkCoParentSection(personId){
+        const kinship = ((document.getElementById('linkPersKinship')||{}).value || '');
+        const section = document.getElementById('linkPersCoParentSection');
+        if(!section) return;
+        if(kinship !== 'child_male' && kinship !== 'child_female'){ section.style.display = 'none'; section.innerHTML = ''; return; }
+        let relations = [];
+        try{ relations = JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const mates = relations.filter(r => String(r.from) === String(personId) && r.type === 'mate');
+        if(mates.length <= 1){ section.style.display = 'none'; section.innerHTML = ''; return; }
+        const people = getPeople();
+        const opts = mates.map(r => {
+          const p = people.find(x => String(x.id) === String(r.to));
+          const name = p ? (((p.firstName||'') + ' ' + (p.lastName||'')).trim()) || p.id : r.to;
+          return `<option value="${_esc(String(r.to))}">${_esc(name)}</option>`;
+        }).join('');
+        section.innerHTML = `<label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Outro progenitor</label><select id="linkPersCoParent" class="form-control" style="width:100%;">${opts}</select>`;
+        section.style.display = 'block';
+      }
+
+      function _drawerSaveLinkPerson(personId){
+        const kinship = ((document.getElementById('linkPersKinship')||{}).value || '');
+        const sel = document.getElementById('linkPersTarget');
+        const newId = sel && sel.value ? sel.value : '';
+        if(!newId){ alert('Selecione uma pessoa para ligar.'); return; }
+        if(String(newId) === String(personId)){ alert('N\u00e3o pode ligar uma pessoa a si pr\u00f3pria.'); return; }
+        let gender = '', relType = '';
+        if(kinship === 'sibling_male'){ gender = 'male'; relType = 'siblin'; }
+        else if(kinship === 'sibling_female'){ gender = 'female'; relType = 'siblin'; }
+        else if(kinship === 'child_male'){ gender = 'male'; relType = 'child'; }
+        else if(kinship === 'child_female'){ gender = 'female'; relType = 'child'; }
+        else if(kinship === 'ancestor_male'){ gender = 'male'; relType = 'ancestor'; }
+        else if(kinship === 'ancestor_female'){ gender = 'female'; relType = 'ancestor'; }
+        else if(kinship === 'mate_male'){ gender = 'male'; relType = 'mate'; }
+        else if(kinship === 'mate_female'){ gender = 'female'; relType = 'mate'; }
+        if(!relType){ openDrawer('edit', personId); return; }
+        let relations = [];
+        try{ relations = JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const alreadyExists = relations.some(r => String(r.from) === String(personId) && String(r.to) === String(newId) && r.type === relType);
+        if(alreadyExists){ alert('Esta liga\u00e7\u00e3o j\u00e1 existe.'); return; }
+        if(relType === 'siblin'){
+          relations.push({ from: String(personId), to: String(newId), type: 'siblin' });
+          relations.push({ from: String(newId), to: String(personId), type: 'siblin' });
+          relations.filter(r => String(r.from) === String(personId) && r.type === 'ancestor')
+            .forEach(r => { if(!relations.some(x => String(x.from) === String(newId) && String(x.to) === String(r.to) && x.type === 'ancestor')) relations.push({ from: String(newId), to: String(r.to), type: 'ancestor' }); });
+          relations.filter(r => String(r.from) === String(newId) && r.type === 'ancestor')
+            .forEach(r => { if(!relations.some(x => String(x.from) === String(personId) && String(x.to) === String(r.to) && x.type === 'ancestor')) relations.push({ from: String(personId), to: String(r.to), type: 'ancestor' }); });
+        }
+        if(relType === 'ancestor'){
+          relations.push({ from: String(personId), to: String(newId), type: 'ancestor' });
+          if(!relations.some(r => String(r.from) === String(newId) && String(r.to) === String(personId) && r.type === 'child'))
+            relations.push({ from: String(newId), to: String(personId), type: 'child' });
+          const existingParents = relations.filter(r => String(r.from) === String(personId) && r.type === 'ancestor' && String(r.to) !== String(newId));
+          if(existingParents.length > 0){
+            const otherParentId = existingParents[0].to;
+            if(!relations.some(r => String(r.from) === String(newId) && String(r.to) === String(otherParentId) && r.type === 'mate')){
+              relations.push({ from: String(newId), to: String(otherParentId), type: 'mate' });
+              relations.push({ from: String(otherParentId), to: String(newId), type: 'mate' });
+            }
+          }
+        }
+        if(relType === 'mate'){
+          relations.push({ from: String(personId), to: String(newId), type: 'mate' });
+          if(!relations.some(r => String(r.from) === String(newId) && String(r.to) === String(personId) && r.type === 'mate'))
+            relations.push({ from: String(newId), to: String(personId), type: 'mate' });
+        }
+        if(relType === 'child'){
+          relations.push({ from: String(personId), to: String(newId), type: 'child' });
+          if(!relations.some(r => String(r.from) === String(newId) && String(r.to) === String(personId) && r.type === 'ancestor'))
+            relations.push({ from: String(newId), to: String(personId), type: 'ancestor' });
+          const mates = relations.filter(r => String(r.from) === String(personId) && r.type === 'mate');
+          if(mates.length === 1){
+            if(!relations.some(r => String(r.from) === String(mates[0].to) && String(r.to) === String(newId) && r.type === 'child'))
+              relations.push({ from: String(mates[0].to), to: String(newId), type: 'child' });
+            if(!relations.some(r => String(r.from) === String(newId) && String(r.to) === String(mates[0].to) && r.type === 'ancestor'))
+              relations.push({ from: String(newId), to: String(mates[0].to), type: 'ancestor' });
+          } else if(mates.length > 1){
+            const coParentId = ((document.getElementById('linkPersCoParent')||{}).value || '');
+            if(coParentId){
+              if(!relations.some(r => String(r.from) === String(coParentId) && String(r.to) === String(newId) && r.type === 'child'))
+                relations.push({ from: String(coParentId), to: String(newId), type: 'child' });
+              if(!relations.some(r => String(r.from) === String(newId) && String(r.to) === String(coParentId) && r.type === 'ancestor'))
+                relations.push({ from: String(newId), to: String(coParentId), type: 'ancestor' });
+            }
+          }
+        }
+        localStorage.setItem('relations:myLineage', JSON.stringify(relations));
         openDrawer('edit', personId);
         renderGraph();
       }

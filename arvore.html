@@ -1017,13 +1017,6 @@
         const lastName  = person ? (person.lastName||person.name||'')  : '';
         const gender    = person ? (person.gender||'') : '';
         const notes     = person ? (person.notes||person.bio||'') : '';
-        // get birth/death from events
-        const allEvents = getEvents();
-        const birthEv = person ? allEvents.find(e=>String(e.personId)===String(person.id)&&e.type==='birth') : null;
-        const deathEv = person ? allEvents.find(e=>String(e.personId)===String(person.id)&&e.type==='death') : null;
-        const birthDate = birthEv ? (birthEv.date||birthEv.year||'') : (person ? (person.birthDate||person.born||'') : '');
-        const deathDate = deathEv ? (deathEv.date||deathEv.year||'') : (person ? (person.deathDate||person.died||'') : '');
-
         body.innerHTML = [
           '<div class="drawer-section-label">Identidade</div>',
           '<div class="form-row">',
@@ -1036,11 +1029,6 @@
               '<option value="male"' + (gender==='male'||gender==='masculino'||gender==='m'?'selected':'') + '>Masculino</option>',
               '<option value="female"' + (gender==='female'||gender==='feminino'||gender==='f'?'selected':'') + '>Feminino</option>',
             '</select></div>',
-          '<div class="drawer-section-label" style="margin-top:8px;">Datas</div>',
-          '<div class="form-row">',
-            '<div><label>Nascimento</label><input type="text" id="df_birthDate" value="' + esc(birthDate) + '" placeholder="AAAA-MM-DD" /></div>',
-            '<div><label>Óbito</label><input type="text" id="df_deathDate" value="' + esc(deathDate) + '" placeholder="AAAA-MM-DD" /></div>',
-          '</div>',
           '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
           '<div><textarea id="df_notes" rows="3" placeholder="Notas...">' + esc(notes) + '</textarea></div>',
           person ? '<div style="margin-top:6px;display:flex;gap:10px;align-items:center;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Relações</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button></div>' : ''
@@ -1176,8 +1164,6 @@
         const lastName  = (document.getElementById('df_lastName')||{}).value  || '';
         const gender    = (document.getElementById('df_gender')||{}).value    || '';
         const notes     = (document.getElementById('df_notes')||{}).value     || '';
-        const birthDate = (document.getElementById('df_birthDate')||{}).value || '';
-        const deathDate = (document.getElementById('df_deathDate')||{}).value || '';
 
         let people = getPeople();
 
@@ -1187,14 +1173,11 @@
           people.push(newPerson);
           savePeople(people);
           _drawerPersonId = newId;
-          // save birth/death events
-          drawerSaveEvents(newId, birthDate, deathDate);
         } else {
           const idx = people.findIndex(p=>String(p.id)===String(_drawerPersonId));
           if(idx !== -1){
             people[idx] = Object.assign({}, people[idx], { firstName: firstName.trim(), lastName: lastName.trim(), gender, notes, updatedAt: new Date().toISOString() });
             savePeople(people);
-            drawerSaveEvents(_drawerPersonId, birthDate, deathDate);
           }
         }
 

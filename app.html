@@ -47,8 +47,6 @@
           <thead>
             <tr>
               <th>Nome</th>
-              <th>Data Nascimento</th>
-              <th>Data Óbito</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -521,7 +519,6 @@
         tbody.innerHTML = '';
         const all = loadPeople();
         const hideDeleted = document.getElementById('hideDeleted').checked;
-        const events = getEvents();
         const filter = currentFilter;
 
         // Apply hidden and filter
@@ -540,16 +537,10 @@
         pageItems.forEach(p => {
           const tr = document.createElement('tr');
           if (p.deletedAt) tr.classList.add('deleted');
-          const birthEv = events.find(ev => ev.personId === p.id && ev.type === 'BIRTH' && !ev.deletedAt);
-          const deathEv = events.find(ev => ev.personId === p.id && ev.type === 'DEATH' && !ev.deletedAt);
-          const birthDate = birthEv && birthEv.date ? formatDate(birthEv.date) : '';
-          const deathDate = deathEv && deathEv.date ? formatDate(deathEv.date) : '';
           const fullName = ((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim();
           const fullNameEsc = escapeHtml(fullName);
           tr.innerHTML = `
             <td><a href="#" class="person-link" data-id="${p.id}">${fullNameEsc}</a></td>
-            <td>${birthDate}</td>
-            <td>${deathDate}</td>
             <td class="actions">
               <button data-id="${p.id}" class="detail" title="Detalhe" style="background:none;border:none;cursor:pointer;padding:0;margin-right:8px;"><i class="mdi mdi-eye" style="font-size:1.2em;" aria-hidden="true"></i></button>
               <button data-id="${p.id}" class="del" title="Excluir" style="background:none;border:none;cursor:pointer;padding:0;"><i class="mdi mdi-trash-can" style="font-size:1.2em;" aria-hidden="true"></i></button>

@@ -103,7 +103,6 @@ xpto/
 ├── gedcom.html         # Importação e exportação GEDCOM
 ├── album.html          # Álbum de fotografias (Biblioteca de Fotos)
 ├── documentos.html     # Biblioteca de Documentos
-├── pessoa-detalhe.html # Detalhe de uma pessoa (eventos, relações, fotos)
 ├── configuracao.html   # Definições (bibliotecas, pessoa em foco)
 ├── apis.html           # Referência das APIs e chaves de dados
 ├── landing.html        # Página pública de apresentação

@@ -96,7 +96,6 @@
                 <div class="full" style="display:flex;gap:8px;flex-wrap:wrap;">
                   <button type="submit" id="saveBtn" class="btn">Salvar</button>
                   <button type="button" id="resetBtn" class="btn btn-ghost">Limpar</button>
-                  <button type="button" id="detailBtn" class="btn btn-ghost">Detalhe</button>
                 </div>
               </form>
             </div>
@@ -126,11 +125,7 @@
           <div class="drawer-person-name" id="drawerPersonName">—</div>
           <div class="drawer-person-sub" id="drawerPersonSub"></div>
         </div>
-        <div class="drawer-person-actions">
-          <a id="drawerDetailLink" href="#" class="btn btn-ghost btn-sm" title="Abrir detalhe completo">
-            <i class="mdi mdi-open-in-new"></i>
-          </a>
-        </div>
+
       </div>
       <div class="drawer-body" id="drawerBody"></div>
       <div class="drawer-footer">
@@ -284,13 +279,7 @@
               closeAccordion('contentEventos');
               closeAccordion('contentDados');
             });
-            // Botão Detalhe: abre página de detalhe com todas as secções
-            const detailBtn = document.getElementById('detailBtn');
-            if (detailBtn) detailBtn.addEventListener('click', function(){
-              const id = document.getElementById('id').value;
-              if (!id) return alert('Nenhuma pessoa selecionada');
-              window.location.href = 'pessoa-detalhe.html?id=' + encodeURIComponent(id);
-            });
+
             // Oculta ficha ao iniciar
             showFormPanel(false);
             closeAccordion('contentRelacoes');
@@ -590,7 +579,6 @@
           tr.innerHTML = `
             <td><a href="#" class="person-link" data-id="${p.id}">${fullNameEsc}</a></td>
             <td class="actions">
-              <button data-id="${p.id}" class="detail" title="Detalhe" style="background:none;border:none;cursor:pointer;padding:0;margin-right:20px;"><i class="mdi mdi-eye" style="font-size:1.2em;" aria-hidden="true"></i></button>
               <button data-id="${p.id}" class="tree-focus" title="Ver na Árvore" style="background:none;border:none;cursor:pointer;padding:0;"><i class="mdi mdi-sitemap" style="font-size:1.2em;" aria-hidden="true"></i></button>
             </td>
           `;
@@ -721,8 +709,6 @@
         // If it's the person link or edit: open edit; detail: open detail page; del: soft delete
         if (el.classList.contains('edit') || el.classList.contains('person-link')) {
           openDrawer('edit', id);
-        } else if (el.classList.contains('detail')) {
-          window.location.href = 'pessoa-detalhe.html?id=' + encodeURIComponent(id);
         } else if (el.classList.contains('tree-focus')) {
           sessionStorage.setItem('tempFocusPerson:myLineage', JSON.stringify({ id: id }));
           window.location.href = 'arvore.html';
@@ -788,7 +774,6 @@
         const nameEl = document.getElementById('drawerPersonName');
         const subEl  = document.getElementById('drawerPersonSub');
         const avatarEl = document.getElementById('drawerAvatar');
-        const detailLink = document.getElementById('drawerDetailLink');
         if(person){
           const fullName = (((person.firstName||'')+' '+(person.lastName||'')).trim()) || '(sem nome)';
           nameEl.textContent = fullName;
@@ -802,12 +787,9 @@
           const thumb = getThumbnailForPerson(person.id);
           if(thumb){ avatarEl.style.backgroundImage='url('+thumb+')'; avatarEl.style.backgroundSize='cover'; avatarEl.style.backgroundPosition='center'; }
           else{ avatarEl.style.backgroundImage=''; const g=(person.gender||'').toLowerCase(); avatarEl.style.background=(g==='female'||g==='feminino'||g==='f')?'#e26aa6':(g==='male'||g==='masculino'||g==='m')?'#4493f8':'#9aa0a6'; }
-          detailLink.href='pessoa-detalhe.html?id='+encodeURIComponent(person.id);
-          detailLink.style.display='';
         } else {
           nameEl.textContent='Nova Pessoa'; subEl.textContent='';
           avatarEl.style.backgroundImage=''; avatarEl.style.background='var(--bg-surface-2)';
-          detailLink.style.display='none';
         }
         const body = document.getElementById('drawerBody');
         const firstName = person?(person.firstName||''):'';

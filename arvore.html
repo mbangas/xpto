@@ -81,11 +81,7 @@
           <div class="drawer-person-name" id="drawerPersonName">—</div>
           <div class="drawer-person-sub" id="drawerPersonSub"></div>
         </div>
-        <div class="drawer-person-actions">
-          <a id="drawerDetailLink" href="#" class="btn btn-ghost btn-sm" title="Abrir detalhe completo">
-            <i class="mdi mdi-open-in-new"></i>
-          </a>
-        </div>
+
       </div>
       <div class="drawer-body" id="drawerBody">
         <!-- injected by JS -->
@@ -1011,8 +1007,6 @@
         const nameEl = document.getElementById('drawerPersonName');
         const subEl  = document.getElementById('drawerPersonSub');
         const avatarEl = document.getElementById('drawerAvatar');
-        const detailLink = document.getElementById('drawerDetailLink');
-
         if(person){
           const fullName = (((person.firstName||'') + ' ' + (person.lastName||'')).trim()) || person.name || person.fullName || '(sem nome)';
           nameEl.textContent = fullName;
@@ -1033,14 +1027,11 @@
             const g = (person.gender||'').toLowerCase();
             avatarEl.style.background = (g==='female'||g==='feminino'||g==='f') ? '#e26aa6' : (g==='male'||g==='masculino'||g==='m') ? '#4493f8' : '#9aa0a6';
           }
-          detailLink.href = 'pessoa-detalhe.html?id=' + encodeURIComponent(person.id);
-          detailLink.style.display = '';
         } else {
           nameEl.textContent = 'Nova Pessoa';
           subEl.textContent = '';
           avatarEl.style.backgroundImage = '';
           avatarEl.style.background = 'var(--bg-surface-2)';
-          detailLink.style.display = 'none';
         }
 
         // build form

@@ -94,6 +94,11 @@
       </div>
     </div>
 
+    <!-- ── Drawer photo lightbox ── -->
+    <div id="drawerPhotoLightbox" style="display:none;position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.82);align-items:center;justify-content:center;z-index:600;" onclick="this.style.display='none';">
+      <img id="drawerPhotoLightboxImg" src="" style="max-width:92vw;max-height:92vh;object-fit:contain;border-radius:8px;box-shadow:0 8px 32px rgba(0,0,0,0.6);" />
+    </div>
+
     <script>
       // Helpers (localStorage-backed data)
       function getPeople(){ try{ const raw = localStorage.getItem('people:myLineage'); return raw ? JSON.parse(raw) : []; }catch(e){ return []; } }
@@ -1032,7 +1037,7 @@
             '</select></div>',
           '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
           '<div><textarea id="df_notes" rows="3" placeholder="Notas...">' + esc(notes) + '</textarea></div>',
-          person ? '<div style="margin-top:6px;display:flex;gap:10px;align-items:center;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Relações</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button></div>' : ''
+          person ? '<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Relações</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button></div>' : ''
         ].join('');
 
         drawer.classList.add('open');
@@ -1067,7 +1072,7 @@
           backBtn.style.display = '';
           backBtn._personId = String(personId);
         }
-        const sectionLabel = section === 'relacoes' ? 'Relações' : 'Eventos';
+        const sectionLabel = section === 'relacoes' ? 'Relações' : section === 'fotos' ? 'Fotos' : 'Eventos';
         const personName = (((person.firstName||'')+' '+(person.lastName||'')).trim()) || (person.name||'');
         document.getElementById('drawerTitle').textContent = sectionLabel + ' — ' + personName;
 
@@ -1076,6 +1081,8 @@
         const body = document.getElementById('drawerBody');
         body.innerHTML = section === 'relacoes'
           ? _renderDrawerRelations(String(personId), people)
+          : section === 'fotos'
+          ? _renderDrawerPhotos(String(personId))
           : _renderDrawerEvents(String(personId));
       }
 
@@ -1260,6 +1267,68 @@
         localStorage.setItem('relations:myLineage', JSON.stringify(relations));
         const body = document.getElementById('drawerBody');
         if(body) body.innerHTML = _renderDrawerRelations(fromId, getPeople());
+      }
+
+      // ── Fotos section ─────────────────────────────────────────────────────
+      function _renderDrawerPhotos(personId){
+        const photos = getPhotos();
+        const rels = getPhotoRelations();
+        const linked = (rels[personId] || []).map(id => photos.find(p => String(p.id) === String(id))).filter(Boolean);
+        let html = `<div style="margin-bottom:14px;">`
+          + `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">`
+          + `<label for="drawerPhotoInput" class="btn btn-sm" style="cursor:pointer;font-size:0.83rem;"><i class="mdi mdi-image-plus"></i> Escolher Ficheiro</label>`
+          + `<span id="drawerPhotoName" style="color:#aaa;font-size:0.82rem;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Nenhum ficheiro</span>`
+          + `<button class="btn btn-sm" onclick="_drawerUploadPhoto('${_esc(personId)}')" style="font-size:0.83rem;"><i class="mdi mdi-upload"></i> Upload</button>`
+          + `</div>`
+          + `<input type="file" id="drawerPhotoInput" accept="image/*" style="display:none;" onchange="document.getElementById('drawerPhotoName').textContent=this.files&&this.files.length?this.files[0].name:'Nenhum ficheiro'" />`
+          + `</div>`;
+        if(!linked.length){ html += '<div style="color:#888;padding:4px 0 12px;">Nenhuma foto associada.</div>'; return html; }
+        html += '<div style="display:flex;flex-wrap:wrap;gap:10px;">';
+        linked.forEach(ph => {
+          const src = ph.originalDataUrl || ph.dataUrl || '';
+          html += `<div style="position:relative;display:inline-block;">`
+            + `<img src="${src}" style="width:72px;height:72px;object-fit:cover;border-radius:6px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);" onclick="_drawerViewPhoto('${_esc(ph.id)}')" title="${_esc(ph.name||'')}" />`
+            + `<button onclick="_drawerUnlinkPhoto('${_esc(ph.id)}','${_esc(personId)}')" title="Remover vínculo" style="position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;"><i class="mdi mdi-close"></i></button>`
+            + `</div>`;
+        });
+        html += '</div>';
+        return html;
+      }
+
+      async function _drawerUploadPhoto(personId){
+        const input = document.getElementById('drawerPhotoInput');
+        if(!input || !input.files || !input.files.length) return alert('Selecione uma imagem para upload.');
+        const photos = getPhotos();
+        const rels = getPhotoRelations();
+        const f = input.files[0];
+        try{
+          const dataUrl = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(); r.readAsDataURL(f); });
+          const id = 'ph_' + Date.now();
+          photos.push({ id, name: f.name, originalDataUrl: dataUrl, baseCopyName: null, createdAt: new Date().toISOString() });
+          rels[personId] = rels[personId] || [];
+          rels[personId].push(id);
+          localStorage.setItem('photos:myLineage', JSON.stringify(photos));
+          localStorage.setItem('photoRelations:myLineage', JSON.stringify(rels));
+          input.value = '';
+          openDrawerSection(personId, 'fotos');
+        }catch(err){ alert('Erro no upload: ' + err); }
+      }
+
+      function _drawerUnlinkPhoto(photoId, personId){
+        if(!confirm('Remover vínculo desta foto?')) return;
+        const rels = getPhotoRelations();
+        if(rels[personId]) rels[personId] = rels[personId].filter(id => String(id) !== String(photoId));
+        localStorage.setItem('photoRelations:myLineage', JSON.stringify(rels));
+        openDrawerSection(personId, 'fotos');
+      }
+
+      function _drawerViewPhoto(photoId){
+        const ph = getPhotos().find(p => String(p.id) === String(photoId));
+        if(!ph) return;
+        const src = ph.originalDataUrl || ph.dataUrl || '';
+        const lb = document.getElementById('drawerPhotoLightbox');
+        const img = document.getElementById('drawerPhotoLightboxImg');
+        if(lb && img){ img.src = src; lb.style.display = 'flex'; }
       }
 
       function drawerSave(){

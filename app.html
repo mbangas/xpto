@@ -738,7 +738,7 @@
         } else if (el.classList.contains('detail')) {
           window.location.href = 'pessoa-detalhe.html?id=' + encodeURIComponent(id);
         } else if (el.classList.contains('tree-focus')) {
-          localStorage.setItem('focusedPerson:myLineage', JSON.stringify({ id: id }));
+          sessionStorage.setItem('tempFocusPerson:myLineage', JSON.stringify({ id: id }));
           window.location.href = 'arvore.html';
         }
       });
@@ -842,7 +842,7 @@
             '</select></div>',
           '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
           '<div><textarea id="df_notes" rows="3" placeholder="Notas...">'+_esc(notes)+'</textarea></div>',
-          person ? '<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Rela\u00e7\u00f5es</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button></div>' : ''
+          person ? '<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Rela\u00e7\u00f5es</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="_drawerShowAddPerson(\''+person.id+'\')"><i class="mdi mdi-account-plus-outline"></i> Adicionar</button></div>' : ''
         ].join('');
         drawer.classList.add('open');
         overlay.classList.add('open');
@@ -966,6 +966,115 @@
         localStorage.setItem('relations:myLineage',JSON.stringify(relations));
         const body=document.getElementById('drawerBody');
         if(body) body.innerHTML=_renderDrawerRelations(fromId,loadPeople());
+      }
+
+      // ── Adicionar nova pessoa relacionada ─────────────────────────────────
+      function _drawerShowAddPerson(personId){
+        const people=loadPeople();
+        const person=people.find(p=>String(p.id)===String(personId));
+        if(!person) return;
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const hasParents=relations.some(r=>String(r.from)===String(personId)&&r.type==='ancestor');
+        const footer=document.querySelector('.drawer-footer');
+        if(footer) footer.style.display='none';
+        const phdr=document.getElementById('drawerPersonHeader');
+        if(phdr) phdr.style.display='none';
+        const backBtn=document.getElementById('drawerBackBtn');
+        if(backBtn){ backBtn.style.display=''; backBtn._personId=String(personId); }
+        const personName=(((person.firstName||'')+' '+(person.lastName||'')).trim())||'';
+        document.getElementById('drawerTitle').textContent='Adicionar \u2014 '+personName;
+        const body=document.getElementById('drawerBody');
+        if(!body) return;
+        let kinshipOpts=`<option value="sibling_male">Irm\u00e3o</option><option value="sibling_female">Irm\u00e3</option><option value="child_male">Filho</option><option value="child_female">Filha</option>`;
+        if(!hasParents) kinshipOpts+=`<option value="ancestor_male">Pai</option><option value="ancestor_female">M\u00e3e</option>`;
+        kinshipOpts+=`<option value="mate_male">Companheiro</option><option value="mate_female">Companheira</option>`;
+        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Nova Pessoa</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Grau de parentesco</label><select id="addPersKinship" style="width:100%;" onchange="_drawerUpdateCoParentSection('${_esc(personId)}')">${kinshipOpts}</select></div><div id="addPersCoParentSection" class="form-group" style="margin-bottom:10px;display:none;"></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Primeiro nome</label><input id="addPersFirstName" type="text" placeholder="Nome" style="width:100%;" /></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Apelido</label><input id="addPersLastName" type="text" placeholder="Apelido" style="width:100%;" /></div><div class="form-group" style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="addPersNotes" rows="2" placeholder="Notas..." style="width:100%;resize:vertical;"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawer('edit','${_esc(personId)}')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewPerson('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
+        setTimeout(()=>{ const fi=document.getElementById('addPersFirstName'); if(fi) fi.focus(); },50);
+      }
+
+      function _drawerUpdateCoParentSection(personId){
+        const kinship=(document.getElementById('addPersKinship')||{}).value||'';
+        const section=document.getElementById('addPersCoParentSection');
+        if(!section) return;
+        if(kinship!=='child_male'&&kinship!=='child_female'){ section.style.display='none'; section.innerHTML=''; return; }
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const mates=relations.filter(r=>String(r.from)===String(personId)&&r.type==='mate');
+        if(mates.length<=1){ section.style.display='none'; section.innerHTML=''; return; }
+        const people=loadPeople();
+        const opts=mates.map(r=>{ const p=people.find(x=>String(x.id)===String(r.to)); const name=p?(((p.firstName||'')+' '+(p.lastName||'')).trim())||p.id:r.to; return `<option value="${_esc(String(r.to))}">${_esc(name)}</option>`; }).join('');
+        section.innerHTML=`<label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Outro progenitor</label><select id="addPersCoParent" style="width:100%;">${opts}</select>`;
+        section.style.display='block';
+      }
+
+      function _drawerSaveNewPerson(personId){
+        const kinship=((document.getElementById('addPersKinship')||{}).value||'');
+        const firstName=((document.getElementById('addPersFirstName')||{}).value||'').trim();
+        const lastName=((document.getElementById('addPersLastName')||{}).value||'').trim();
+        const notes=((document.getElementById('addPersNotes')||{}).value||'').trim();
+        if(!firstName&&!lastName){ alert('Introduza pelo menos um nome.'); return; }
+        let gender='',relType='';
+        if(kinship==='sibling_male'){ gender='male'; relType='siblin'; }
+        else if(kinship==='sibling_female'){ gender='female'; relType='siblin'; }
+        else if(kinship==='child_male'){ gender='male'; relType='child'; }
+        else if(kinship==='child_female'){ gender='female'; relType='child'; }
+        else if(kinship==='ancestor_male'){ gender='male'; relType='ancestor'; }
+        else if(kinship==='ancestor_female'){ gender='female'; relType='ancestor'; }
+        else if(kinship==='mate_male'){ gender='male'; relType='mate'; }
+        else if(kinship==='mate_female'){ gender='female'; relType='mate'; }
+        let people=loadPeople();
+        const newId='p_'+Date.now();
+        people.push({id:newId,firstName,lastName,gender,notes,createdAt:new Date().toISOString()});
+        savePeople(people);
+        if(relType){
+          let relations=[];
+          try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+          relations.push({from:String(personId),to:String(newId),type:relType});
+          if(relType==='siblin'){
+            // herdar os mesmos pais da pessoa base
+            relations.filter(r=>String(r.from)===String(personId)&&r.type==='ancestor')
+              .forEach(r=>{ relations.push({from:String(newId),to:String(r.to),type:'ancestor'}); });
+          }
+          if(relType==='ancestor'){
+            // relação inversa: novo pai/mãe tem a pessoa base como filho(a)
+            relations.push({from:String(newId),to:String(personId),type:'child'});
+          }
+          if(relType==='mate'){
+            // relação bidirecional: companheiro(a) também aponta para a pessoa base
+            relations.push({from:String(newId),to:String(personId),type:'mate'});
+          }
+          if(relType==='child'){
+            // child also needs ancestor entries pointing to its parents
+            relations.push({from:String(newId),to:String(personId),type:'ancestor'});
+            const mates=relations.filter(r=>String(r.from)===String(personId)&&r.type==='mate');
+            if(mates.length===0){
+              // sem companheiro: criar pessoa desconhecida com género oposto
+              const basePerson=people.find(p=>String(p.id)===String(personId));
+              const baseGender=((basePerson&&basePerson.gender)||'').toLowerCase();
+              const autoGender=(baseGender==='male'||baseGender==='masculino'||baseGender==='m')?'female':'male';
+              const autoId='p_auto_'+Date.now();
+              people.push({id:autoId,firstName:'<desconhecido>',lastName:'',gender:autoGender,notes:'',createdAt:new Date().toISOString()});
+              savePeople(people);
+              relations.push({from:String(personId),to:String(autoId),type:'mate'});
+              relations.push({from:String(autoId),to:String(personId),type:'mate'});
+              relations.push({from:String(autoId),to:String(newId),type:'child'});
+              relations.push({from:String(newId),to:String(autoId),type:'ancestor'});
+            } else if(mates.length===1){
+              relations.push({from:String(mates[0].to),to:String(newId),type:'child'});
+              relations.push({from:String(newId),to:String(mates[0].to),type:'ancestor'});
+            } else {
+              const coParentId=((document.getElementById('addPersCoParent')||{}).value||'');
+              if(coParentId){
+                relations.push({from:String(coParentId),to:String(newId),type:'child'});
+                relations.push({from:String(newId),to:String(coParentId),type:'ancestor'});
+              }
+            }
+          }
+          localStorage.setItem('relations:myLineage',JSON.stringify(relations));
+        }
+        openDrawer('edit',personId);
+        renderTable();
       }
 
       // ── Fotos section ─────────────────────────────────────────────────────
@@ -1168,9 +1277,14 @@
       function drawerDeletePerson(){
         if(!_drawerPersonId) return;
         if(!confirm('Apagar esta pessoa?')) return;
+        const pid=String(_drawerPersonId);
         let people=loadPeople();
-        const idx=people.findIndex(p=>String(p.id)===String(_drawerPersonId));
+        const idx=people.findIndex(p=>String(p.id)===pid);
         if(idx!==-1){ people[idx]=Object.assign({},people[idx],{deletedAt:new Date().toISOString()}); savePeople(people); }
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        relations=relations.filter(r=>String(r.from)!==pid&&String(r.to)!==pid);
+        localStorage.setItem('relations:myLineage',JSON.stringify(relations));
         closeDrawer();
         renderTable();
       }

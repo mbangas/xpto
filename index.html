@@ -227,6 +227,56 @@
       .gedcom-badge.green { background: var(--green-soft); color: var(--green); }
       .gedcom-badge.amber { background: var(--amber-soft); color: var(--amber); }
 
+      /* Birthday cards */
+      .home-aniv-list {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .home-aniv-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex: 1;
+        min-width: 220px;
+      }
+      .home-aniv-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, var(--accent), var(--accent-2, #00b4d8));
+        color: #fff;
+        font-size: 1rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .home-aniv-name {
+        font-weight: 600;
+        font-size: 0.875rem;
+        color: var(--text-main);
+      }
+      .home-aniv-meta {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 2px;
+      }
+      .home-aniv-days {
+        font-weight: 600;
+        color: var(--accent);
+      }
+      .home-aniv-empty {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin: 0;
+      }
+
       /* Footer */
       .home-footer {
         margin-top: auto;
@@ -324,6 +374,14 @@
                   <div class="home-stat-label">Nascimentos</div>
                 </div>
               </div>
+            </div>
+          </div>
+
+          <!-- Aniversários ───────────────────────────────────────────── -->
+          <div>
+            <div class="home-section-title"><i class="mdi mdi-cake-variant"></i> Aniversários</div>
+            <div class="home-aniv-list" id="aniv-list">
+              <p class="home-aniv-empty">A carregar…</p>
             </div>
           </div>
 
@@ -538,6 +596,47 @@
         document.getElementById('stat-eventos').textContent    = events.length;
         document.getElementById('stat-relacoes').textContent   = relations.length;
         document.getElementById('stat-nascimentos').textContent= births.length;
+
+        // Aniversários — próximos 3 de pessoas vivas
+        const deathIds = new Set(events.filter(e => (e.type||'').toUpperCase() === 'DEATH').map(e => e.personId));
+        const living   = people.filter(p => !deathIds.has(p.id));
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const upcoming = [];
+        living.forEach(p => {
+          const birth = events.find(e => e.personId === p.id && (e.type||'').toUpperCase() === 'BIRTH');
+          if (!birth || !birth.date) return;
+          const bd = new Date(birth.date);
+          if (isNaN(bd)) return;
+          const birthYear = bd.getFullYear();
+          let next = new Date(today.getFullYear(), bd.getMonth(), bd.getDate());
+          next.setHours(0, 0, 0, 0);
+          if (next < today) next = new Date(today.getFullYear() + 1, bd.getMonth(), bd.getDate());
+          const daysUntil   = Math.round((next - today) / 86400000);
+          const ageWillTurn = next.getFullYear() - birthYear;
+          const name = [p.firstName, p.lastName].filter(Boolean).join(' ') || '(sem nome)';
+          upcoming.push({ name, daysUntil, ageWillTurn, next });
+        });
+        upcoming.sort((a, b) => a.daysUntil - b.daysUntil);
+        const top3 = upcoming.slice(0, 3);
+        const listEl = document.getElementById('aniv-list');
+        if (top3.length === 0) {
+          listEl.innerHTML = '<p class="home-aniv-empty">Sem aniversários registados.</p>';
+        } else {
+          const months = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+          listEl.innerHTML = top3.map(item => {
+            const dateStr  = item.next.getDate() + ' ' + months[item.next.getMonth()];
+            const daysText = item.daysUntil === 0 ? 'hoje!' : item.daysUntil === 1 ? 'amanhã' : 'em ' + item.daysUntil + ' dias';
+            return `<div class="home-aniv-card">
+              <div class="home-aniv-avatar">${item.name.charAt(0).toUpperCase()}</div>
+              <div>
+                <div class="home-aniv-name">${item.name}</div>
+                <div class="home-aniv-meta">${dateStr} · faz ${item.ageWillTurn} anos · <span class="home-aniv-days">${daysText}</span></div>
+              </div>
+            </div>`;
+          }).join('');
+        }
       } catch(e) {}
     </script>
   </body>

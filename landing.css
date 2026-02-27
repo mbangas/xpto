@@ -26,10 +26,30 @@ body{background:var(--bg);color:var(--text);}
 .card-links a{color:var(--accent);text-decoration:none}
 .lp-footer{max-width:1100px;margin:28px auto 40px;padding:0 20px;display:flex;justify-content:space-between;align-items:center;color:var(--muted)}
 
+/* ── Dados atuais ─────────────────────────────────────────────────────── */
+.section-title{font-size:1.1rem;font-weight:600;margin:0 0 14px 0;color:var(--text)}
+.dados-atuais{margin-top:28px}
+.dados-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.dado-card{background:var(--panel);border-radius:12px;padding:16px 20px;text-align:center;box-shadow:var(--card-shadow)}
+.dado-value{font-size:2rem;font-weight:700;color:var(--accent);line-height:1}
+.dado-label{font-size:0.82rem;color:var(--muted);margin-top:4px}
+
+/* ── Aniversários ─────────────────────────────────────────────────────── */
+.aniversarios-section{margin-top:24px}
+.aniv-list{display:flex;gap:14px;flex-wrap:wrap}
+.aniv-item{display:flex;align-items:center;gap:14px;background:var(--panel);border-radius:12px;padding:14px 18px;box-shadow:var(--card-shadow);flex:1;min-width:220px}
+.aniv-avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent-2));color:#fff;font-size:1.1rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.aniv-name{font-weight:600;font-size:0.97rem}
+.aniv-meta{font-size:0.82rem;margin-top:2px}
+.aniv-days{font-weight:600;color:var(--accent)}
+.aniv-empty{margin:0}
+
 /* Responsive */
 @media (max-width:900px){
   .hero{grid-template-columns:1fr;margin-bottom:10px}
   .links-grid{grid-template-columns:1fr;}
+  .dados-grid{grid-template-columns:repeat(2,1fr)}
+  .aniv-list{flex-direction:column}
 }
 
 /* Dark mode toggle by adding .dark to html root */

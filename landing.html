@@ -50,6 +50,37 @@
         </div>
       </section>
 
+      <!-- Dados atuais -->
+      <section class="dados-atuais" id="dados-atuais">
+        <h2 class="section-title">Dados atuais</h2>
+        <div class="dados-grid">
+          <div class="dado-card">
+            <div class="dado-value" id="da-pessoas">—</div>
+            <div class="dado-label">Pessoas</div>
+          </div>
+          <div class="dado-card">
+            <div class="dado-value" id="da-vivas">—</div>
+            <div class="dado-label">Pessoas vivas</div>
+          </div>
+          <div class="dado-card">
+            <div class="dado-value" id="da-familias">—</div>
+            <div class="dado-label">Famílias</div>
+          </div>
+          <div class="dado-card">
+            <div class="dado-value" id="da-eventos">—</div>
+            <div class="dado-label">Eventos</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Aniversários -->
+      <section class="aniversarios-section" id="aniversarios-section">
+        <h2 class="section-title">🎂 Aniversários</h2>
+        <div class="aniv-list" id="aniv-list">
+          <p class="aniv-empty muted">A carregar…</p>
+        </div>
+      </section>
+
       <section class="links-grid">
         <div class="card">
           <h3>Entrar na aplicação</h3>
@@ -100,6 +131,75 @@
         localStorage.setItem('mylineage:theme', dark ? 'dark' : 'light');
       });
       document.getElementById('year').textContent = new Date().getFullYear();
+
+      // ── Dados atuais + Aniversários ──────────────────────────────────────
+      (function () {
+        function getPeople() { try { return JSON.parse(localStorage.getItem('people:myLineage') || '[]'); } catch(e) { return []; } }
+        function getEvents() { try { return JSON.parse(localStorage.getItem('events:myLineage') || '[]'); } catch(e) { return []; } }
+        function getRelations() { try { return JSON.parse(localStorage.getItem('relations:myLineage') || '[]'); } catch(e) { return []; } }
+
+        const people    = getPeople().filter(p => !p.deletedAt);
+        const events    = getEvents().filter(e => !e.deletedAt);
+        const relations = getRelations().filter(r => !r.deletedAt);
+
+        // Pessoas vivas = sem evento DEATH
+        const deathIds = new Set(events.filter(e => e.type === 'DEATH').map(e => e.personId));
+        const living   = people.filter(p => !deathIds.has(p.id));
+
+        // Dados atuais
+        document.getElementById('da-pessoas').textContent  = people.length;
+        document.getElementById('da-vivas').textContent    = living.length;
+        document.getElementById('da-familias').textContent = relations.length;
+        document.getElementById('da-eventos').textContent  = events.length;
+
+        // Aniversários – próximos 3 em pessoas vivas
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const upcoming = [];
+        living.forEach(p => {
+          const birth = events.find(e => e.personId === p.id && e.type === 'BIRTH');
+          if (!birth || !birth.date) return;
+          const bd = new Date(birth.date);
+          if (isNaN(bd)) return;
+
+          const birthYear  = bd.getFullYear();
+          const birthMonth = bd.getMonth();
+          const birthDay   = bd.getDate();
+
+          let next = new Date(today.getFullYear(), birthMonth, birthDay);
+          next.setHours(0, 0, 0, 0);
+          if (next < today) next = new Date(today.getFullYear() + 1, birthMonth, birthDay);
+
+          const daysUntil   = Math.round((next - today) / 86400000);
+          const ageWillTurn = next.getFullYear() - birthYear;
+          const name        = [p.firstName, p.lastName].filter(Boolean).join(' ') || '(sem nome)';
+
+          upcoming.push({ name, daysUntil, ageWillTurn, next });
+        });
+
+        upcoming.sort((a, b) => a.daysUntil - b.daysUntil);
+        const top3 = upcoming.slice(0, 3);
+
+        const listEl = document.getElementById('aniv-list');
+        if (top3.length === 0) {
+          listEl.innerHTML = '<p class="aniv-empty muted">Sem aniversários registados.</p>';
+          return;
+        }
+
+        const monthNames = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+        listEl.innerHTML = top3.map(item => {
+          const dateStr  = item.next.getDate() + ' ' + monthNames[item.next.getMonth()];
+          const daysText = item.daysUntil === 0 ? 'hoje!' : item.daysUntil === 1 ? 'amanhã' : 'em ' + item.daysUntil + ' dias';
+          return `<div class="aniv-item">
+            <div class="aniv-avatar">${item.name.charAt(0).toUpperCase()}</div>
+            <div class="aniv-info">
+              <div class="aniv-name">${item.name}</div>
+              <div class="aniv-meta muted">${dateStr} · faz ${item.ageWillTurn} anos · <span class="aniv-days">${daysText}</span></div>
+            </div>
+          </div>`;
+        }).join('');
+      })();
     </script>
   </body>
 </html>

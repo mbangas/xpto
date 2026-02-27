@@ -36,7 +36,6 @@
       <main class="content">
         <div class="topbar">
           <div style="display:flex;align-items:center;gap:12px"><h1>Cadastro de Pessoas</h1></div>
-          <div><button class="btn" id="addPersonBtn">Adicionar Pessoa</button></div>
         </div>
         <div class="main-grid">
           <div class="table-panel card">
@@ -168,7 +167,6 @@
     <script>
             // Novo controle de exibição da ficha
             const formPanel = document.getElementById('formPanel');
-            const addPersonBtn = document.getElementById('addPersonBtn');
             function showFormPanel(show = true) {
               formPanel.style.display = show ? 'block' : 'none';
             }
@@ -197,19 +195,7 @@
                 toggleAccordion(btn.dataset.target);
               }
             });
-            addPersonBtn.addEventListener('click', function() {
-              resetForm();
-              showFormPanel(true);
-              // Fecha Events/Relations e abre Dados ao criar nova pessoa
-              closeAccordion('contentEventos');
-              closeAccordion('contentRelacoes');
-              openAccordion('contentDados');
-              // Limpa listas de eventos e relações para nova ficha
-              if (typeof renderEventsList === 'function' && document.getElementById('eventsList')) renderEventsList('');
-              if (typeof renderRelationsList === 'function' && document.getElementById('relationsList')) renderRelationsList('');
-              // Limpa a área de datas (não mostrar datas para novo registro)
-              if (typeof showDatesInfo === 'function') showDatesInfo();
-            });
+
             // Modifica editPerson para mostrar ficha e folders
             const originalEditPerson = editPerson;
             editPerson = function(id) {

@@ -78,8 +78,8 @@
                     </div>
                     <div id="ageInfo"></div>
                     <div class="full">
-                      <button type="submit" id="saveBtn">Salvar</button>
-                      <button type="button" id="resetBtn">Limpar</button>
+                      <button type="submit" id="saveBtn" class="btn">Salvar</button>
+                      <button type="button" id="resetBtn" class="btn btn-ghost">Limpar</button>
                     </div>
                   </form>
                 </div>
@@ -120,8 +120,8 @@
                         <textarea id="eventNotes" name="eventNotes"></textarea>
                       </div>
                       <div class="full" style="display:flex;gap:8px;">
-                        <button type="button" id="addEventBtn">Salvar Evento</button>
-                        <button type="button" id="cancelEventBtn">Cancelar</button>
+                        <button type="button" id="addEventBtn" class="btn">Salvar Evento</button>
+                        <button type="button" id="cancelEventBtn" class="btn btn-ghost">Cancelar</button>
                       </div>
                     </form>
                   </div>
@@ -155,8 +155,8 @@
                         </select>
                       </div>
                       <div class="full" style="display:flex;gap:8px;">
-                        <button type="button" id="addRelationBtn">Salvar Relação</button>
-                        <button type="button" id="cancelRelationBtn">Cancelar</button>
+                        <button type="button" id="addRelationBtn" class="btn">Salvar Relação</button>
+                        <button type="button" id="cancelRelationBtn" class="btn btn-ghost">Cancelar</button>
                       </div>
                     </form>
                   </div>
@@ -172,7 +172,9 @@
 
             <div style="display:flex;gap:8px;align-items:center;margin-top:12px;flex-direction:column;align-items:flex-start;">
               <div style="display:flex;gap:8px;align-items:center; width:100%">
-                <input type="file" id="photoInput" accept="image/*" />
+                <input type="file" id="photoInput" accept="image/*" style="display:none;" />
+                <label for="photoInput" class="btn btn-ghost" style="cursor:pointer;margin:0;" id="photoInputLabel">Escolher Ficheiro</label>
+                <span id="photoInputName" style="color:var(--text-secondary);font-size:0.9em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px;">Nenhum ficheiro</span>
                 <button class="btn" id="uploadPhotoBtn">Upload</button>
               </div>
               <div id="photoBaseInfo" style="color:var(--text-secondary);font-size:0.95rem;margin-top:6px;"></div>
@@ -437,6 +439,12 @@
           }
         }catch(e){ console.error(e); }
       }
+
+      // Update filename label when a file is selected
+      document.getElementById('photoInput').addEventListener('change', function(){
+        const nameEl = document.getElementById('photoInputName');
+        if(nameEl) nameEl.textContent = this.files && this.files.length ? this.files[0].name : 'Nenhum ficheiro';
+      });
 
       // Upload handler: store photo (dataURL) and link to person
       document.getElementById('uploadPhotoBtn').addEventListener('click', async function(){

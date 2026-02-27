@@ -434,6 +434,7 @@
       .btn-delete-confirm:hover { background: #c62828; }
     </style>
     <script src="remote-storage.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   </head>
   <body>
     <div class="app-shell">
@@ -455,12 +456,17 @@
       </aside>
       <main class="content">
         <div class="topbar">
-          <div style="display:flex;align-items:center;gap:12px">
+          <div style="flex:1;display:flex;align-items:center;gap:12px;min-width:0;">
             <h1>Álbum de Fotos</h1>
             <span class="album-count-badge" id="photoBadge" style="display:none;"></span>
           </div>
-          <div class="album-topbar-actions">
+          <div style="flex:1;display:flex;justify-content:center;align-items:center;">
             <input type="search" class="album-search" id="albumSearch" placeholder="Pesquisar por nome ou pessoa..." />
+          </div>
+          <div style="flex:1;display:flex;justify-content:flex-end;align-items:center;">
+            <button class="btn btn-ghost btn-sm" id="btnExportPdf" title="Exportar todas as fotos para PDF">
+              <i class="mdi mdi-file-pdf-box" aria-hidden="true"></i> Exportar PDF
+            </button>
           </div>
         </div>
 
@@ -471,6 +477,18 @@
           </div>
         </div>
       </main>
+    </div>
+
+    <!-- PDF progress overlay -->
+    <div id="pdfProgressOverlay" aria-live="polite">
+      <div class="pdf-progress-box">
+        <i class="mdi mdi-file-pdf-box" aria-hidden="true"></i>
+        <div class="pdf-progress-title">A gerar PDF&hellip;</div>
+        <div class="pdf-progress-msg" id="pdfProgressMsg">A iniciar&hellip;</div>
+        <div class="pdf-progress-bar-wrap">
+          <div class="pdf-progress-bar" id="pdfProgressBar"></div>
+        </div>
+      </div>
     </div>
 
     <!-- Delete confirmation dialog -->
@@ -976,7 +994,204 @@
           content.innerHTML = `<div class="album-empty"><i class="mdi mdi-alert-outline" aria-hidden="true"></i><p>Erro ao carregar o álbum: ${escapeHtml(String(e))}</p></div>`;
         }
       }
+      // ── Export to PDF ──────────────────────────────────────────────────
+      // Returns { dataUrl, natW, natH } — always preserves aspect ratio
+      async function blobSrcToDataUrl(src){
+        if(!src) return { dataUrl: null, natW: 0, natH: 0 };
+        return new Promise(resolve => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            const nw = img.naturalWidth  || 800;
+            const nh = img.naturalHeight || 800;
+            try{
+              const c = document.createElement('canvas');
+              c.width  = nw;
+              c.height = nh;
+              c.getContext('2d').drawImage(img, 0, 0);
+              resolve({ dataUrl: c.toDataURL('image/jpeg', 0.85), natW: nw, natH: nh });
+            }catch(e){
+              resolve({ dataUrl: src.startsWith('data:') ? src : null, natW: nw, natH: nh });
+            }
+          };
+          img.onerror = () => resolve({ dataUrl: null, natW: 0, natH: 0 });
+          img.src = src;
+        });
+      }
 
+      async function exportAlbumToPDF(){
+        if(!_allItems.length){ alert('Não há fotos para exportar.'); return; }
+        if(!window.jspdf){ alert('Biblioteca jsPDF não carregada. Verifique a ligação à internet.'); return; }
+
+        const btn     = document.getElementById('btnExportPdf');
+        const overlay = document.getElementById('pdfProgressOverlay');
+        const msg     = document.getElementById('pdfProgressMsg');
+        const bar     = document.getElementById('pdfProgressBar');
+        btn.disabled  = true;
+        overlay.classList.add('open');
+
+        try{
+          const { jsPDF } = window.jspdf;
+          const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+          // ── Page geometry ──────────────────────────────────────────────
+          const PW = 210, PH = 297;
+          const MT      = 14;           // top/bottom page margin
+          const GAP     = 10;           // vertical gap between the two cards
+          const CARD_W  = 174;          // card width — centred → 18 mm side margins
+          const CARD_X  = (PW - CARD_W) / 2;
+          const CARD_H  = (PH - MT * 2 - GAP) / 2;  // ≈ 129.5 mm
+
+          // Frame: white padding around photo and caption strip at the bottom
+          const F_PAD       = 6;        // white border: top / left / right
+          const CAP_H       = 26;       // caption strip height at bottom
+          const PHOTO_MAX_W = CARD_W - F_PAD * 2;           // 162 mm
+          const PHOTO_MAX_H = CARD_H - F_PAD - CAP_H - 2;  // ≈ 95.5 mm
+
+          function cardTop(slotIdx){ return MT + slotIdx * (CARD_H + GAP); }
+
+          // Scale to fit within maxW × maxH, preserving aspect ratio
+          function fitSize(natW, natH, maxW, maxH){
+            if(!natW || !natH) return { w: maxW, h: maxH };
+            const scale = Math.min(maxW / natW, maxH / natH);
+            return { w: natW * scale, h: natH * scale };
+          }
+
+          function drawCard(item, dataUrl, natW, natH, slotIdx){
+            const cy = cardTop(slotIdx);
+            const cx = CARD_X;
+
+            // ── Drop shadow (offset grey rect drawn first so it sits behind) ──
+            doc.setFillColor(182, 185, 196);
+            doc.setDrawColor(182, 185, 196);
+            doc.roundedRect(cx + 2.5, cy + 3, CARD_W, CARD_H, 2.5, 2.5, 'F');
+
+            // ── White card frame ──
+            doc.setFillColor(255, 255, 255);
+            doc.setDrawColor(208, 210, 218);
+            doc.setLineWidth(0.2);
+            doc.roundedRect(cx, cy, CARD_W, CARD_H, 2.5, 2.5, 'FD');
+
+            // ── Photo — aspect-ratio preserved, centred in photo zone ──
+            const { w: iw, h: ih } = fitSize(natW, natH, PHOTO_MAX_W, PHOTO_MAX_H);
+            // centre horizontally and vertically within the photo zone
+            const ix = cx + (CARD_W - iw) / 2;
+            const iy = cy + F_PAD + (PHOTO_MAX_H - ih) / 2;
+
+            if(dataUrl){
+              try{
+                const fmt = dataUrl.startsWith('data:image/png') ? 'PNG' : 'JPEG';
+                doc.addImage(dataUrl, fmt, ix, iy, iw, ih, '', 'FAST');
+              }catch(e){ _drawImgPlaceholder(doc, cx + F_PAD, cy + F_PAD, PHOTO_MAX_W, PHOTO_MAX_H); }
+            } else {
+              _drawImgPlaceholder(doc, cx + F_PAD, cy + F_PAD, PHOTO_MAX_W, PHOTO_MAX_H);
+            }
+
+            // ── Caption separator ──
+            const capLineY = cy + CARD_H - CAP_H;
+            doc.setDrawColor(220, 222, 230);
+            doc.setLineWidth(0.2);
+            doc.line(cx + 8, capLineY, cx + CARD_W - 8, capLineY);
+
+            // ── Caption text ──
+            const capX   = cx + F_PAD + 1;
+            const capW   = CARD_W - (F_PAD + 1) * 2;
+            const maxCapY = cy + CARD_H - 2;
+            let ty = capLineY + 5;
+
+            // Name
+            doc.setFontSize(7.5);
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(28, 32, 50);
+            const nameL = doc.splitTextToSize(item.name, capW);
+            doc.text(nameL.slice(0, 1), capX, ty);
+            ty += 4.2;
+
+            // People identified
+            const allPersons = [];
+            if(item.persons && item.persons.length) allPersons.push(...item.persons);
+            if(item.tags && item.tags.length){
+              item.tags.forEach(t => { if(t.personName && !allPersons.includes(t.personName)) allPersons.push(t.personName); });
+            }
+            if(allPersons.length && ty < maxCapY){
+              doc.setFontSize(6.5);
+              doc.setFont('helvetica', 'normal');
+              doc.setTextColor(55, 75, 165);
+              const pplTxt = allPersons.join('  ·  ');
+              const pplL = doc.splitTextToSize(pplTxt, capW);
+              const maxP = Math.min(pplL.length, Math.max(1, Math.floor((maxCapY - ty - 4) / 3.6)));
+              doc.text(pplL.slice(0, maxP), capX, ty);
+              ty += maxP * 3.6 + 1;
+            }
+
+            // Notes
+            if(item.notes && item.notes.trim() && ty + 3 < maxCapY){
+              doc.setFontSize(6);
+              doc.setFont('helvetica', 'italic');
+              doc.setTextColor(105, 108, 122);
+              const noteTxt = item.notes.trim().replace(/\n+/g, ' ');
+              const noteL = doc.splitTextToSize(noteTxt, capW);
+              const maxN = Math.max(1, Math.floor((maxCapY - ty) / 3.2));
+              doc.text(noteL.slice(0, maxN), capX, ty);
+            }
+          }
+
+          function _drawImgPlaceholder(doc, x, y, w, h){
+            doc.setFillColor(236, 237, 243);
+            doc.rect(x, y, w, h, 'F');
+            doc.setFontSize(8);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(168, 172, 188);
+            doc.text('Sem imagem', x + w / 2, y + h / 2, { align: 'center', baseline: 'middle' });
+          }
+
+          const total = _allItems.length;
+          for(let i = 0; i < total; i++){
+            msg.textContent = `A processar foto ${i + 1} de ${total}…`;
+            bar.style.width  = Math.round((i / total) * 100) + '%';
+
+            const slotIdx = i % 2;
+            if(slotIdx === 0 && i > 0) doc.addPage();
+
+            const item = _allItems[i];
+            const { dataUrl, natW, natH } = await blobSrcToDataUrl(item.src);
+            drawCard(item, dataUrl, natW, natH, slotIdx);
+
+            // yield to browser every few photos to keep UI responsive
+            if(i % 3 === 2) await new Promise(r => setTimeout(r, 0));
+          }
+
+          // ── Footer on every page ──
+          const totalPages = doc.getNumberOfPages();
+          for(let p = 1; p <= totalPages; p++){
+            doc.setPage(p);
+            doc.setFontSize(7);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(175, 178, 192);
+            doc.setDrawColor(212, 215, 224);
+            doc.setLineWidth(0.25);
+            doc.line(18, PH - 8, PW - 18, PH - 8);
+            doc.text('myLineage – Álbum de Fotos', 18, PH - 4.5);
+            doc.text('Pág. ' + p + ' / ' + totalPages, PW - 18, PH - 4.5, { align: 'right' });
+          }
+
+          bar.style.width = '100%';
+          msg.textContent = 'A guardar ficheiro…';
+          await new Promise(r => setTimeout(r, 80));
+
+          const dateStr = new Date().toISOString().slice(0, 10);
+          doc.save('album-myLineage-' + dateStr + '.pdf');
+
+        }catch(e){
+          console.error(e);
+          alert('Erro ao gerar PDF: ' + e.message);
+        }finally{
+          overlay.classList.remove('open');
+          bar.style.width = '0%';
+          btn.disabled = false;
+        }
+      }
+      document.getElementById('btnExportPdf').addEventListener('click', exportAlbumToPDF);
       // ── Init ─────────────────────────────────────────────────────────
       document.addEventListener('DOMContentLoaded', loadAlbum);
     </script>

@@ -286,7 +286,152 @@
         .album-modal-body { flex-direction: column; }
         .album-modal-sidebar { width: 100%; border-left: none; border-top: 1px solid var(--border); max-height: 40vh; }
         .album-grid { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; padding: 12px; }
+      }      /* ── Tag zones overlay (read-only) ──────────────────────────────────── */
+      .album-photo-wrap {
+        position: relative;
+        display: inline-block;
+        max-width: 100%;
+        max-height: 75vh;
+        line-height: 0;
       }
+      .album-photo-wrap img {
+        display: block;
+        max-width: 100%;
+        max-height: 75vh;
+        object-fit: contain;
+        border-radius: 6px;
+      }
+      .album-tag-overlay {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+      }
+      .album-tag-zone {
+        position: absolute;
+        border: 2px solid rgba(59,130,246,0.85);
+        background: rgba(59,130,246,0.10);
+        border-radius: 5px;
+        box-sizing: border-box;
+        pointer-events: auto;
+        cursor: default;
+        transition: background 0.15s;
+      }
+      .album-tag-zone:hover {
+        background: rgba(59,130,246,0.22);
+      }
+      .album-tag-zone-label {
+        position: absolute;
+        bottom: calc(100% + 3px);
+        left: 0;
+        white-space: nowrap;
+        background: rgba(30,40,60,0.88);
+        color: #e8eaf6;
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 2px 7px;
+        border-radius: 4px;
+        pointer-events: none;
+        line-height: 1.5;
+        max-width: 180px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+        opacity: 0;
+        transform: translateY(4px);
+        transition: opacity 0.15s, transform 0.15s;
+      }
+      .album-tag-zone:hover .album-tag-zone-label,
+      .album-tag-zone:focus  .album-tag-zone-label {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      .album-tag-zone-label-always {
+        opacity: 1 !important;
+        transform: translateY(0) !important;
+      }      /* ── Delete button ──────────────────────────────────────────────── */
+      .album-modal-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+      .album-modal-delete {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        font-size: 1.3rem;
+        line-height: 1;
+        padding: 4px 6px;
+        border-radius: 6px;
+        transition: color var(--transition), background var(--transition);
+      }
+      .album-modal-delete:hover { color: #e53935; background: rgba(229,57,53,0.10); }
+      /* ── Confirm dialog ─────────────────────────────────────────────── */
+      #deleteConfirmOverlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.60);
+        align-items: center;
+        justify-content: center;
+        z-index: 400;
+      }
+      #deleteConfirmOverlay.open { display: flex; }
+      .delete-confirm-box {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-lg);
+        padding: 28px 28px 22px;
+        max-width: 380px;
+        width: 90%;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+        animation: modalIn 0.15s ease;
+      }
+      .delete-confirm-box h3 {
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-main);
+        margin: 0;
+      }
+      .delete-confirm-box p {
+        font-size: 0.88rem;
+        color: var(--text-secondary);
+        margin: 0;
+        line-height: 1.5;
+      }
+      .delete-confirm-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 4px;
+      }
+      .btn-cancel {
+        padding: 7px 16px;
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        background: var(--bg-surface-2);
+        color: var(--text-main);
+        font-size: 0.88rem;
+        cursor: pointer;
+        transition: background var(--transition);
+      }
+      .btn-cancel:hover { background: var(--bg-surface); }
+      .btn-delete-confirm {
+        padding: 7px 16px;
+        border-radius: 8px;
+        border: none;
+        background: #e53935;
+        color: #fff;
+        font-size: 0.88rem;
+        cursor: pointer;
+        font-weight: 600;
+        transition: background var(--transition);
+      }
+      .btn-delete-confirm:hover { background: #c62828; }
     </style>
     <script src="remote-storage.js"></script>
   </head>
@@ -328,18 +473,38 @@
       </main>
     </div>
 
+    <!-- Delete confirmation dialog -->
+    <div id="deleteConfirmOverlay" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
+      <div class="delete-confirm-box">
+        <h3 id="deleteConfirmTitle">Apagar foto?</h3>
+        <p id="deleteConfirmMsg">A foto será removida do álbum e todas as associações a pessoas serão eliminadas. Esta ação não pode ser desfeita.</p>
+        <div class="delete-confirm-actions">
+          <button class="btn-cancel" id="deleteCancelBtn">Cancelar</button>
+          <button class="btn-delete-confirm" id="deleteConfirmBtn">Apagar</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Photo detail modal -->
     <div id="albumModal" role="dialog" aria-modal="true" aria-labelledby="modalPhotoName">
       <div class="album-modal-inner">
         <div class="album-modal-header">
           <h2 id="modalPhotoName">Foto</h2>
-          <button class="album-modal-close" id="albumModalClose" title="Fechar (Esc)">
-            <i class="mdi mdi-close" aria-hidden="true"></i>
-          </button>
+          <div class="album-modal-header-actions">
+            <button class="album-modal-delete" id="albumModalDelete" title="Apagar foto">
+              <i class="mdi mdi-delete-outline" aria-hidden="true"></i>
+            </button>
+            <button class="album-modal-close" id="albumModalClose" title="Fechar (Esc)">
+              <i class="mdi mdi-close" aria-hidden="true"></i>
+            </button>
+          </div>
         </div>
         <div class="album-modal-body">
           <div class="album-modal-img-pane" id="modalImgPane">
-            <img id="modalImg" src="" alt="" />
+            <div class="album-photo-wrap" id="modalPhotoWrap">
+              <img id="modalImg" src="" alt="" />
+              <div class="album-tag-overlay" id="modalTagOverlay"></div>
+            </div>
           </div>
           <aside class="album-modal-sidebar" id="modalSidebar">
             <!-- filled by JS -->
@@ -444,6 +609,7 @@
       let _filteredItems = [];
       let _dirHandle  = null;
       let _dirGranted = false;
+      let _currentModalItem = null;
 
       // ── Render thumbnails ────────────────────────────────────────────
       function renderGrid(items){
@@ -532,11 +698,41 @@
       }
 
       // ── Modal ────────────────────────────────────────────────────────
+      function renderTagZones(item){
+        const overlay = document.getElementById('modalTagOverlay');
+        overlay.innerHTML = '';
+        const tags = (item.tags || []).filter(t => t.bbox && t.bbox.w > 0 && t.bbox.h > 0);
+        if(!tags.length) return;
+        const showAlways = tags.length <= 6; // show labels always when few tags
+        tags.forEach(t => {
+          const zone = document.createElement('div');
+          zone.className = 'album-tag-zone';
+          zone.style.left   = (t.bbox.x * 100) + '%';
+          zone.style.top    = (t.bbox.y * 100) + '%';
+          zone.style.width  = (t.bbox.w * 100) + '%';
+          zone.style.height = (t.bbox.h * 100) + '%';
+          zone.setAttribute('tabindex', '0');
+          zone.setAttribute('title', t.personName || t.name || 'Pessoa identificada');
+          const lbl = document.createElement('div');
+          lbl.className = 'album-tag-zone-label' + (showAlways ? ' album-tag-zone-label-always' : '');
+          lbl.textContent = t.personName || t.name || 'Pessoa';
+          zone.appendChild(lbl);
+          overlay.appendChild(zone);
+        });
+      }
+
       function openModal(item){
+        _currentModalItem = item;
         document.getElementById('modalPhotoName').textContent = item.name;
         const img = document.getElementById('modalImg');
+        // Reset overlay before loading new image
+        document.getElementById('modalTagOverlay').innerHTML = '';
         img.src = item.src || '';
         img.alt = item.name;
+        // Render zones once the image is sized
+        img.onload = () => renderTagZones(item);
+        // If image already cached / same src, onload may not fire
+        if(img.complete && img.naturalWidth > 0) renderTagZones(item);
 
         const sidebar = document.getElementById('modalSidebar');
         sidebar.innerHTML = '';
@@ -613,14 +809,72 @@
       function closeModal(){
         document.getElementById('albumModal').classList.remove('open');
         const img = document.getElementById('modalImg');
+        img.onload = null;
         // revoke if blob URL created for FS items
         if(img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
         img.src = '';
+        document.getElementById('modalTagOverlay').innerHTML = '';
+        _currentModalItem = null;
       }
+
+      // ── Delete photo ─────────────────────────────────────────────────
+      function deletePhoto(item){
+        if(!item) return;
+        if(item.fromFs){
+          // FS-only photos are not stored in localStorage; user must delete from filesystem
+          alert('Esta foto é lida diretamente da pasta do sistema de ficheiros e não pode ser apagada pelo álbum. Por favor elimine o ficheiro diretamente na pasta.');
+          return;
+        }
+
+        // Remove from photos list
+        const photos  = getPhotos();
+        const updated = photos.filter(p => p.id !== item.id);
+        localStorage.setItem(PHOTOS_KEY, JSON.stringify(updated));
+
+        // Remove photo from all person relations
+        const rels = getRelations();
+        for(const personId of Object.keys(rels)){
+          rels[personId] = (rels[personId] || []).filter(pid => pid !== item.id);
+          if(rels[personId].length === 0) delete rels[personId];
+        }
+        localStorage.setItem(PHOTO_REL_KEY, JSON.stringify(rels));
+
+        // Update in-memory state
+        _allItems      = _allItems.filter(i => i.id !== item.id);
+        _filteredItems = _filteredItems.filter(i => i.id !== item.id);
+
+        closeModal();
+        renderGrid(_filteredItems);
+      }
+
+      // ── Confirm dialog wiring ────────────────────────────────────────
+      document.getElementById('deleteCancelBtn').addEventListener('click', () => {
+        document.getElementById('deleteConfirmOverlay').classList.remove('open');
+      });
+      document.getElementById('deleteConfirmBtn').addEventListener('click', () => {
+        const item = _currentModalItem;
+        document.getElementById('deleteConfirmOverlay').classList.remove('open');
+        deletePhoto(item);
+      });
+
+      document.getElementById('albumModalDelete').addEventListener('click', () => {
+        if(!_currentModalItem) return;
+        if(_currentModalItem.fromFs){
+          deletePhoto(_currentModalItem);
+          return;
+        }
+        const msg = document.getElementById('deleteConfirmMsg');
+        msg.textContent = 'A foto "' + _currentModalItem.name + '" será removida do álbum e todas as associações a pessoas serão eliminadas. Esta ação não pode ser desfeita.';
+        document.getElementById('deleteConfirmOverlay').classList.add('open');
+      });
 
       document.getElementById('albumModalClose').addEventListener('click', closeModal);
       document.getElementById('albumModal').addEventListener('click', e => { if(e.target === document.getElementById('albumModal')) closeModal(); });
-      document.addEventListener('keydown', e => { if(e.key === 'Escape') closeModal(); });
+      document.addEventListener('keydown', e => { if(e.key === 'Escape'){
+        const overlay = document.getElementById('deleteConfirmOverlay');
+        if(overlay.classList.contains('open')){ overlay.classList.remove('open'); return; }
+        closeModal();
+      }});
 
       // ── Search / filter ──────────────────────────────────────────────
       document.getElementById('albumSearch').addEventListener('input', function(){

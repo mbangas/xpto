@@ -163,8 +163,8 @@ h3 { font-size: 0.95rem; font-weight: 600; margin: 0 0 6px;  color: var(--text-s
 .sidebar .sidebar-footer a .mdi {
   font-size: 1.15rem;
   flex-shrink: 0;
-  /* fill the collapsed rail so text is always clipped */
-  min-width: calc(var(--rail-w) - 2 * 10px - 2 * 8px);
+  /* fill the collapsed rail so text is always clipped (includes the 12px gap) */
+  min-width: calc(var(--rail-w) - 2 * 10px - 2 * 8px + 12px);
   text-align: center;
   transition: color var(--transition);
 }

@@ -48,6 +48,7 @@
           <a href="album.html"><i class="mdi mdi-image-multiple" aria-hidden="true"></i>Álbum</a>
           <a href="documentos.html"><i class="mdi mdi-folder-open" aria-hidden="true"></i>Documentos</a>
           <a href="validacao.html"><i class="mdi mdi-shield-check" aria-hidden="true"></i>Validação</a>
+          <a href="historico.html"><i class="mdi mdi-history" aria-hidden="true"></i>Histórico</a>
         </nav>
         <div class="sidebar-footer">
           <a href="apis.html"><i class="mdi mdi-api" aria-hidden="true"></i>APIs</a>
@@ -398,8 +399,10 @@
         const ged  = buildGedcom();
         const name = 'myLineage_export_' + (new Date()).toISOString().slice(0, 10) + '.ged';
         download(name, ged);
+        if (window.logHistory) window.logHistory('GEDCOM exportado', name, 'gedcom');
         showExportLog('GEDCOM gerado: ' + name + '\nTamanho: ' + ged.length + ' bytes');
       });
     </script>
+    <script src="history-logger.js"></script>
   </body>
 </html>

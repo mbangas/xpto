@@ -323,6 +323,7 @@
           <a href="album.html"><i class="mdi mdi-image-multiple" aria-hidden="true"></i>Álbum</a>
           <a href="documentos.html"><i class="mdi mdi-folder-open" aria-hidden="true"></i>Documentos</a>
           <a href="validacao.html" class="active"><i class="mdi mdi-shield-check" aria-hidden="true"></i>Validação</a>
+          <a href="historico.html"><i class="mdi mdi-history" aria-hidden="true"></i>Histórico</a>
         </nav>
         <div class="sidebar-footer">
           <a href="apis.html"><i class="mdi mdi-api" aria-hidden="true"></i>APIs</a>
@@ -372,7 +373,7 @@
             <button class="filter-btn" data-filter="tecnico" onclick="setFilter('tecnico',this)">Técnico</button>
             <div style="margin-left:auto;display:flex;gap:8px;">
               <button class="rules-btn" onclick="openRulesModal()"><i class="mdi mdi-book-open-outline"></i> Regras</button>
-              <button class="run-btn" onclick="runValidation()"><i class="mdi mdi-refresh"></i> Executar Análise</button>
+              <button class="run-btn" onclick="runValidation(); if(window.logHistory) window.logHistory('Análise de validação executada', '', 'validacao')"><i class="mdi mdi-refresh"></i> Executar Análise</button>
             </div>
           </div>
 
@@ -1674,5 +1675,6 @@
     </div>
   </div>
 
+    <script src="history-logger.js"></script>
   </body>
 </html>

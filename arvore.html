@@ -1305,7 +1305,7 @@
         if(!person) return;
         let relations = [];
         try{ relations = JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
-        const hasParents = relations.some(r => String(r.from) === String(personId) && r.type === 'ancestor');
+        const parentCount = relations.filter(r => String(r.from) === String(personId) && r.type === 'ancestor').length;
         const footer = document.querySelector('.drawer-footer');
         if(footer) footer.style.display = 'none';
         const phdr = document.getElementById('drawerPersonHeader');
@@ -1321,7 +1321,7 @@
           <option value="sibling_female">Irmã</option>
           <option value="child_male">Filho</option>
           <option value="child_female">Filha</option>`;
-        if(!hasParents){
+        if(parentCount < 2){
           kinshipOpts += `
           <option value="ancestor_male">Pai</option>
           <option value="ancestor_female">Mãe</option>`;
@@ -1407,6 +1407,24 @@
           if(relType === 'ancestor'){
             // relação inversa: novo pai/mãe tem a pessoa base como filho(a)
             relations.push({ from: String(newId), to: String(personId), type: 'child' });
+            // pais já existentes da pessoa base (excluindo o que acabámos de adicionar)
+            const existingParents = relations.filter(r => String(r.from) === String(personId) && r.type === 'ancestor' && String(r.to) !== String(newId));
+            if(existingParents.length === 0){
+              // sem nenhum progenitor: criar <desconhecido> com género oposto
+              const autoGender = (gender==='male'||gender==='masculino'||gender==='m') ? 'female' : 'male';
+              const autoId = 'p_auto_' + Date.now();
+              people.push({ id: autoId, firstName: '<desconhecido>', lastName: '', gender: autoGender, notes: '', createdAt: new Date().toISOString() });
+              savePeople(people);
+              relations.push({ from: String(personId), to: String(autoId), type: 'ancestor' });
+              relations.push({ from: String(autoId), to: String(personId), type: 'child' });
+              relations.push({ from: String(newId), to: String(autoId), type: 'mate' });
+              relations.push({ from: String(autoId), to: String(newId), type: 'mate' });
+            } else {
+              // já tem um progenitor: ligar novo como companheiro do existente
+              const existingParentId = existingParents[0].to;
+              relations.push({ from: String(newId), to: String(existingParentId), type: 'mate' });
+              relations.push({ from: String(existingParentId), to: String(newId), type: 'mate' });
+            }
           }
           if(relType === 'mate'){
             // relação bidirecional: companheiro(a) também aponta para a pessoa base

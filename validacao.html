@@ -192,6 +192,119 @@
         transition: background 0.15s;
       }
       .run-btn:hover { background: #3d7cc9; }
+      .run-btn { margin-left: 0; }
+
+      .rules-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 14px;
+        border-radius: 6px;
+        border: 1px solid rgba(255,255,255,0.12);
+        background: transparent;
+        color: #9fa7b3;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+      }
+      .rules-btn:hover { background: rgba(255,255,255,0.07); color: #ccc; }
+
+      /* Rules modal */
+      .rules-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.65);
+        z-index: 900;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+      }
+      .rules-overlay.open { display: flex; }
+      .rules-modal {
+        background: #1a1d27;
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 10px;
+        width: 100%;
+        max-width: 860px;
+        max-height: 88vh;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      }
+      .rules-modal-header {
+        padding: 16px 20px 14px;
+        border-bottom: 1px solid rgba(255,255,255,0.07);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .rules-modal-header h2 {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 700;
+        color: #e0e6f0;
+        flex: 1;
+      }
+      .rules-modal-close {
+        background: none;
+        border: none;
+        color: #9fa7b3;
+        font-size: 1.3rem;
+        cursor: pointer;
+        padding: 2px 4px;
+        line-height: 1;
+        border-radius: 4px;
+        transition: color 0.15s;
+      }
+      .rules-modal-close:hover { color: #fff; }
+      .rules-modal-body {
+        overflow-y: auto;
+        padding: 16px 20px 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+      }
+      .rules-section-title {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
+        color: #7eb8f7;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .rules-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.82rem;
+      }
+      .rules-table th {
+        text-align: left;
+        padding: 6px 12px;
+        background: rgba(255,255,255,0.04);
+        color: #9fa7b3;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+      }
+      .rules-table td {
+        padding: 8px 12px;
+        border-bottom: 1px solid rgba(255,255,255,0.04);
+        color: #c8d0de;
+        vertical-align: top;
+      }
+      .rules-table tr:last-child td { border-bottom: none; }
+      .rules-table tr:hover td { background: rgba(255,255,255,0.025); }
+      .rules-table td:first-child { white-space: nowrap; font-weight: 700; color: #9fa7b3; font-size: 0.75rem; }
+      .r-erro  { color: #f07070; }
+      .r-aviso { color: #f0b84a; }
+      .r-info  { color: #6dabee; }
 
       @media (max-width: 700px) {
         .val-kpi-row { grid-template-columns: repeat(2, 1fr); }
@@ -257,7 +370,10 @@
             <button class="filter-btn" data-filter="info" onclick="setFilter('info',this)"><i class="mdi mdi-information-outline"></i> Informações</button>
             <button class="filter-btn" data-filter="funcional" onclick="setFilter('funcional',this)">Funcional</button>
             <button class="filter-btn" data-filter="tecnico" onclick="setFilter('tecnico',this)">Técnico</button>
-            <button class="run-btn" onclick="runValidation()"><i class="mdi mdi-refresh"></i> Executar Análise</button>
+            <div style="margin-left:auto;display:flex;gap:8px;">
+              <button class="rules-btn" onclick="openRulesModal()"><i class="mdi mdi-book-open-outline"></i> Regras</button>
+              <button class="run-btn" onclick="runValidation()"><i class="mdi mdi-refresh"></i> Executar Análise</button>
+            </div>
           </div>
 
           <!-- Functional Issues Section -->
@@ -1493,6 +1609,70 @@
       document.getElementById('drawerSaveBtn').addEventListener('click', drawerSave);
       document.getElementById('drawerDeleteBtn').addEventListener('click', drawerDeletePerson);
       document.getElementById('drawerBackBtn').addEventListener('click', function(){ const pid=this._personId; if(pid) openDrawer('edit',pid); });
+
+      function openRulesModal(){
+        document.getElementById('rulesOverlay').classList.add('open');
+      }
+      function closeRulesModal(){
+        document.getElementById('rulesOverlay').classList.remove('open');
+      }
+      document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeRulesModal(); });
     </script>
+
+  <!-- Rules modal -->
+  <div class="rules-overlay" id="rulesOverlay" onclick="if(event.target===this)closeRulesModal()">
+    <div class="rules-modal">
+      <div class="rules-modal-header">
+        <i class="mdi mdi-book-open-outline" style="font-size:1.15rem;color:#7eb8f7;"></i>
+        <h2>Regras de Validação</h2>
+        <button class="rules-modal-close" onclick="closeRulesModal()"><i class="mdi mdi-close"></i></button>
+      </div>
+      <div class="rules-modal-body">
+
+        <!-- Functional -->
+        <div>
+          <div class="rules-section-title"><i class="mdi mdi-account-group-outline"></i> Regras Funcionais</div>
+          <table class="rules-table">
+            <thead><tr><th>Código</th><th>Validação</th><th>Severidade</th><th>Critério</th></tr></thead>
+            <tbody>
+              <tr><td>F1</td><td>Pessoa sem nome identificado</td><td><span class="r-aviso">Aviso</span></td><td>Nome próprio vazio ou igual a <em>&lt;desconhecido&gt;</em></td></tr>
+              <tr><td>F2</td><td>Género não definido</td><td><span class="r-info">Info</span></td><td>Campo género em branco</td></tr>
+              <tr><td>F3</td><td>Pessoa sem ligações familiares</td><td><span class="r-info">Info</span></td><td>Nenhuma relação registada (com mais de 1 pessoa na base)</td></tr>
+              <tr><td>F4</td><td>Mais de 2 progenitores</td><td><span class="r-erro">Erro</span></td><td>Mais de 2 relações do tipo <em>ancestor</em></td></tr>
+              <tr><td>F5</td><td>Data de nascimento posterior à morte</td><td><span class="r-erro">Erro</span></td><td>Ano nascimento &gt; ano óbito</td></tr>
+              <tr><td>F6</td><td>Nascimento no futuro</td><td><span class="r-aviso">Aviso</span></td><td>Ano nascimento &gt; ano atual</td></tr>
+              <tr><td>F7</td><td>Idade implausível (&gt; 120 anos)</td><td><span class="r-aviso">Aviso</span></td><td>Pessoa viva com mais de 120 anos desde o nascimento</td></tr>
+              <tr><td>F8</td><td>O(A) filho(a) é mais velho(a) do que o progenitor</td><td><span class="r-erro">Erro</span></td><td>Ano nascimento do filho ≤ ano nascimento do progenitor</td></tr>
+              <tr><td>F8b</td><td>Progenitor demasiado jovem quando teve um filho</td><td><span class="r-aviso">Aviso</span></td><td>Progenitor com menos de 16 anos ao nascimento do filho</td></tr>
+              <tr><td>F9</td><td>Múltiplos eventos de nascimento ou falecimento</td><td><span class="r-aviso">Aviso</span></td><td>Mais de 1 evento BIRTH ou DEATH por pessoa</td></tr>
+              <tr><td>F10</td><td>O facto ocorreu antes do nascimento</td><td><span class="r-erro">Erro</span></td><td>Data de qualquer evento (casamento, óbito…) anterior ao nascimento</td></tr>
+              <tr><td>F11</td><td>Irmãos com idade muito próxima</td><td><span class="r-aviso">Aviso</span></td><td>Irmãos nascidos no mesmo ano ou com menos de 9 meses de diferença</td></tr>
+              <tr><td>F12</td><td>Casou demasiado novo</td><td><span class="r-aviso">Aviso</span></td><td>Idade ao casamento inferida inferior a 16 anos</td></tr>
+              <tr><td>F13</td><td>Morreu demasiado jovem para ser cônjuge</td><td><span class="r-erro">Erro</span></td><td>Ano de falecimento anterior ao ano de casamento registado</td></tr>
+              <tr><td>F14</td><td>Irmãos com o mesmo nome próprio</td><td><span class="r-aviso">Aviso</span></td><td>Dois ou mais irmãos com o mesmo <em>firstName</em> (ignora desconhecidos)</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Technical -->
+        <div>
+          <div class="rules-section-title"><i class="mdi mdi-database-outline"></i> Regras Técnicas</div>
+          <table class="rules-table">
+            <thead><tr><th>Código</th><th>Validação</th><th>Severidade</th><th>Critério</th></tr></thead>
+            <tbody>
+              <tr><td>T1</td><td>Relação com ID inexistente</td><td><span class="r-erro">Erro</span></td><td>Origem ou destino de uma relação não existe na lista de pessoas</td></tr>
+              <tr><td>T2</td><td>Relação sem reciprocidade</td><td><span class="r-aviso">Aviso</span></td><td>Falta a relação inversa obrigatória (child↔ancestor, mate↔mate, siblin↔siblin)</td></tr>
+              <tr><td>T3</td><td>Relação duplicada</td><td><span class="r-aviso">Aviso</span></td><td>Mais de uma entrada com o mesmo par from/to/type</td></tr>
+              <tr><td>T4</td><td>ID de pessoa duplicado</td><td><span class="r-erro">Erro</span></td><td>Mesmo ID aparece mais do que uma vez na lista de pessoas</td></tr>
+              <tr><td>T5</td><td>Ciclo de ascendência</td><td><span class="r-erro">Erro</span></td><td>A é ancestral de B e B é ancestral de A simultaneamente</td></tr>
+              <tr><td>T6</td><td>Evento sem data válida</td><td><span class="r-info">Info</span></td><td>Evento de nascimento ou óbito sem ano preenchido</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
   </body>
 </html>

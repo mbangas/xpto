@@ -494,16 +494,16 @@
             issues.push({
               tipo:'funcional', severidade:'erro',
               codigo:'F8',
-              titulo:'Filho nascido antes do progenitor',
+              titulo:'O(A) filho(a) é mais velho(a) do que o progenitor',
               descricao:`${personLink(p)} (nascimento <b>${childYear}</b>) foi registado como filho de ${personLink(par)} (nascimento <b>${parYear}</b>).`,
               pessoa: p,
               sugestao:'Verificar as datas ou a relação de descendência.'
             });
-          } else if(childYear-parYear<13){
+          } else if(childYear-parYear<16){
             issues.push({
               tipo:'funcional', severidade:'aviso',
               codigo:'F8b',
-              titulo:'Progenitor com idade improvável ao nascimento do filho',
+              titulo:'Progenitor demasiado jovem quando teve um filho',
               descricao:`${personLink(par)} teria apenas <b>${childYear-parYear} anos</b> quando ${personLink(p)} nasceu.`,
               pessoa: par,
               sugestao:'Verificar as datas ou a relação de descendência.'
@@ -524,6 +524,150 @@
               descricao:`${personLink(p)} tem <b>${evs.length}</b> eventos de ${evType==='BIRTH'?'nascimento':'falecimento'} registados.`,
               pessoa: p,
               sugestao:'Manter apenas um evento de nascimento e um de falecimento por pessoa.'
+            });
+          }
+        });
+      });
+
+      // ── Functional checks (continued) ──────────────────────────────────────
+
+      // F10 – Event occurring before person's birth
+      active.forEach(p=>{
+        const births = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='BIRTH');
+        if(!births.length) return;
+        const birthYear = eventYear(births[0]);
+        if(birthYear===null) return;
+        const typeLabels={DEATH:'Óbito',MARRIAGE:'Casamento',BAPTISM:'Batismo',DIVORCE:'Divórcio',ADOPTION:'Adoção',CUSTOM:'Outro'};
+        const otherEvs = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type!=='BIRTH');
+        otherEvs.forEach(ev=>{
+          const evYear=eventYear(ev);
+          if(evYear===null) return;
+          if(evYear<birthYear){
+            const lbl=typeLabels[ev.type]||ev.type;
+            issues.push({
+              tipo:'funcional', severidade:'erro',
+              codigo:'F10',
+              titulo:'O facto ocorreu antes do nascimento',
+              descricao:`${personLink(p)} tem um evento de <b>${esc(lbl)}</b> em <b>${evYear}</b>, anterior ao seu nascimento em <b>${birthYear}</b>.`,
+              pessoa: p,
+              sugestao:'Corrigir a data do evento ou a data de nascimento.'
+            });
+          }
+        });
+      });
+
+      // F11 – Siblings with very close ages (< 9 months apart)
+      const siblingGroups = new Map();
+      active.forEach(p=>{
+        const parents = relations.filter(r=>String(r.from)===String(p.id)&&r.type==='ancestor'&&activeIds.has(String(r.to)));
+        if(!parents.length) return;
+        const parentKey = parents.map(r=>String(r.to)).sort().join('|');
+        if(!siblingGroups.has(parentKey)) siblingGroups.set(parentKey,[]);
+        siblingGroups.get(parentKey).push(String(p.id));
+      });
+      siblingGroups.forEach(sibIds=>{
+        if(sibIds.length<2) return;
+        const sibBirths = sibIds.map(id=>{
+          const p=peopleMap[id]; if(!p||p.deletedAt) return null;
+          const evs=activeEvents.filter(e=>String(e.personId)===id&&e.type==='BIRTH');
+          if(!evs.length) return null;
+          return {p, year:eventYear(evs[0]), month:evs[0].dateMonth||null};
+        }).filter(x=>x&&x.year!==null);
+        for(let i=0;i<sibBirths.length;i++){
+          for(let j=i+1;j<sibBirths.length;j++){
+            const a=sibBirths[i], b=sibBirths[j];
+            const yearDiff=Math.abs(a.year-b.year);
+            let tooClose=false;
+            if(yearDiff===0) tooClose=true;
+            else if(yearDiff===1&&a.month!==null&&b.month!==null){
+              const earlier=a.year<b.year?a.month:b.month;
+              const later=a.year<b.year?b.month:a.month;
+              if((12-earlier)+later<9) tooClose=true;
+            }
+            if(tooClose&&!issues.some(x=>x.codigo==='F11'&&x.pessoa&&String(x.pessoa.id)===String(a.p.id)&&x.descricao.includes(personName(b.p)))){
+              issues.push({
+                tipo:'funcional', severidade:'aviso',
+                codigo:'F11',
+                titulo:'Irmãos com idade muito próxima',
+                descricao:`${personLink(a.p)} e ${personLink(b.p)} são irmãos com datas de nascimento com menos de 9 meses de diferença (<b>${a.year}</b> e <b>${b.year}</b>).`,
+                pessoa: a.p,
+                sugestao:'Verificar as datas de nascimento ou confirmar se são gémeos.'
+              });
+            }
+          }
+        }
+      });
+
+      // F12 – Married too young (< 16 years)
+      active.forEach(p=>{
+        const births=activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='BIRTH');
+        const marriages=activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='MARRIAGE');
+        if(!births.length||!marriages.length) return;
+        const birthYear=eventYear(births[0]);
+        if(birthYear===null) return;
+        marriages.forEach(m=>{
+          const mYear=eventYear(m);
+          if(mYear===null) return;
+          const age=mYear-birthYear;
+          if(age<16){
+            issues.push({
+              tipo:'funcional', severidade:'aviso',
+              codigo:'F12',
+              titulo:'Casou demasiado novo',
+              descricao:`${personLink(p)} casou em <b>${mYear}</b> com apenas <b>${age} ano${age===1?'':'s'}</b> de idade.`,
+              pessoa: p,
+              sugestao:'Verificar as datas de nascimento e de casamento.'
+            });
+          }
+        });
+      });
+
+      // F13 – Died before marriage (too young to be a spouse)
+      active.forEach(p=>{
+        const deaths=activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='DEATH');
+        const marriages=activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='MARRIAGE');
+        if(!deaths.length||!marriages.length) return;
+        const deathYear=eventYear(deaths[0]);
+        if(deathYear===null) return;
+        marriages.forEach(m=>{
+          const mYear=eventYear(m);
+          if(mYear===null) return;
+          if(deathYear<mYear){
+            issues.push({
+              tipo:'funcional', severidade:'erro',
+              codigo:'F13',
+              titulo:'Morreu demasiado jovem para ser cônjuge',
+              descricao:`${personLink(p)} faleceu em <b>${deathYear}</b>, antes do seu registo de casamento em <b>${mYear}</b>.`,
+              pessoa: p,
+              sugestao:'Verificar as datas de falecimento e de casamento.'
+            });
+          }
+        });
+      });
+
+      // F14 – Siblings sharing the same first name
+      siblingGroups.forEach(sibIds=>{
+        if(sibIds.length<2) return;
+        const nameMap=new Map();
+        sibIds.forEach(id=>{
+          const p=peopleMap[id]; if(!p||p.deletedAt) return;
+          const fn=(p.firstName||'').trim();
+          if(!fn||fn==='<desconhecido>'||fn.toLowerCase()==='desconhecido') return;
+          const key=fn.toLowerCase();
+          if(!nameMap.has(key)) nameMap.set(key,[]);
+          nameMap.get(key).push(p);
+        });
+        nameMap.forEach((sameNamePeople,key)=>{
+          if(sameNamePeople.length<2) return;
+          const alreadyFlagged=issues.some(x=>x.codigo==='F14'&&x.pessoa&&String(x.pessoa.id)===String(sameNamePeople[0].id));
+          if(!alreadyFlagged){
+            issues.push({
+              tipo:'funcional', severidade:'aviso',
+              codigo:'F14',
+              titulo:'Irmãos com o mesmo nome próprio',
+              descricao:`${sameNamePeople.map(p=>personLink(p)).join(' e ')} são irmãos com o mesmo nome próprio <b>${esc(sameNamePeople[0].firstName||'')}</b>.`,
+              pessoa: sameNamePeople[0],
+              sugestao:'Verificar se são pessoas distintas ou se existe um registo duplicado.'
             });
           }
         });

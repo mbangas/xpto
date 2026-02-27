@@ -183,6 +183,22 @@
               if (!el) return;
               if (el.style.display === 'block') closeAccordion(id); else openAccordion(id);
             }
+            // Formata data de um evento (suporta campos separados e formato legado)
+            function fmtEventDate(ev) {
+              if (!ev) return '';
+              if (!ev.dateYear && !ev.dateMonth && !ev.dateDay) {
+                if (!ev.date) return '';
+                const p = ev.date.split(/[-T]/);
+                return p.length >= 3 ? p[2]+'/'+p[1]+'/'+p[0] : ev.date;
+              }
+              const qualMap = { 'Antes de': 'ant.', 'Depois de': 'dep.', 'Cerca de': 'c.' };
+              const q = ev.dateQualifier && ev.dateQualifier !== 'Exatamente' ? (qualMap[ev.dateQualifier] || ev.dateQualifier) + ' ' : '';
+              let parts = [];
+              if (ev.dateDay) parts.push(String(ev.dateDay).padStart(2,'0'));
+              if (ev.dateMonth) parts.push(String(ev.dateMonth).padStart(2,'0'));
+              if (ev.dateYear) parts.push(String(ev.dateYear));
+              return q + (parts.length ? parts.join('/') : '');
+            }
             // Wire accordion headers
             document.addEventListener('click', function(e){
               const btn = e.target.closest && e.target.closest('.accordion-header');
@@ -333,7 +349,7 @@
               }
               let html = '<ul>';
               evs.forEach((ev, idx) => {
-                html += `<li><b>${ev.type}</b> - ${ev.date || 'Sem data'}${ev.location ? ', ' + ev.location : ''} <br><small>${ev.notes || ''}</small> <button class="remove-event" data-index="${idx}" title="Remover evento" style="background:none;border:none;cursor:pointer;padding:0;margin-left:8px;"><i class="mdi mdi-trash-can" style="font-size:1.2em;" aria-hidden="true"></i></button></li>`;
+                html += `<li><b>${ev.type}</b> - ${fmtEventDate(ev) || 'Sem data'}${ev.location ? ', ' + ev.location : ''} <br><small>${ev.notes || ''}</small> <button class="remove-event" data-index="${idx}" title="Remover evento" style="background:none;border:none;cursor:pointer;padding:0;margin-left:8px;"><i class="mdi mdi-trash-can" style="font-size:1.2em;" aria-hidden="true"></i></button></li>`;
               });
               html += '</ul>';
               list.innerHTML = html;
@@ -844,13 +860,12 @@
       function _renderDrawerEvents(personId){
         const evs = _drawerGetEvents().filter(ev=>String(ev.personId)===personId&&!ev.deletedAt);
         const typeLabels={BIRTH:'Nascimento',BAPTISM:'Batismo',DEATH:'Óbito',MARRIAGE:'Casamento',DIVORCE:'Divórcio',ADOPTION:'Adoção',CUSTOM:'Outro'};
-        function fmtDate(d){ if(!d) return ''; const p=d.split(/[-T]/); return p.length>=3?p[2]+'/'+p[1]+'/'+p[0]:d; }
         let html=`<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddEvent('${_esc(personId)}')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Evento</button></div>`;
         if(!evs.length){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhum evento cadastrado.</div>'; return html; }
         html+='<div class="mini-list">';
         evs.forEach(ev=>{
           const label=typeLabels[(ev.type||'').toUpperCase()]||ev.type||'';
-          html+=`<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">${_esc(label)}</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">${_esc(fmtDate(ev.date||''))}</span></div><button onclick="_drawerDeleteEvent('${_esc(ev.id)}','${_esc(personId)}')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;line-height:1;flex-shrink:0;"><i class="mdi mdi-trash-can-outline"></i></button></div>${ev.location?`<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; ${_esc(ev.location)}</div>`:''} ${ev.notes?`<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">${_esc(ev.notes)}</div>`:''}</div>`;
+          html+=`<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">${_esc(label)}</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">${_esc(fmtEventDate(ev))}</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_drawerShowEditEvent('${_esc(ev.id)}','${_esc(personId)}')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;line-height:1;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_drawerDeleteEvent('${_esc(ev.id)}','${_esc(personId)}')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;line-height:1;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>${ev.location?`<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; ${_esc(ev.location)}</div>`:''} ${ev.notes?`<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">${_esc(ev.notes)}</div>`:''}</div>`;
         });
         html+='</div>';
         return html;
@@ -863,6 +878,40 @@
         localStorage.setItem('events:myLineage',JSON.stringify(events));
         const body=document.getElementById('drawerBody');
         if(body) body.innerHTML=_renderDrawerEvents(personId);
+      }
+
+      function _drawerShowEditEvent(eventId, personId){
+        const ev=_drawerGetEvents().find(e=>e.id===eventId);
+        if(!ev){ alert('Evento não encontrado.'); return; }
+        const body=document.getElementById('drawerBody');
+        if(!body) return;
+        const typeUp=(ev.type||'').toUpperCase();
+        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Editar Evento</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="editEvType" style="width:100%;"><option value="BIRTH"${typeUp==='BIRTH'?' selected':''}>Nascimento</option><option value="BAPTISM"${typeUp==='BAPTISM'?' selected':''}>Batismo</option><option value="DEATH"${typeUp==='DEATH'?' selected':''}>Óbito</option><option value="MARRIAGE"${typeUp==='MARRIAGE'?' selected':''}>Casamento</option><option value="DIVORCE"${typeUp==='DIVORCE'?' selected':''}>Divórcio</option><option value="ADOPTION"${typeUp==='ADOPTION'?' selected':''}>Adoção</option><option value="CUSTOM"${typeUp==='CUSTOM'||!typeUp?' selected':''}>Outro</option></select></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="editEvQualifier" style="width:100%;margin-bottom:6px;"><option value="Exatamente"${(ev.dateQualifier||'Exatamente')==='Exatamente'?' selected':''}>Exatamente</option><option value="Antes de"${ev.dateQualifier==='Antes de'?' selected':''}>Antes de</option><option value="Depois de"${ev.dateQualifier==='Depois de'?' selected':''}>Depois de</option><option value="Cerca de"${ev.dateQualifier==='Cerca de'?' selected':''}>Cerca de</option></select><div style="display:flex;gap:6px;"><input id="editEvDay" type="number" min="1" max="31" placeholder="Dia" value="${ev.dateDay||''}" style="flex:1;min-width:0;text-align:center;" /><input id="editEvMonth" type="number" min="1" max="12" placeholder="Mês" value="${ev.dateMonth||''}" style="flex:1;min-width:0;text-align:center;" /><input id="editEvYear" type="number" min="1" max="9999" placeholder="Ano" value="${ev.dateYear||''}" style="flex:2;min-width:0;text-align:center;" /></div><div style="font-size:0.75rem;color:#888;margin-top:3px;">Preencha pelo menos um campo de data</div></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="editEvLocation" type="text" placeholder="Local do evento" value="${_esc(ev.location||'')}" style="width:100%;" /></div><div class="form-group" style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="editEvNotes" rows="3" placeholder="Notas adicionais" style="width:100%;resize:vertical;">${_esc(ev.notes||'')}</textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection('${_esc(personId)}','eventos')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveEditEvent('${_esc(eventId)}','${_esc(personId)}')" ><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
+      }
+
+      function _drawerSaveEditEvent(eventId, personId){
+        const type=(document.getElementById('editEvType')||{}).value||'CUSTOM';
+        const qualifier=(document.getElementById('editEvQualifier')||{}).value||'Exatamente';
+        const day=parseInt((document.getElementById('editEvDay')||{}).value||'')||null;
+        const month=parseInt((document.getElementById('editEvMonth')||{}).value||'')||null;
+        const year=parseInt((document.getElementById('editEvYear')||{}).value||'')||null;
+        if(!day && !month && !year){ alert('Preencha pelo menos um campo de data (dia, mês ou ano).'); return; }
+        const location=((document.getElementById('editEvLocation')||{}).value||'').trim();
+        const notes=((document.getElementById('editEvNotes')||{}).value||'').trim();
+        let events=_drawerGetEvents();
+        events=events.map(ev=>{
+          if(ev.id!==eventId) return ev;
+          const updated={...ev,type:type.toUpperCase(),dateQualifier:qualifier,updatedAt:new Date().toISOString()};
+          delete updated.dateDay; delete updated.dateMonth; delete updated.dateYear;
+          if(day) updated.dateDay=day;
+          if(month) updated.dateMonth=month;
+          if(year) updated.dateYear=year;
+          updated.location=location||null;
+          updated.notes=notes||null;
+          return updated;
+        });
+        localStorage.setItem('events:myLineage',JSON.stringify(events));
+        openDrawerSection(personId,'eventos');
       }
 
       function _renderDrawerRelations(personId, people){
@@ -887,17 +936,24 @@
       function _drawerShowAddEvent(personId){
         const body=document.getElementById('drawerBody');
         if(!body) return;
-        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Novo Evento</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="addEvType" style="width:100%;"><option value="BIRTH">Nascimento</option><option value="BAPTISM">Batismo</option><option value="DEATH">Óbito</option><option value="MARRIAGE">Casamento</option><option value="DIVORCE">Divórcio</option><option value="ADOPTION">Adoção</option><option value="CUSTOM">Outro</option></select></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><input id="addEvDate" type="date" style="width:100%;" /></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="addEvLocation" type="text" placeholder="Local do evento" style="width:100%;" /></div><div class="form-group" style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="addEvNotes" rows="3" placeholder="Notas adicionais" style="width:100%;resize:vertical;"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection('${_esc(personId)}','eventos')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewEvent('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
+        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Novo Evento</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="addEvType" style="width:100%;"><option value="BIRTH">Nascimento</option><option value="BAPTISM">Batismo</option><option value="DEATH">Óbito</option><option value="MARRIAGE">Casamento</option><option value="DIVORCE">Divórcio</option><option value="ADOPTION">Adoção</option><option value="CUSTOM">Outro</option></select></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="addEvQualifier" style="width:100%;margin-bottom:6px;"><option value="Exatamente" selected>Exatamente</option><option value="Antes de">Antes de</option><option value="Depois de">Depois de</option><option value="Cerca de">Cerca de</option></select><div style="display:flex;gap:6px;"><input id="addEvDay" type="number" min="1" max="31" placeholder="Dia" style="flex:1;min-width:0;text-align:center;" /><input id="addEvMonth" type="number" min="1" max="12" placeholder="Mês" style="flex:1;min-width:0;text-align:center;" /><input id="addEvYear" type="number" min="1" max="9999" placeholder="Ano" style="flex:2;min-width:0;text-align:center;" /></div><div style="font-size:0.75rem;color:#888;margin-top:3px;">Preencha pelo menos um campo de data</div></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="addEvLocation" type="text" placeholder="Local do evento" style="width:100%;" /></div><div class="form-group" style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="addEvNotes" rows="3" placeholder="Notas adicionais" style="width:100%;resize:vertical;"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection('${_esc(personId)}','eventos')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewEvent('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
       }
 
       function _drawerSaveNewEvent(personId){
         const type=(document.getElementById('addEvType')||{}).value||'CUSTOM';
-        const date=(document.getElementById('addEvDate')||{}).value||'';
+        const qualifier=(document.getElementById('addEvQualifier')||{}).value||'Exatamente';
+        const day=parseInt((document.getElementById('addEvDay')||{}).value||'')||null;
+        const month=parseInt((document.getElementById('addEvMonth')||{}).value||'')||null;
+        const year=parseInt((document.getElementById('addEvYear')||{}).value||'')||null;
+        if(!day && !month && !year){ alert('Preencha pelo menos um campo de data (dia, mês ou ano).'); return; }
         const location=((document.getElementById('addEvLocation')||{}).value||'').trim();
         const notes=((document.getElementById('addEvNotes')||{}).value||'').trim();
         let events=_drawerGetEvents();
         const newEv={id:'ev_'+Date.now(),personId:String(personId),type:type.toUpperCase()};
-        if(date) newEv.date=date;
+        newEv.dateQualifier=qualifier;
+        if(day) newEv.dateDay=day;
+        if(month) newEv.dateMonth=month;
+        if(year) newEv.dateYear=year;
         if(location) newEv.location=location;
         if(notes) newEv.notes=notes;
         events.push(newEv);

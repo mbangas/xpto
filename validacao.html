@@ -298,7 +298,7 @@
     function getEvents()    { try{ const r=localStorage.getItem('events:myLineage');    return r?JSON.parse(r):[]; }catch(e){ return []; } }
 
     function personName(p){ return (((p.firstName||'')+' '+(p.lastName||'')).trim()) || ('<id:'+p.id+'>'); }
-    function personLink(p){ const n=personName(p); return `<a class="person-link" href="app.html" title="Ver no Cadastro">${esc(n)}</a>`; }
+    function personLink(p){ const n=personName(p); const id=p.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return `<a class="person-link" href="#" onclick="event.preventDefault();openDrawer('edit','${id}')" title="Editar Pessoa">${esc(n)}</a>`; }
     function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
     // Parse a rough year from an event with dateYear / date fields
@@ -714,6 +714,641 @@
 
     // ── Init ──────────────────────────────────────────────────────────────────
     runValidation();
+    </script>
+
+    <!-- ── Drawer overlay ── -->
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+
+    <!-- ── Person drawer ── -->
+    <div class="drawer" id="personDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+      <div class="drawer-header">
+        <button class="btn btn-ghost btn-sm" id="drawerBackBtn" style="display:none;padding:2px 6px;margin-right:4px;" title="Voltar"><i class="mdi mdi-arrow-left"></i></button>
+        <h2 id="drawerTitle" style="flex:1;">Editar Pessoa</h2>
+        <button class="drawer-close" id="drawerCloseBtn" aria-label="Fechar painel"><i class="mdi mdi-close"></i></button>
+      </div>
+      <div class="drawer-person-header" id="drawerPersonHeader">
+        <div class="drawer-avatar" id="drawerAvatar"></div>
+        <div>
+          <div class="drawer-person-name" id="drawerPersonName">—</div>
+          <div class="drawer-person-sub" id="drawerPersonSub"></div>
+        </div>
+      </div>
+      <div class="drawer-body" id="drawerBody"></div>
+      <div class="drawer-footer">
+        <button class="btn btn-danger btn-sm" id="drawerDeleteBtn"><i class="mdi mdi-delete-outline"></i> Apagar</button>
+        <button class="btn btn-ghost btn-sm" id="drawerCancelBtn">Cancelar</button>
+        <button class="btn btn-sm" id="drawerSaveBtn"><i class="mdi mdi-content-save-outline"></i> Guardar</button>
+      </div>
+    </div>
+
+    <!-- ── Drawer photo modal ── -->
+    <div id="drawerPhotoModal" style="display:none;position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.72);align-items:flex-start;justify-content:center;z-index:600;overflow-y:auto;padding:24px 0;">
+      <div style="background:var(--bg-card);padding:22px;border-radius:12px;max-width:1000px;width:96%;box-sizing:border-box;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+          <div style="font-weight:700">Visualizar Foto</div>
+          <button onclick="_drawerClosePhotoModal()" class="btn">Fechar</button>
+        </div>
+        <div id="drawerModalImageWrapper" style="display:flex;align-items:center;justify-content:center;margin-bottom:16px;padding:8px;">
+          <div id="drawerModalImageArea" style="max-width:100%;overflow:visible;"></div>
+        </div>
+        <div style="margin-bottom:8px;">
+          <label style="font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Notas da Foto</label>
+          <textarea id="drawerPhotoNotesArea" style="width:100%;min-height:80px;padding:8px;border-radius:8px;border:1px solid rgba(163,163,255,0.08);background:rgba(35,40,58,0.7);color:var(--text-main);box-sizing:border-box;resize:vertical;"></textarea>
+          <div id="drawerPhotoTaggedPeople" style="margin-top:8px;font-size:0.95rem;color:var(--text-main);"></div>
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn" onclick="_drawerSavePhotoNotes()">Salvar Notas</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // ── Drawer: aliases and helpers ─────────────────────────────────────────
+      function loadPeople(){ return getPeople(); }
+      function savePeople(p){ localStorage.setItem('people:myLineage', JSON.stringify(p)); }
+      function renderTable(){ runValidation(); }
+      function _esc(s){ return esc(s); }
+      function fmtEventDate(ev){
+        if(!ev) return '';
+        if(!ev.dateYear&&!ev.dateMonth&&!ev.dateDay){ if(!ev.date) return ''; const p=ev.date.split(/[-T]/); return p.length>=3?p[2]+'/'+p[1]+'/'+p[0]:ev.date; }
+        const qualMap={'Antes de':'ant.','Depois de':'dep.','Cerca de':'c.'};
+        const q=ev.dateQualifier&&ev.dateQualifier!=='Exatamente'?(qualMap[ev.dateQualifier]||ev.dateQualifier)+' ':'';
+        let parts=[];
+        if(ev.dateDay) parts.push(String(ev.dateDay).padStart(2,'0'));
+        if(ev.dateMonth) parts.push(String(ev.dateMonth).padStart(2,'0'));
+        if(ev.dateYear) parts.push(String(ev.dateYear));
+        return q+(parts.length?parts.join('/'):'');
+      }
+      function getPhotos(){ try{ const r=localStorage.getItem('photos:myLineage'); return r?JSON.parse(r):[]; }catch(e){ return []; } }
+      function getPhotoRelations(){ try{ const r=localStorage.getItem('photoRelations:myLineage'); return r?JSON.parse(r):{}; }catch(e){ return {}; } }
+      function getThumbnailForPerson(pid){ try{ const rels=getPhotoRelations(); const photos=getPhotos(); const ids=rels[pid]||[]; if(Array.isArray(ids)&&ids.length){ for(const id of ids){ const ph=photos.find(p=>String(p.id)===String(id)); if(ph) return ph.originalDataUrl||ph.dataUrl||null; } } return null; }catch(e){ return null; } }
+
+      // ── Drawer state & core ─────────────────────────────────────────────────
+      let _drawerPersonId=null, _drawerMode='edit';
+
+      function openDrawer(mode, personId){
+        const _footer=document.querySelector('.drawer-footer');
+        if(_footer) _footer.style.display='';
+        const _backBtn=document.getElementById('drawerBackBtn');
+        if(_backBtn){ _backBtn.style.display='none'; _backBtn._personId=null; }
+        const _phdr=document.getElementById('drawerPersonHeader');
+        if(_phdr) _phdr.style.display='';
+        _drawerMode=mode;
+        _drawerPersonId=personId?String(personId):null;
+        const people=loadPeople();
+        const person=personId?people.find(p=>String(p.id)===String(personId)):null;
+        const drawer=document.getElementById('personDrawer');
+        const overlay=document.getElementById('drawerOverlay');
+        document.getElementById('drawerTitle').textContent=mode==='create'?'Nova Pessoa':'Editar Pessoa';
+        const nameEl=document.getElementById('drawerPersonName');
+        const subEl=document.getElementById('drawerPersonSub');
+        const avatarEl=document.getElementById('drawerAvatar');
+        if(person){
+          const fullName=(((person.firstName||'')+' '+(person.lastName||'')).trim())||'(sem nome)';
+          nameEl.textContent=fullName;
+          let sub=[];
+          const evAll=(function(){ try{ return JSON.parse(localStorage.getItem('events:myLineage')||'[]'); }catch(e){ return []; } })();
+          const evB=evAll.find(e=>String(e.personId)===String(person.id)&&(e.type==='BIRTH'||e.type==='birth')&&!e.deletedAt);
+          if(evB&&evB.date) sub.push('\u2605 '+evB.date);
+          const evD=evAll.find(e=>String(e.personId)===String(person.id)&&(e.type==='DEATH'||e.type==='death')&&!e.deletedAt);
+          if(evD&&evD.date) sub.push('\u271D '+evD.date);
+          subEl.textContent=sub.join('  \u00b7  ');
+          const thumb=getThumbnailForPerson(person.id);
+          if(thumb){ avatarEl.style.backgroundImage='url('+thumb+')'; avatarEl.style.backgroundSize='cover'; avatarEl.style.backgroundPosition='center'; }
+          else{ avatarEl.style.backgroundImage=''; const g=(person.gender||'').toLowerCase(); avatarEl.style.background=(g==='female'||g==='feminino'||g==='f')?'#e26aa6':(g==='male'||g==='masculino'||g==='m')?'#4493f8':'#9aa0a6'; }
+        } else {
+          nameEl.textContent='Nova Pessoa'; subEl.textContent='';
+          avatarEl.style.backgroundImage=''; avatarEl.style.background='var(--bg-surface-2)';
+        }
+        const body=document.getElementById('drawerBody');
+        const firstName=person?(person.firstName||''):'';
+        const lastName=person?(person.lastName||''):'';
+        const gender=person?(person.gender||''):'';
+        const notes=person?(person.notes||''):'';
+        body.innerHTML=[
+          '<div class="drawer-section-label">Identidade</div>',
+          '<div class="form-row">',
+            '<div><label>Primeiro nome</label><input type="text" id="df_firstName" value="'+_esc(firstName)+'" placeholder="Nome" /></div>',
+            '<div><label>Apelido</label><input type="text" id="df_lastName" value="'+_esc(lastName)+'" placeholder="Apelido" /></div>',
+          '</div>',
+          '<div><label>G\u00e9nero</label>',
+            '<select id="df_gender">',
+              '<option value=""'+(!gender?'selected':'')+'>\u200b(n/a)</option>',
+              '<option value="male"'+(gender==='male'||gender==='masculino'||gender==='m'?'selected':'')+'>Masculino</option>',
+              '<option value="female"'+(gender==='female'||gender==='feminino'||gender==='f'?'selected':'')+'>Feminino</option>',
+            '</select></div>',
+          '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
+          '<div><textarea id="df_notes" rows="3" placeholder="Notas...">'+_esc(notes)+'</textarea></div>',
+          person?'<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Rela\u00e7\u00f5es</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="_drawerShowAddPerson(\''+person.id+'\')" ><i class="mdi mdi-account-plus-outline"></i> Adicionar</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="_drawerShowLinkPerson(\''+person.id+'\')" ><i class="mdi mdi-link-variant"></i> Ligar</button></div>':''
+        ].join('');
+        drawer.classList.add('open');
+        overlay.classList.add('open');
+        setTimeout(()=>{ const fi=document.getElementById('df_firstName'); if(fi) fi.focus(); }, 50);
+      }
+
+      function closeDrawer(){
+        document.getElementById('personDrawer').classList.remove('open');
+        document.getElementById('drawerOverlay').classList.remove('open');
+      }
+
+      function openDrawerSection(personId, section){
+        const people=loadPeople();
+        const person=people.find(p=>String(p.id)===String(personId));
+        if(!person) return;
+        const footer=document.querySelector('.drawer-footer');
+        if(footer) footer.style.display='none';
+        const phdr=document.getElementById('drawerPersonHeader');
+        if(phdr) phdr.style.display='none';
+        const backBtn=document.getElementById('drawerBackBtn');
+        if(backBtn){ backBtn.style.display=''; backBtn._personId=String(personId); }
+        const sectionLabel=section==='relacoes'?'Rela\u00e7\u00f5es':section==='fotos'?'Fotos':'Eventos';
+        const pName=(((person.firstName||'')+' '+(person.lastName||'')).trim())||'';
+        document.getElementById('drawerTitle').textContent=sectionLabel+'\u2014 '+pName;
+        const body=document.getElementById('drawerBody');
+        body.innerHTML=section==='relacoes'?_renderDrawerRelations(String(personId),people):section==='fotos'?_renderDrawerPhotos(String(personId)):_renderDrawerEvents(String(personId));
+      }
+
+      function _drawerGetEvents(){ return getEvents(); }
+
+      function _renderDrawerEvents(personId){
+        const evs=_drawerGetEvents().filter(ev=>String(ev.personId)===personId&&!ev.deletedAt);
+        const typeLabels={BIRTH:'Nascimento',BAPTISM:'Batismo',DEATH:'\u00d3bito',MARRIAGE:'Casamento',DIVORCE:'Div\u00f3rcio',ADOPTION:'Ado\u00e7\u00e3o',CUSTOM:'Outro'};
+        let html=`<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddEvent('${_esc(personId)}')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Evento</button></div>`;
+        if(!evs.length){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhum evento cadastrado.</div>'; return html; }
+        html+='<div class="mini-list">';
+        evs.forEach(ev=>{
+          const label=typeLabels[(ev.type||'').toUpperCase()]||ev.type||'';
+          html+=`<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">${_esc(label)}</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">${_esc(fmtEventDate(ev))}</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_drawerShowEditEvent('${_esc(ev.id)}','${_esc(personId)}')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;line-height:1;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_drawerDeleteEvent('${_esc(ev.id)}','${_esc(personId)}')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;line-height:1;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>${ev.location?`<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; ${_esc(ev.location)}</div>`:''}${ev.notes?`<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">${_esc(ev.notes)}</div>`:''}</div>`;
+        });
+        html+='</div>';
+        return html;
+      }
+
+      function _drawerDeleteEvent(eventId,personId){
+        if(!confirm('Apagar este evento?')) return;
+        let events=_drawerGetEvents();
+        events=events.map(ev=>ev.id===eventId?{...ev,deletedAt:new Date().toISOString()}:ev);
+        localStorage.setItem('events:myLineage',JSON.stringify(events));
+        const body=document.getElementById('drawerBody');
+        if(body) body.innerHTML=_renderDrawerEvents(personId);
+      }
+
+      function _drawerShowEditEvent(eventId,personId){
+        const ev=_drawerGetEvents().find(e=>e.id===eventId);
+        if(!ev){ alert('Evento n\u00e3o encontrado.'); return; }
+        const body=document.getElementById('drawerBody');
+        if(!body) return;
+        const typeUp=(ev.type||'').toUpperCase();
+        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Editar Evento</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="editEvType" style="width:100%;"><option value="BIRTH"${typeUp==='BIRTH'?' selected':''}>Nascimento</option><option value="BAPTISM"${typeUp==='BAPTISM'?' selected':''}>Batismo</option><option value="DEATH"${typeUp==='DEATH'?' selected':''}>Óbito</option><option value="MARRIAGE"${typeUp==='MARRIAGE'?' selected':''}>Casamento</option><option value="DIVORCE"${typeUp==='DIVORCE'?' selected':""}}>Div\u00f3rcio</option><option value="ADOPTION"${typeUp==='ADOPTION'?' selected':''}>Ado\u00e7\u00e3o</option><option value="CUSTOM"${typeUp==='CUSTOM'||!typeUp?' selected':''}>Outro</option></select></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="editEvQualifier" style="width:100%;margin-bottom:6px;"><option value="Exatamente"${(ev.dateQualifier||'Exatamente')==='Exatamente'?' selected':''}>Exatamente</option><option value="Antes de"${ev.dateQualifier==='Antes de'?' selected':''}>Antes de</option><option value="Depois de"${ev.dateQualifier==='Depois de'?' selected':''}>Depois de</option><option value="Cerca de"${ev.dateQualifier==='Cerca de'?' selected':''}>Cerca de</option></select><div style="display:flex;gap:6px;"><input id="editEvDay" type="number" min="1" max="31" placeholder="Dia" value="${ev.dateDay||''}" style="flex:1;min-width:0;text-align:center;" /><input id="editEvMonth" type="number" min="1" max="12" placeholder="M\u00eas" value="${ev.dateMonth||''}" style="flex:1;min-width:0;text-align:center;" /><input id="editEvYear" type="number" min="1" max="9999" placeholder="Ano" value="${ev.dateYear||''}" style="flex:2;min-width:0;text-align:center;" /></div></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="editEvLocation" type="text" placeholder="Local do evento" value="${_esc(ev.location||'')}" style="width:100%;" /></div><div class="form-group" style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="editEvNotes" rows="3" style="width:100%;resize:vertical;">${_esc(ev.notes||'')}</textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection('${_esc(personId)}','eventos')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveEditEvent('${_esc(eventId)}','${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
+      }
+
+      function _drawerSaveEditEvent(eventId,personId){
+        const type=(document.getElementById('editEvType')||{}).value||'CUSTOM';
+        const qualifier=(document.getElementById('editEvQualifier')||{}).value||'Exatamente';
+        const day=parseInt((document.getElementById('editEvDay')||{}).value||'')||null;
+        const month=parseInt((document.getElementById('editEvMonth')||{}).value||'')||null;
+        const year=parseInt((document.getElementById('editEvYear')||{}).value||'')||null;
+        if(!day&&!month&&!year){ alert('Preencha pelo menos um campo de data.'); return; }
+        const location=((document.getElementById('editEvLocation')||{}).value||'').trim();
+        const notes=((document.getElementById('editEvNotes')||{}).value||'').trim();
+        let events=_drawerGetEvents();
+        events=events.map(ev=>{
+          if(ev.id!==eventId) return ev;
+          const updated={...ev,type:type.toUpperCase(),dateQualifier:qualifier,updatedAt:new Date().toISOString()};
+          delete updated.dateDay; delete updated.dateMonth; delete updated.dateYear;
+          if(day) updated.dateDay=day;
+          if(month) updated.dateMonth=month;
+          if(year) updated.dateYear=year;
+          updated.location=location||null; updated.notes=notes||null;
+          return updated;
+        });
+        localStorage.setItem('events:myLineage',JSON.stringify(events));
+        openDrawerSection(personId,'eventos');
+      }
+
+      function _renderDrawerRelations(personId,people){
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const rels=relations.filter(r=>r&&String(r.from)===personId);
+        const typeDesc={siblin:'Irm\u00e3o / Irm\u00e3',ancestor:'Pai / M\u00e3e',child:'Filho(a)',mate:'Companheiro(a)'};
+        let html=`<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddRelation('${_esc(personId)}')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Rela\u00e7\u00e3o</button></div>`;
+        if(!rels.length){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhuma rela\u00e7\u00e3o cadastrada.</div>'; return html; }
+        html+='<div class="mini-list">';
+        rels.forEach(r=>{
+          const p=people.find(x=>x.id===r.to);
+          let desc=typeDesc[r.type]||r.type||'';
+          if(p){ const g=((p.gender||'')+'').toLowerCase(); const isFem=g==='female'||g==='feminino'||g==='f'; const isMal=g==='male'||g==='masculino'||g==='m'; if(desc.includes('Filho')) desc=isFem?'Filha':isMal?'Filho':'Filho(a)'; if(desc.includes('Pai')||desc.includes('M\u00e3e')) desc=isFem?'M\u00e3e':isMal?'Pai':'Pai / M\u00e3e'; if(desc.toLowerCase().includes('compan')) desc=isFem?'Companheira':isMal?'Companheiro':'Companheiro(a)'; if(desc.includes('Irm')) desc=isFem?'Irm\u00e3':isMal?'Irm\u00e3o':'Irm\u00e3o / Irm\u00e3'; }
+          const name=p?(((p.firstName||'')+' '+(p.lastName||'')).trim()):r.to;
+          html+=`<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">${_esc(name)}</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">${_esc(desc)}</span></div><button onclick="_drawerDeleteRelation('${_esc(personId)}','${_esc(r.to)}','${_esc(r.type)}')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;line-height:1;flex-shrink:0;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>`;
+        });
+        html+='</div>';
+        return html;
+      }
+
+      function _drawerShowAddRelation(personId){
+        const people=loadPeople().filter(p=>!p.deletedAt&&String(p.id)!==String(personId));
+        const body=document.getElementById('drawerBody');
+        if(!body) return;
+        const opts=people.map(p=>{ const name=(((p.firstName||'')+' '+(p.lastName||'')).trim())||p.id; return `<option value="${_esc(String(p.id))}">${_esc(name)}</option>`; }).join('');
+        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Nova Rela\u00e7\u00e3o</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo de rela\u00e7\u00e3o</label><select id="addRelType" style="width:100%;"><option value="ancestor">Pai / M\u00e3e</option><option value="child">Filho(a)</option><option value="mate">Companheiro(a)</option><option value="siblin">Irm\u00e3o / Irm\u00e3</option></select></div><div class="form-group" style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pessoa</label><select id="addRelTo" style="width:100%;">${opts||'<option disabled>Nenhuma pessoa dispon\u00edvel</option>'}</select></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection('${_esc(personId)}','relacoes')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewRelation('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
+      }
+
+      function _drawerSaveNewRelation(personId){
+        const toId=(document.getElementById('addRelTo')||{}).value||'';
+        const type=(document.getElementById('addRelType')||{}).value||'mate';
+        if(!toId){ alert('Seleciona uma pessoa.'); return; }
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const already=relations.some(r=>String(r.from)===String(personId)&&String(r.to)===String(toId)&&String(r.type)===String(type));
+        if(already){ alert('Esta rela\u00e7\u00e3o j\u00e1 existe.'); return; }
+        relations.push({from:String(personId),to:String(toId),type});
+        const revType=type==='ancestor'?'child':type==='child'?'ancestor':type;
+        const alreadyRev=relations.some(r=>String(r.from)===String(toId)&&String(r.to)===String(personId)&&String(r.type)===revType);
+        if(!alreadyRev) relations.push({from:String(toId),to:String(personId),type:revType});
+        localStorage.setItem('relations:myLineage',JSON.stringify(relations));
+        openDrawerSection(personId,'relacoes');
+      }
+
+      function _drawerDeleteRelation(fromId,toId,relType){
+        if(!confirm('Apagar esta rela\u00e7\u00e3o?')) return;
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        relations=relations.filter(r=>!(String(r.from)===String(fromId)&&String(r.to)===String(toId)&&String(r.type)===String(relType)));
+        const reverseType=relType==='ancestor'?'child':relType==='child'?'ancestor':relType;
+        relations=relations.filter(r=>!(String(r.from)===String(toId)&&String(r.to)===String(fromId)&&String(r.type)===reverseType));
+        localStorage.setItem('relations:myLineage',JSON.stringify(relations));
+        const body=document.getElementById('drawerBody');
+        if(body) body.innerHTML=_renderDrawerRelations(fromId,loadPeople());
+      }
+
+      function _drawerShowAddEvent(personId){
+        const body=document.getElementById('drawerBody');
+        if(!body) return;
+        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Novo Evento</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="addEvType" style="width:100%;"><option value="BIRTH">Nascimento</option><option value="BAPTISM">Batismo</option><option value="DEATH">\u00d3bito</option><option value="MARRIAGE">Casamento</option><option value="DIVORCE">Div\u00f3rcio</option><option value="ADOPTION">Ado\u00e7\u00e3o</option><option value="CUSTOM">Outro</option></select></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="addEvQualifier" style="width:100%;margin-bottom:6px;"><option value="Exatamente" selected>Exatamente</option><option value="Antes de">Antes de</option><option value="Depois de">Depois de</option><option value="Cerca de">Cerca de</option></select><div style="display:flex;gap:6px;"><input id="addEvDay" type="number" min="1" max="31" placeholder="Dia" style="flex:1;min-width:0;text-align:center;" /><input id="addEvMonth" type="number" min="1" max="12" placeholder="M\u00eas" style="flex:1;min-width:0;text-align:center;" /><input id="addEvYear" type="number" min="1" max="9999" placeholder="Ano" style="flex:2;min-width:0;text-align:center;" /></div></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="addEvLocation" type="text" placeholder="Local do evento" style="width:100%;" /></div><div class="form-group" style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="addEvNotes" rows="3" style="width:100%;resize:vertical;"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection('${_esc(personId)}','eventos')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewEvent('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
+      }
+
+      function _drawerSaveNewEvent(personId){
+        const type=(document.getElementById('addEvType')||{}).value||'CUSTOM';
+        const qualifier=(document.getElementById('addEvQualifier')||{}).value||'Exatamente';
+        const day=parseInt((document.getElementById('addEvDay')||{}).value||'')||null;
+        const month=parseInt((document.getElementById('addEvMonth')||{}).value||'')||null;
+        const year=parseInt((document.getElementById('addEvYear')||{}).value||'')||null;
+        if(!day&&!month&&!year){ alert('Preencha pelo menos um campo de data.'); return; }
+        const location=((document.getElementById('addEvLocation')||{}).value||'').trim();
+        const notes=((document.getElementById('addEvNotes')||{}).value||'').trim();
+        let events=_drawerGetEvents();
+        const newEv={id:'ev_'+Date.now(),personId:String(personId),type:type.toUpperCase(),dateQualifier:qualifier};
+        if(day) newEv.dateDay=day;
+        if(month) newEv.dateMonth=month;
+        if(year) newEv.dateYear=year;
+        if(location) newEv.location=location;
+        if(notes) newEv.notes=notes;
+        events.push(newEv);
+        localStorage.setItem('events:myLineage',JSON.stringify(events));
+        openDrawerSection(personId,'eventos');
+      }
+
+      function _drawerShowAddPerson(personId){
+        const people=loadPeople();
+        const person=people.find(p=>String(p.id)===String(personId));
+        if(!person) return;
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const parentCount=relations.filter(r=>String(r.from)===String(personId)&&r.type==='ancestor').length;
+        const footer=document.querySelector('.drawer-footer');
+        if(footer) footer.style.display='none';
+        const phdr=document.getElementById('drawerPersonHeader');
+        if(phdr) phdr.style.display='none';
+        const backBtn=document.getElementById('drawerBackBtn');
+        if(backBtn){ backBtn.style.display=''; backBtn._personId=String(personId); }
+        const pName=(((person.firstName||'')+' '+(person.lastName||'')).trim())||'';
+        document.getElementById('drawerTitle').textContent='Adicionar \u2014 '+pName;
+        const body=document.getElementById('drawerBody');
+        if(!body) return;
+        let kinshipOpts=`<option value="sibling_male">Irm\u00e3o</option><option value="sibling_female">Irm\u00e3</option><option value="child_male">Filho</option><option value="child_female">Filha</option>`;
+        if(parentCount<2) kinshipOpts+=`<option value="ancestor_male">Pai</option><option value="ancestor_female">M\u00e3e</option>`;
+        kinshipOpts+=`<option value="mate_male">Companheiro</option><option value="mate_female">Companheira</option>`;
+        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Nova Pessoa</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Grau de parentesco</label><select id="addPersKinship" style="width:100%;" onchange="_drawerUpdateCoParentSection('${_esc(personId)}')">${kinshipOpts}</select></div><div id="addPersCoParentSection" class="form-group" style="margin-bottom:10px;display:none;"></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Primeiro nome</label><input id="addPersFirstName" type="text" placeholder="Nome" style="width:100%;" /></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Apelido</label><input id="addPersLastName" type="text" placeholder="Apelido" style="width:100%;" /></div><div class="form-group" style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="addPersNotes" rows="2" style="width:100%;resize:vertical;"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawer('edit','${_esc(personId)}')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewPerson('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
+        setTimeout(()=>{ const fi=document.getElementById('addPersFirstName'); if(fi) fi.focus(); },50);
+      }
+
+      function _drawerUpdateCoParentSection(personId){
+        const kinship=(document.getElementById('addPersKinship')||{}).value||'';
+        const section=document.getElementById('addPersCoParentSection');
+        if(!section) return;
+        if(kinship!=='child_male'&&kinship!=='child_female'){ section.style.display='none'; section.innerHTML=''; return; }
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const mates=relations.filter(r=>String(r.from)===String(personId)&&r.type==='mate');
+        if(mates.length<=1){ section.style.display='none'; section.innerHTML=''; return; }
+        const people=loadPeople();
+        const opts=mates.map(r=>{ const p=people.find(x=>String(x.id)===String(r.to)); const name=p?(((p.firstName||'')+' '+(p.lastName||'')).trim())||p.id:r.to; return `<option value="${_esc(String(r.to))}">${_esc(name)}</option>`; }).join('');
+        section.innerHTML=`<label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Outro progenitor</label><select id="addPersCoParent" style="width:100%;">${opts}</select>`;
+        section.style.display='block';
+      }
+
+      function _drawerSaveNewPerson(personId){
+        const kinship=((document.getElementById('addPersKinship')||{}).value||'');
+        const firstName=((document.getElementById('addPersFirstName')||{}).value||'').trim();
+        const lastName=((document.getElementById('addPersLastName')||{}).value||'').trim();
+        const notes=((document.getElementById('addPersNotes')||{}).value||'').trim();
+        if(!firstName&&!lastName){ alert('Introduza pelo menos um nome.'); return; }
+        let gender='',relType='';
+        if(kinship==='sibling_male'){ gender='male'; relType='siblin'; }
+        else if(kinship==='sibling_female'){ gender='female'; relType='siblin'; }
+        else if(kinship==='child_male'){ gender='male'; relType='child'; }
+        else if(kinship==='child_female'){ gender='female'; relType='child'; }
+        else if(kinship==='ancestor_male'){ gender='male'; relType='ancestor'; }
+        else if(kinship==='ancestor_female'){ gender='female'; relType='ancestor'; }
+        else if(kinship==='mate_male'){ gender='male'; relType='mate'; }
+        else if(kinship==='mate_female'){ gender='female'; relType='mate'; }
+        let people=loadPeople();
+        const newId='p_'+Date.now();
+        people.push({id:newId,firstName,lastName,gender,notes,createdAt:new Date().toISOString()});
+        savePeople(people);
+        if(relType){
+          let relations=[];
+          try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+          relations.push({from:String(personId),to:String(newId),type:relType});
+          if(relType==='siblin') relations.filter(r=>String(r.from)===String(personId)&&r.type==='ancestor').forEach(r=>{ relations.push({from:String(newId),to:String(r.to),type:'ancestor'}); });
+          if(relType==='ancestor'){
+            relations.push({from:String(newId),to:String(personId),type:'child'});
+            const existingParents=relations.filter(r=>String(r.from)===String(personId)&&r.type==='ancestor'&&String(r.to)!==String(newId));
+            if(existingParents.length===0){ const autoGender=(gender==='male')?'female':'male'; const autoId='p_auto_'+Date.now(); people.push({id:autoId,firstName:'<desconhecido>',lastName:'',gender:autoGender,notes:'',createdAt:new Date().toISOString()}); savePeople(people); relations.push({from:String(personId),to:String(autoId),type:'ancestor'}); relations.push({from:String(autoId),to:String(personId),type:'child'}); relations.push({from:String(newId),to:String(autoId),type:'mate'}); relations.push({from:String(autoId),to:String(newId),type:'mate'}); }
+            else{ const existingParentId=existingParents[0].to; relations.push({from:String(newId),to:String(existingParentId),type:'mate'}); relations.push({from:String(existingParentId),to:String(newId),type:'mate'}); }
+          }
+          if(relType==='mate'){ relations.push({from:String(newId),to:String(personId),type:'mate'}); }
+          if(relType==='child'){
+            relations.push({from:String(newId),to:String(personId),type:'ancestor'});
+            const mates=relations.filter(r=>String(r.from)===String(personId)&&r.type==='mate');
+            if(mates.length===0){ const basePerson=people.find(p=>String(p.id)===String(personId)); const baseGender=((basePerson&&basePerson.gender)||'').toLowerCase(); const autoGender=(baseGender==='male'||baseGender==='masculino'||baseGender==='m')?'female':'male'; const autoId='p_auto_'+Date.now(); people.push({id:autoId,firstName:'<desconhecido>',lastName:'',gender:autoGender,notes:'',createdAt:new Date().toISOString()}); savePeople(people); relations.push({from:String(personId),to:String(autoId),type:'mate'}); relations.push({from:String(autoId),to:String(personId),type:'mate'}); relations.push({from:String(autoId),to:String(newId),type:'child'}); relations.push({from:String(newId),to:String(autoId),type:'ancestor'}); }
+            else if(mates.length===1){ relations.push({from:String(mates[0].to),to:String(newId),type:'child'}); relations.push({from:String(newId),to:String(mates[0].to),type:'ancestor'}); }
+            else{ const coParentId=((document.getElementById('addPersCoParent')||{}).value||''); if(coParentId){ relations.push({from:String(coParentId),to:String(newId),type:'child'}); relations.push({from:String(newId),to:String(coParentId),type:'ancestor'}); } }
+          }
+          localStorage.setItem('relations:myLineage',JSON.stringify(relations));
+        }
+        openDrawer('edit',personId);
+      }
+
+      function _drawerShowLinkPerson(personId){
+        const people=loadPeople();
+        const person=people.find(p=>String(p.id)===String(personId));
+        if(!person) return;
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const parentCount=relations.filter(r=>String(r.from)===String(personId)&&r.type==='ancestor').length;
+        const footer=document.querySelector('.drawer-footer');
+        if(footer) footer.style.display='none';
+        const phdr=document.getElementById('drawerPersonHeader');
+        if(phdr) phdr.style.display='none';
+        const backBtn=document.getElementById('drawerBackBtn');
+        if(backBtn){ backBtn.style.display=''; backBtn._personId=String(personId); }
+        const pName=(((person.firstName||'')+' '+(person.lastName||'')).trim())||'';
+        document.getElementById('drawerTitle').textContent='Ligar \u2014 '+pName;
+        const body=document.getElementById('drawerBody');
+        if(!body) return;
+        let kinshipOpts=`<option value="sibling_male">Irm\u00e3o</option><option value="sibling_female">Irm\u00e3</option><option value="child_male">Filho</option><option value="child_female">Filha</option>`;
+        if(parentCount<2) kinshipOpts+=`<option value="ancestor_male">Pai</option><option value="ancestor_female">M\u00e3e</option>`;
+        kinshipOpts+=`<option value="mate_male">Companheiro</option><option value="mate_female">Companheira</option>`;
+        const otherPeople=people.filter(p=>String(p.id)!==String(personId));
+        const peopleOpts=otherPeople.map(p=>{ const name=(((p.firstName||'')+' '+(p.lastName||'')).trim())||p.id; const _g=((p.gender||'')).toLowerCase(); const _pg=(_g==='male'||_g==='masculino'||_g==='m')?'male':(_g==='female'||_g==='feminino'||_g==='f')?'female':''; return `<option value="${_esc(String(p.id))}" data-gender="${_pg}">${_esc(name)}</option>`; }).join('');
+        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Ligar Pessoa Existente</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Grau de parentesco</label><select id="linkPersKinship" style="width:100%;" onchange="_drawerUpdateLinkCoParentSection('${_esc(personId)}');_drawerFilterLinkPersons()">${kinshipOpts}</select></div><div id="linkPersCoParentSection" class="form-group" style="margin-bottom:10px;display:none;"></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pesquisar pessoa</label><input id="linkPersSearch" type="text" placeholder="Pesquisar por nome..." style="width:100%;margin-bottom:6px;" oninput="_drawerFilterLinkPersons()" /><select id="linkPersTarget" size="6" style="width:100%;min-height:110px;">${peopleOpts}</select></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;"><button class="btn btn-ghost btn-sm" onclick="openDrawer('edit','${_esc(personId)}')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveLinkPerson('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
+        const sel=document.getElementById('linkPersTarget');
+        if(sel) sel._allOptions=Array.from(sel.options).map(o=>({value:o.value,text:o.text,gender:o.getAttribute('data-gender')||''}));
+        _drawerFilterLinkPersons();
+        const si=document.getElementById('linkPersSearch');
+        if(si) si.focus();
+      }
+
+      function _drawerFilterLinkPersons(){
+        const search=((document.getElementById('linkPersSearch')||{}).value||'').toLowerCase();
+        const kinship=((document.getElementById('linkPersKinship')||{}).value||'');
+        const _kg={sibling_male:'male',child_male:'male',ancestor_male:'male',mate_male:'male',sibling_female:'female',child_female:'female',ancestor_female:'female',mate_female:'female'};
+        const expectedGender=_kg[kinship]||'';
+        const sel=document.getElementById('linkPersTarget');
+        if(!sel) return;
+        const all=sel._allOptions||[];
+        sel.innerHTML=all.filter(o=>{
+          if(search&&!o.text.toLowerCase().includes(search)) return false;
+          if(expectedGender&&o.gender&&o.gender!==expectedGender) return false;
+          return true;
+        }).map(o=>`<option value="${_esc(o.value)}">${_esc(o.text)}</option>`).join('');
+      }
+
+      function _drawerUpdateLinkCoParentSection(personId){
+        const kinship=((document.getElementById('linkPersKinship')||{}).value||'');
+        const section=document.getElementById('linkPersCoParentSection');
+        if(!section) return;
+        if(kinship!=='child_male'&&kinship!=='child_female'){ section.style.display='none'; section.innerHTML=''; return; }
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const mates=relations.filter(r=>String(r.from)===String(personId)&&r.type==='mate');
+        if(mates.length<=1){ section.style.display='none'; section.innerHTML=''; return; }
+        const people=loadPeople();
+        const opts=mates.map(r=>{ const p=people.find(x=>String(x.id)===String(r.to)); const name=p?(((p.firstName||'')+' '+(p.lastName||'')).trim())||p.id:r.to; return `<option value="${_esc(String(r.to))}">${_esc(name)}</option>`; }).join('');
+        section.innerHTML=`<label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Outro progenitor</label><select id="linkPersCoParent" style="width:100%;">${opts}</select>`;
+        section.style.display='block';
+      }
+
+      function _drawerSaveLinkPerson(personId){
+        const kinship=((document.getElementById('linkPersKinship')||{}).value||'');
+        const sel=document.getElementById('linkPersTarget');
+        const newId=sel&&sel.value?sel.value:'';
+        if(!newId){ alert('Selecione uma pessoa para ligar.'); return; }
+        if(String(newId)===String(personId)){ alert('N\u00e3o pode ligar uma pessoa a si pr\u00f3pria.'); return; }
+        let gender='',relType='';
+        if(kinship==='sibling_male'){ gender='male'; relType='siblin'; }
+        else if(kinship==='sibling_female'){ gender='female'; relType='siblin'; }
+        else if(kinship==='child_male'){ gender='male'; relType='child'; }
+        else if(kinship==='child_female'){ gender='female'; relType='child'; }
+        else if(kinship==='ancestor_male'){ gender='male'; relType='ancestor'; }
+        else if(kinship==='ancestor_female'){ gender='female'; relType='ancestor'; }
+        else if(kinship==='mate_male'){ gender='male'; relType='mate'; }
+        else if(kinship==='mate_female'){ gender='female'; relType='mate'; }
+        if(!relType){ openDrawer('edit',personId); return; }
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        if(relations.some(r=>String(r.from)===String(personId)&&String(r.to)===String(newId)&&r.type===relType)){ alert('Esta liga\u00e7\u00e3o j\u00e1 existe.'); return; }
+        if(relType==='siblin'){ relations.push({from:String(personId),to:String(newId),type:'siblin'}); relations.push({from:String(newId),to:String(personId),type:'siblin'}); relations.filter(r=>String(r.from)===String(personId)&&r.type==='ancestor').forEach(r=>{ if(!relations.some(x=>String(x.from)===String(newId)&&String(x.to)===String(r.to)&&x.type==='ancestor')) relations.push({from:String(newId),to:String(r.to),type:'ancestor'}); }); }
+        if(relType==='ancestor'){ relations.push({from:String(personId),to:String(newId),type:'ancestor'}); if(!relations.some(r=>String(r.from)===String(newId)&&String(r.to)===String(personId)&&r.type==='child')) relations.push({from:String(newId),to:String(personId),type:'child'}); const existingParents=relations.filter(r=>String(r.from)===String(personId)&&r.type==='ancestor'&&String(r.to)!==String(newId)); if(existingParents.length>0){ const otherParentId=existingParents[0].to; if(!relations.some(r=>String(r.from)===String(newId)&&String(r.to)===String(otherParentId)&&r.type==='mate')){ relations.push({from:String(newId),to:String(otherParentId),type:'mate'}); relations.push({from:String(otherParentId),to:String(newId),type:'mate'}); } } }
+        if(relType==='mate'){ relations.push({from:String(personId),to:String(newId),type:'mate'}); if(!relations.some(r=>String(r.from)===String(newId)&&String(r.to)===String(personId)&&r.type==='mate')) relations.push({from:String(newId),to:String(personId),type:'mate'}); }
+        if(relType==='child'){
+          relations.push({from:String(personId),to:String(newId),type:'child'});
+          if(!relations.some(r=>String(r.from)===String(newId)&&String(r.to)===String(personId)&&r.type==='ancestor')) relations.push({from:String(newId),to:String(personId),type:'ancestor'});
+          const mates=relations.filter(r=>String(r.from)===String(personId)&&r.type==='mate');
+          if(mates.length===1){ if(!relations.some(r=>String(r.from)===String(mates[0].to)&&String(r.to)===String(newId)&&r.type==='child')) relations.push({from:String(mates[0].to),to:String(newId),type:'child'}); if(!relations.some(r=>String(r.from)===String(newId)&&String(r.to)===String(mates[0].to)&&r.type==='ancestor')) relations.push({from:String(newId),to:String(mates[0].to),type:'ancestor'}); }
+          else if(mates.length>1){ const coParentId=((document.getElementById('linkPersCoParent')||{}).value||''); if(coParentId){ if(!relations.some(r=>String(r.from)===String(coParentId)&&String(r.to)===String(newId)&&r.type==='child')) relations.push({from:String(coParentId),to:String(newId),type:'child'}); if(!relations.some(r=>String(r.from)===String(newId)&&String(r.to)===String(coParentId)&&r.type==='ancestor')) relations.push({from:String(newId),to:String(coParentId),type:'ancestor'}); } }
+        }
+        localStorage.setItem('relations:myLineage',JSON.stringify(relations));
+        openDrawer('edit',personId);
+      }
+
+      function _renderDrawerPhotos(personId){
+        const photos=getPhotos(); const rels=getPhotoRelations();
+        const linked=(rels[personId]||[]).map(id=>photos.find(p=>String(p.id)===String(id))).filter(Boolean);
+        let html=`<div style="margin-bottom:14px;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;"><label for="drawerPhotoInput" class="btn btn-sm" style="cursor:pointer;font-size:0.83rem;"><i class="mdi mdi-image-plus"></i> Escolher Ficheiro</label><span id="drawerPhotoName" style="color:#aaa;font-size:0.82rem;">Nenhum ficheiro</span><button class="btn btn-sm" onclick="_drawerUploadPhoto('${_esc(personId)}')" style="font-size:0.83rem;"><i class="mdi mdi-upload"></i> Upload</button></div><input type="file" id="drawerPhotoInput" accept="image/*" style="display:none;" onchange="document.getElementById('drawerPhotoName').textContent=this.files&&this.files.length?this.files[0].name:'Nenhum ficheiro'" /></div>`;
+        if(!linked.length){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhuma foto associada.</div>'; return html; }
+        html+='<div style="display:flex;flex-wrap:wrap;gap:10px;">';
+        linked.forEach(ph=>{
+          const src=ph.originalDataUrl||ph.dataUrl||'';
+          html+=`<div style="position:relative;display:inline-block;"><img src="${src}" style="width:72px;height:72px;object-fit:cover;border-radius:6px;cursor:pointer;" onclick="_drawerViewPhoto('${_esc(ph.id)}')" title="${_esc(ph.name||'')}" /><button onclick="_drawerUnlinkPhoto('${_esc(ph.id)}','${_esc(personId)}')" title="Remover v\u00ednculo" style="position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;"><i class="mdi mdi-close"></i></button></div>`;
+        });
+        html+='</div>';
+        return html;
+      }
+
+      async function _drawerUploadPhoto(personId){
+        const input=document.getElementById('drawerPhotoInput');
+        if(!input||!input.files||!input.files.length) return alert('Selecione uma imagem para upload.');
+        const photos=getPhotos(); const rels=getPhotoRelations(); const f=input.files[0];
+        try{
+          const dataUrl=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(); r.readAsDataURL(f); });
+          const id='ph_'+Date.now();
+          photos.push({id,name:f.name,originalDataUrl:dataUrl,createdAt:new Date().toISOString()});
+          rels[personId]=rels[personId]||[]; rels[personId].push(id);
+          localStorage.setItem('photos:myLineage',JSON.stringify(photos));
+          localStorage.setItem('photoRelations:myLineage',JSON.stringify(rels));
+          input.value=''; openDrawerSection(personId,'fotos');
+        }catch(err){ alert('Erro no upload: '+err); }
+      }
+
+      function _drawerUnlinkPhoto(photoId,personId){
+        if(!confirm('Remover v\u00ednculo desta foto?')) return;
+        const rels=getPhotoRelations();
+        if(rels[personId]) rels[personId]=rels[personId].filter(id=>String(id)!==String(photoId));
+        localStorage.setItem('photoRelations:myLineage',JSON.stringify(rels));
+        openDrawerSection(personId,'fotos');
+      }
+
+      let _drawerCurrentPhotoId=null,_drawerIsDrawing=false,_drawerDrawStart=null,_drawerCurrentDrawEl=null;
+
+      function _drawerViewPhoto(photoId){
+        const ph=getPhotos().find(p=>String(p.id)===String(photoId)); if(!ph) return;
+        _drawerCurrentPhotoId=photoId;
+        const area=document.getElementById('drawerModalImageArea'); area.innerHTML='';
+        const photoArea=document.createElement('div'); photoArea.style.maxWidth='100%';
+        const img=document.createElement('img'); img.id='drawerModalImage';
+        img.style.cssText='display:block;max-width:100%;max-height:70vh;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.5);';
+        img.src=ph.originalDataUrl||ph.dataUrl||'';
+        const overlay=document.createElement('div');
+        overlay.style.cssText='position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:auto;';
+        const container=document.createElement('div'); container.style.position='relative';
+        container.appendChild(img); container.appendChild(overlay); photoArea.appendChild(container); area.appendChild(photoArea);
+        const notesEl=document.getElementById('drawerPhotoNotesArea'); if(notesEl) notesEl.value=ph.notes||'';
+        _drawerRenderPhotoTags(ph);
+        overlay.addEventListener('pointerdown',function(ev){ ev.preventDefault(); _drawerStartDraw(ev,img,overlay); });
+        overlay.addEventListener('pointermove',function(ev){ if(_drawerIsDrawing) _drawerUpdateDraw(ev,img,overlay); });
+        overlay.addEventListener('pointerup',function(ev){ if(_drawerIsDrawing) _drawerFinishDraw(ev,img,overlay); });
+        document.getElementById('drawerPhotoModal').style.display='flex';
+      }
+
+      function _drawerClosePhotoModal(){
+        _drawerCurrentPhotoId=null; _drawerIsDrawing=false; _drawerDrawStart=null; _drawerCurrentDrawEl=null;
+        document.getElementById('drawerPhotoModal').style.display='none';
+        const a=document.getElementById('drawerModalImageArea'); if(a) a.innerHTML='';
+      }
+
+      function _drawerSavePhotoNotes(){
+        if(!_drawerCurrentPhotoId) return;
+        const notes=((document.getElementById('drawerPhotoNotesArea')||{}).value||'');
+        const photos=getPhotos(); const idx=photos.findIndex(p=>p.id===_drawerCurrentPhotoId); if(idx<0) return;
+        photos[idx].notes=notes; photos[idx].updatedAt=new Date().toISOString();
+        localStorage.setItem('photos:myLineage',JSON.stringify(photos)); alert('Notas guardadas.');
+      }
+
+      function _drawerRenderPhotoTags(photo){
+        try{
+          const overlay=document.querySelector('#drawerModalImageArea div[style*="position:absolute"]'); if(!overlay) return;
+          overlay.innerHTML='';
+          const tags=photo.tags||[];
+          tags.forEach(t=>{
+            const el=document.createElement('div'); el.style.cssText='position:absolute;border:2px solid #4493f8;box-sizing:border-box;cursor:pointer;';
+            el.style.left=(t.bbox.x*100)+'%'; el.style.top=(t.bbox.y*100)+'%';
+            el.style.width=(t.bbox.w*100)+'%'; el.style.height=(t.bbox.h*100)+'%';
+            el.title=t.personName||t.name||'Identificado';
+            const lbl=document.createElement('div'); lbl.style.cssText='position:absolute;bottom:0;left:0;background:rgba(0,0,0,0.6);color:#fff;font-size:0.7rem;padding:1px 4px;'; lbl.textContent=t.personName||t.name||'Pessoa'; el.appendChild(lbl);
+            overlay.appendChild(el);
+          });
+          const ppl=document.getElementById('drawerPhotoTaggedPeople'); if(!ppl) return;
+          const unique=Array.from(new Map((tags||[]).map(t=>[t.personId||t.personName,t])).values());
+          ppl.innerHTML=unique.length===0?'<span style="color:#888">Nenhuma pessoa identificada.</span>':'<strong>Pessoas identificadas:</strong> '+unique.map(t=>_esc(t.personName||t.name||'')).join(', ');
+        }catch(e){}
+      }
+
+      function _drawerStartDraw(ev,img,overlay){ _drawerIsDrawing=true; _drawerDrawStart={x:ev.clientX,y:ev.clientY}; _drawerCurrentDrawEl=document.createElement('div'); _drawerCurrentDrawEl.style.cssText='position:absolute;border:2px dashed #ffcc00;box-sizing:border-box;'; _drawerCurrentDrawEl.style.left='0'; _drawerCurrentDrawEl.style.top='0'; _drawerCurrentDrawEl.style.width='0'; _drawerCurrentDrawEl.style.height='0'; overlay.appendChild(_drawerCurrentDrawEl); }
+      function _drawerUpdateDraw(ev,img,overlay){ if(!_drawerIsDrawing||!_drawerCurrentDrawEl||!_drawerDrawStart) return; const r=img.getBoundingClientRect(); const l=Math.min(_drawerDrawStart.x,ev.clientX)-r.left; const t=Math.min(_drawerDrawStart.y,ev.clientY)-r.top; const w=Math.abs(ev.clientX-_drawerDrawStart.x); const h=Math.abs(ev.clientY-_drawerDrawStart.y); _drawerCurrentDrawEl.style.left=(l/r.width*100)+'%'; _drawerCurrentDrawEl.style.top=(t/r.height*100)+'%'; _drawerCurrentDrawEl.style.width=(w/r.width*100)+'%'; _drawerCurrentDrawEl.style.height=(h/r.height*100)+'%'; }
+      function _drawerFinishDraw(ev,img,overlay){ if(!_drawerIsDrawing) return; _drawerIsDrawing=false; const r=img.getBoundingClientRect(); const bbox={x:Math.max(0,Math.min(1,(Math.min(_drawerDrawStart.x,ev.clientX)-r.left)/r.width)),y:Math.max(0,Math.min(1,(Math.min(_drawerDrawStart.y,ev.clientY)-r.top)/r.height)),w:Math.max(0,Math.min(1,Math.abs(ev.clientX-_drawerDrawStart.x)/r.width)),h:Math.max(0,Math.min(1,Math.abs(ev.clientY-_drawerDrawStart.y)/r.height))}; if(_drawerCurrentDrawEl&&_drawerCurrentDrawEl.parentElement) _drawerCurrentDrawEl.parentElement.removeChild(_drawerCurrentDrawEl); _drawerCurrentDrawEl=null; _drawerDrawStart=null; if(bbox.w>0.01&&bbox.h>0.01) _drawerShowTagForm(bbox,img,overlay); }
+
+      function _drawerShowTagForm(bbox,img,overlay){
+        const form=document.createElement('div'); form.style.cssText='position:absolute;background:var(--bg-card,#1a1d27);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:10px;z-index:620;min-width:220px;'; form.style.left=(bbox.x*100)+'%'; form.style.top=(bbox.y*100)+'%';
+        form.innerHTML='<div style="font-weight:600;margin-bottom:6px;">Identificar pessoa</div>';
+        const people=loadPeople();
+        const input=document.createElement('input'); input.placeholder='Pesquisar pessoa (nome)'; input.style.width='220px';
+        const sugg=document.createElement('div'); sugg.style.cssText='position:absolute;left:8px;top:38px;background:var(--bg-card,#1a1d27);border:1px solid rgba(255,255,255,0.1);max-height:160px;overflow:auto;width:220px;z-index:630;display:none;border-radius:6px;';
+        const saveBtn=document.createElement('button'); saveBtn.textContent='Salvar'; saveBtn.className='btn';
+        const cancelBtn=document.createElement('button'); cancelBtn.textContent='Cancelar'; cancelBtn.className='btn';
+        const br=document.createElement('div'); br.style.marginTop='6px';
+        form.appendChild(input); form.appendChild(sugg); form.appendChild(br); form.appendChild(saveBtn); form.appendChild(cancelBtn);
+        form.addEventListener('pointerdown',ev=>ev.stopPropagation());
+        let selectedPersonId=null;
+        function renderSugg(q){ const list=people.filter(p=>!p.deletedAt&&((p.firstName||'')+' '+(p.lastName||'')).toLowerCase().includes((q||'').toLowerCase())).slice(0,30); sugg.innerHTML=''; if(!list.length){sugg.style.display='none';return;} list.forEach(p=>{ const row=document.createElement('div'); row.style.cssText='padding:6px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);'; row.textContent=((p.firstName||'')+' '+(p.lastName||'')).trim(); row.addEventListener('click',()=>{input.value=row.textContent;selectedPersonId=p.id;sugg.style.display='none';input.focus();}); sugg.appendChild(row); }); sugg.style.display='block'; }
+        input.addEventListener('input',function(){selectedPersonId=null;renderSugg(this.value);});
+        input.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();saveBtn.click();}});
+        cancelBtn.addEventListener('click',()=>{if(form.parentElement)form.parentElement.removeChild(form);});
+        saveBtn.addEventListener('click',()=>{const name=input.value.trim();if(!name)return alert('Insira um nome ou selecione uma pessoa.');_drawerSaveTag({personId:selectedPersonId||null,personName:name,bbox});if(form.parentElement)form.parentElement.removeChild(form);});
+        setTimeout(()=>{try{input.focus();}catch(e){}},50);
+        overlay.appendChild(form);
+      }
+
+      function _drawerSaveTag({personId,personName,bbox}){
+        try{
+          const photos=getPhotos(); const idx=photos.findIndex(p=>p.id===_drawerCurrentPhotoId); if(idx<0)return;
+          const tag={id:'tag_'+Date.now()+Math.random().toString(36).slice(2,6),personId:personId||null,personName:personName||'',bbox,createdAt:new Date().toISOString()};
+          photos[idx].tags=photos[idx].tags||[]; photos[idx].tags.push(tag); photos[idx].updatedAt=new Date().toISOString();
+          localStorage.setItem('photos:myLineage',JSON.stringify(photos));
+          if(personId){const rels=getPhotoRelations();rels[personId]=rels[personId]||[];if(!rels[personId].includes(photos[idx].id))rels[personId].push(photos[idx].id);localStorage.setItem('photoRelations:myLineage',JSON.stringify(rels));}
+          _drawerRenderPhotoTags(photos[idx]);
+        }catch(e){}
+      }
+
+      function drawerSave(){
+        const firstName=(document.getElementById('df_firstName')||{}).value||'';
+        const lastName=(document.getElementById('df_lastName')||{}).value||'';
+        const gender=(document.getElementById('df_gender')||{}).value||'';
+        const notes=(document.getElementById('df_notes')||{}).value||'';
+        let people=loadPeople();
+        if(_drawerMode==='create'){
+          people.push({id:'p_'+Date.now(),firstName:firstName.trim(),lastName:lastName.trim(),gender,notes,createdAt:new Date().toISOString()});
+          savePeople(people);
+        } else {
+          const idx=people.findIndex(p=>String(p.id)===String(_drawerPersonId));
+          if(idx!==-1){ people[idx]=Object.assign({},people[idx],{firstName:firstName.trim(),lastName:lastName.trim(),gender,notes,updatedAt:new Date().toISOString()}); savePeople(people); }
+        }
+        closeDrawer();
+        runValidation();
+      }
+
+      function drawerDeletePerson(){
+        if(!_drawerPersonId) return;
+        if(!confirm('Apagar esta pessoa?')) return;
+        const pid=String(_drawerPersonId);
+        let people=loadPeople();
+        const idx=people.findIndex(p=>String(p.id)===pid);
+        if(idx!==-1){ people[idx]=Object.assign({},people[idx],{deletedAt:new Date().toISOString()}); savePeople(people); }
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        relations=relations.filter(r=>String(r.from)!==pid&&String(r.to)!==pid);
+        localStorage.setItem('relations:myLineage',JSON.stringify(relations));
+        closeDrawer();
+        runValidation();
+      }
+
+      document.getElementById('drawerCloseBtn').addEventListener('click', closeDrawer);
+      document.getElementById('drawerCancelBtn').addEventListener('click', closeDrawer);
+      document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+      document.getElementById('drawerSaveBtn').addEventListener('click', drawerSave);
+      document.getElementById('drawerDeleteBtn').addEventListener('click', drawerDeletePerson);
+      document.getElementById('drawerBackBtn').addEventListener('click', function(){ const pid=this._personId; if(pid) openDrawer('edit',pid); });
     </script>
   </body>
 </html>

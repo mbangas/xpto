@@ -67,7 +67,8 @@
     <!-- ── Right drawer ── -->
     <div class="drawer" id="personDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
       <div class="drawer-header">
-        <h2 id="drawerTitle">Detalhes da Pessoa</h2>
+        <button class="btn btn-ghost btn-sm" id="drawerBackBtn" style="display:none;padding:2px 6px;margin-right:4px;" title="Voltar"><i class="mdi mdi-arrow-left"></i></button>
+        <h2 id="drawerTitle" style="flex:1;">Detalhes da Pessoa</h2>
         <button class="drawer-close" id="drawerCloseBtn" aria-label="Fechar painel"><i class="mdi mdi-close"></i></button>
       </div>
       <!-- Person identity strip -->
@@ -956,6 +957,14 @@
       function savePeople(arr){ localStorage.setItem('people:myLineage', JSON.stringify(arr)); }
 
       function openDrawer(mode, personId){
+        // restore normal drawer state (in case coming back from section view)
+        const _footer = document.querySelector('.drawer-footer');
+        if(_footer) _footer.style.display = '';
+        const _backBtn = document.getElementById('drawerBackBtn');
+        if(_backBtn){ _backBtn.style.display = 'none'; _backBtn._personId = null; }
+        const _phdr = document.getElementById('drawerPersonHeader');
+        if(_phdr) _phdr.style.display = '';
+
         _drawerMode = mode;
         _drawerPersonId = personId ? String(personId) : null;
         const people = getPeople();
@@ -1034,7 +1043,7 @@
           '</div>',
           '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
           '<div><textarea id="df_notes" rows="3" placeholder="Notas...">' + esc(notes) + '</textarea></div>',
-          person ? '<div style="margin-top:6px;"><a href="pessoa-detalhe.html?id=' + encodeURIComponent(person.id) + '" style="color:var(--accent);font-size:0.82rem;"><i class="mdi mdi-open-in-new"></i> Ver detalhe completo (eventos, relações, fotos)</a></div>' : ''
+          person ? '<div style="margin-top:6px;display:flex;gap:10px;align-items:center;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Relações</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + person.id + '\', \'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button></div>' : ''
         ].join('');
 
         drawer.classList.add('open');
@@ -1048,6 +1057,118 @@
       function closeDrawer(){
         document.getElementById('personDrawer').classList.remove('open');
         document.getElementById('drawerOverlay').classList.remove('open');
+      }
+
+      // ── Section view (Relações / Eventos) inside the drawer ────────────
+      let _drawerCurrentSection = null; // { personId, section }
+      function openDrawerSection(personId, section){
+        const people = getPeople();
+        const person = people.find(p => String(p.id) === String(personId));
+        if(!person) return;
+
+        // hide edit footer & identity strip
+        const footer = document.querySelector('.drawer-footer');
+        if(footer) footer.style.display = 'none';
+        const phdr = document.getElementById('drawerPersonHeader');
+        if(phdr) phdr.style.display = 'none';
+
+        // show back button and update title
+        const backBtn = document.getElementById('drawerBackBtn');
+        if(backBtn){
+          backBtn.style.display = '';
+          backBtn._personId = String(personId);
+        }
+        const sectionLabel = section === 'relacoes' ? 'Relações' : 'Eventos';
+        const personName = (((person.firstName||'')+' '+(person.lastName||'')).trim()) || (person.name||'');
+        document.getElementById('drawerTitle').textContent = sectionLabel + ' — ' + personName;
+
+        _drawerCurrentSection = { personId: String(personId), section };
+        // render content
+        const body = document.getElementById('drawerBody');
+        body.innerHTML = section === 'relacoes'
+          ? _renderDrawerRelations(String(personId), people)
+          : _renderDrawerEvents(String(personId));
+      }
+
+      function _esc(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+      function _renderDrawerEvents(personId){
+        const evs = getEvents().filter(ev => String(ev.personId) === personId && !ev.deletedAt);
+        if(!evs.length) return '<div style="color:#888;padding:12px 0;">Nenhum evento cadastrado.</div>';
+        const typeLabels = { BIRTH:'Nascimento', BAPTISM:'Batismo', DEATH:'Óbito', MARRIAGE:'Casamento', DIVORCE:'Divórcio', ADOPTION:'Adoção', CUSTOM:'Outro' };
+        function fmtDate(d){ if(!d) return ''; const parts = d.split(/[-T]/); return parts.length >= 3 ? parts[2]+'/'+parts[1]+'/'+parts[0] : d; }
+        let html = '<div class="mini-list">';
+        evs.forEach(ev => {
+          const label = typeLabels[(ev.type||'').toUpperCase()] || ev.type || '';
+          html += `<div class="mini-card" style="padding:10px 12px;">`
+            + `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">`
+            + `<div style="flex:1;">`
+            + `<span style="font-weight:600;font-size:0.9rem;">${_esc(label)}</span>`
+            + `<span style="color:#888;font-size:0.82rem;margin-left:8px;">${_esc(fmtDate(ev.date||''))}</span>`
+            + `</div>`
+            + `<button onclick="_drawerDeleteEvent('${_esc(ev.id)}','${_esc(personId)}')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;line-height:1;flex-shrink:0;"><i class="mdi mdi-trash-can-outline"></i></button>`
+            + `</div>`
+            + (ev.location ? `<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; ${_esc(ev.location)}</div>` : '')
+            + (ev.notes   ? `<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">${_esc(ev.notes)}</div>` : '')
+            + `</div>`;
+        });
+        html += '</div>';
+        return html;
+      }
+
+      function _drawerDeleteEvent(eventId, personId){
+        if(!confirm('Apagar este evento?')) return;
+        let events = getEvents();
+        events = events.map(ev => ev.id === eventId ? { ...ev, deletedAt: new Date().toISOString() } : ev);
+        localStorage.setItem('events:myLineage', JSON.stringify(events));
+        const body = document.getElementById('drawerBody');
+        if(body) body.innerHTML = _renderDrawerEvents(personId);
+      }
+
+      function _renderDrawerRelations(personId, people){
+        let relations = [];
+        try{ relations = JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const rels = relations.filter(r => r && String(r.from) === personId);
+        if(!rels.length) return '<div style="color:#888;padding:12px 0;">Nenhuma relação cadastrada.</div>';
+        const typeDesc = { siblin:'Irmão / Irmã', ancestor:'Pai / Mãe', child:'Filho(a)', mate:'Companheiro(a)' };
+        let html = '<div class="mini-list">';
+        rels.forEach(r => {
+          const p = people.find(x => x.id === r.to);
+          let desc = typeDesc[r.type] || r.type || '';
+          if(p){
+            const g = ((p.gender||'')+'').toLowerCase();
+            const isFem = g==='female'||g==='feminino'||g==='f';
+            const isMal = g==='male'||g==='masculino'||g==='m';
+            if(desc.includes('Filho')) desc = isFem ? 'Filha' : isMal ? 'Filho' : 'Filho(a)';
+            if(desc.includes('Pai')||desc.includes('Mãe')) desc = isFem ? 'Mãe' : isMal ? 'Pai' : 'Pai / Mãe';
+            if(desc.toLowerCase().includes('compan')||desc.includes('mate')) desc = isFem ? 'Companheira' : isMal ? 'Companheiro' : 'Companheiro(a)';
+            if(desc.includes('Irm')) desc = isFem ? 'Irmã' : isMal ? 'Irmão' : 'Irmão / Irmã';
+          }
+          const name = p ? (((p.firstName||'')+' '+(p.lastName||'')).trim()) : r.to;
+          const toEsc = _esc(r.to);
+          const typeEsc = _esc(r.type);
+          html += `<div class="mini-card" style="padding:10px 12px;">`
+            + `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">`
+            + `<div style="flex:1;">`
+            + `<span style="font-weight:600;font-size:0.9rem;">${_esc(name)}</span>`
+            + `<span style="color:#aaa;font-size:0.82rem;margin-left:8px;">${_esc(desc)}</span>`
+            + `</div>`
+            + `<button onclick="_drawerDeleteRelation('${_esc(personId)}','${toEsc}','${typeEsc}')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;line-height:1;flex-shrink:0;"><i class="mdi mdi-trash-can-outline"></i></button>`
+            + `</div>`
+            + `</div>`;
+        });
+        html += '</div>';
+        return html;
+      }
+
+      function _drawerDeleteRelation(fromId, toId, relType){
+        if(!confirm('Apagar esta relação?')) return;
+        let relations = [];
+        try{ relations = JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        relations = relations.filter(r => !(String(r.from)===String(fromId) && String(r.to)===String(toId) && String(r.type)===String(relType)));
+        localStorage.setItem('relations:myLineage', JSON.stringify(relations));
+        const body = document.getElementById('drawerBody');
+        if(body) body.innerHTML = _renderDrawerRelations(fromId, getPeople());
       }
 
       function drawerSave(){
@@ -1116,6 +1237,10 @@
         document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
         document.getElementById('drawerSaveBtn').addEventListener('click', drawerSave);
         document.getElementById('drawerDeleteBtn').addEventListener('click', drawerDelete);
+        document.getElementById('drawerBackBtn').addEventListener('click', function(){
+          const pid = this._personId;
+          if(pid) openDrawer('edit', pid);
+        });
       });
     </script>
   </body>

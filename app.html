@@ -103,6 +103,36 @@
       </main>
     </div>
 
+    <!-- ── Right drawer overlay ── -->
+    <div class="drawer-overlay" id="drawerOverlay"></div>
+
+    <!-- ── Right drawer ── -->
+    <div class="drawer" id="personDrawer" role="dialog" aria-modal="true" aria-labelledby="drawerTitle">
+      <div class="drawer-header">
+        <button class="btn btn-ghost btn-sm" id="drawerBackBtn" style="display:none;padding:2px 6px;margin-right:4px;" title="Voltar"><i class="mdi mdi-arrow-left"></i></button>
+        <h2 id="drawerTitle" style="flex:1;">Detalhes da Pessoa</h2>
+        <button class="drawer-close" id="drawerCloseBtn" aria-label="Fechar painel"><i class="mdi mdi-close"></i></button>
+      </div>
+      <div class="drawer-person-header" id="drawerPersonHeader">
+        <div class="drawer-avatar" id="drawerAvatar"></div>
+        <div>
+          <div class="drawer-person-name" id="drawerPersonName">—</div>
+          <div class="drawer-person-sub" id="drawerPersonSub"></div>
+        </div>
+        <div class="drawer-person-actions">
+          <a id="drawerDetailLink" href="#" class="btn btn-ghost btn-sm" title="Abrir detalhe completo">
+            <i class="mdi mdi-open-in-new"></i>
+          </a>
+        </div>
+      </div>
+      <div class="drawer-body" id="drawerBody"></div>
+      <div class="drawer-footer">
+        <button class="btn btn-danger btn-sm" id="drawerDeleteBtn"><i class="mdi mdi-delete-outline"></i> Apagar</button>
+        <button class="btn btn-ghost btn-sm" id="drawerCancelBtn">Cancelar</button>
+        <button class="btn btn-sm" id="drawerSaveBtn"><i class="mdi mdi-content-save-outline"></i> Guardar</button>
+      </div>
+    </div>
+
     <script>
             // Novo controle de exibição da ficha
             const formPanel = document.getElementById('formPanel');
@@ -672,7 +702,7 @@
         if (!id) return;
         // If it's the person link or edit: open edit; detail: open detail page; del: soft delete
         if (el.classList.contains('edit') || el.classList.contains('person-link')) {
-          editPerson(id);
+          openDrawer('edit', id);
         } else if (el.classList.contains('detail')) {
           window.location.href = 'pessoa-detalhe.html?id=' + encodeURIComponent(id);
         } else if (el.classList.contains('tree-focus')) {
@@ -710,6 +740,236 @@
       }
 
       renderTable();
+
+      // ═══════════════════════════════════════════════
+      //  DRAWER — inline person editor (same as árvore)
+      // ═══════════════════════════════════════════════
+      let _drawerPersonId = null;
+      let _drawerMode = 'edit';
+
+      function getPhotos(){ try{ const raw = localStorage.getItem('photos:myLineage'); return raw ? JSON.parse(raw) : []; }catch(e){ return []; } }
+      function getPhotoRelations(){ try{ const raw = localStorage.getItem('photoRelations:myLineage'); return raw ? JSON.parse(raw) : {}; }catch(e){ return {}; } }
+      function getThumbnailForPerson(personId){ try{ const rels = getPhotoRelations(); const photos = getPhotos(); const ids = rels[personId] || []; if(Array.isArray(ids) && ids.length){ for(const id of ids){ const ph = photos.find(p=>String(p.id)===String(id)); if(ph){ return ph.originalDataUrl || ph.dataUrl || null; } } } return null; }catch(e){ return null; } }
+
+      function _esc(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+
+      function openDrawer(mode, personId){
+        const _footer = document.querySelector('.drawer-footer');
+        if(_footer) _footer.style.display = '';
+        const _backBtn = document.getElementById('drawerBackBtn');
+        if(_backBtn){ _backBtn.style.display = 'none'; _backBtn._personId = null; }
+        const _phdr = document.getElementById('drawerPersonHeader');
+        if(_phdr) _phdr.style.display = '';
+        _drawerMode = mode;
+        _drawerPersonId = personId ? String(personId) : null;
+        const people = loadPeople();
+        const person = personId ? people.find(p=>String(p.id)===String(personId)) : null;
+        const drawer  = document.getElementById('personDrawer');
+        const overlay = document.getElementById('drawerOverlay');
+        document.getElementById('drawerTitle').textContent = mode === 'create' ? 'Nova Pessoa' : 'Editar Pessoa';
+        const nameEl = document.getElementById('drawerPersonName');
+        const subEl  = document.getElementById('drawerPersonSub');
+        const avatarEl = document.getElementById('drawerAvatar');
+        const detailLink = document.getElementById('drawerDetailLink');
+        if(person){
+          const fullName = (((person.firstName||'')+' '+(person.lastName||'')).trim()) || '(sem nome)';
+          nameEl.textContent = fullName;
+          let sub = [];
+          const evAll = (function(){ try{ return JSON.parse(localStorage.getItem('events:myLineage')||'[]'); }catch(e){ return []; } })();
+          const evB = evAll.find(e=>String(e.personId)===String(person.id)&&(e.type==='BIRTH'||e.type==='birth')&&!e.deletedAt);
+          if(evB&&evB.date) sub.push('\u2605 '+evB.date);
+          const evD = evAll.find(e=>String(e.personId)===String(person.id)&&(e.type==='DEATH'||e.type==='death')&&!e.deletedAt);
+          if(evD&&evD.date) sub.push('\u271D '+evD.date);
+          subEl.textContent = sub.join('  ·  ');
+          const thumb = getThumbnailForPerson(person.id);
+          if(thumb){ avatarEl.style.backgroundImage='url('+thumb+')'; avatarEl.style.backgroundSize='cover'; avatarEl.style.backgroundPosition='center'; }
+          else{ avatarEl.style.backgroundImage=''; const g=(person.gender||'').toLowerCase(); avatarEl.style.background=(g==='female'||g==='feminino'||g==='f')?'#e26aa6':(g==='male'||g==='masculino'||g==='m')?'#4493f8':'#9aa0a6'; }
+          detailLink.href='pessoa-detalhe.html?id='+encodeURIComponent(person.id);
+          detailLink.style.display='';
+        } else {
+          nameEl.textContent='Nova Pessoa'; subEl.textContent='';
+          avatarEl.style.backgroundImage=''; avatarEl.style.background='var(--bg-surface-2)';
+          detailLink.style.display='none';
+        }
+        const body = document.getElementById('drawerBody');
+        const firstName = person?(person.firstName||''):'';
+        const lastName  = person?(person.lastName||''):'';
+        const gender    = person?(person.gender||''):'';
+        const notes     = person?(person.notes||''):'';
+        body.innerHTML = [
+          '<div class="drawer-section-label">Identidade</div>',
+          '<div class="form-row">',
+            '<div><label>Primeiro nome</label><input type="text" id="df_firstName" value="'+_esc(firstName)+'" placeholder="Nome" /></div>',
+            '<div><label>Apelido</label><input type="text" id="df_lastName" value="'+_esc(lastName)+'" placeholder="Apelido" /></div>',
+          '</div>',
+          '<div><label>Género</label>',
+            '<select id="df_gender">',
+              '<option value=""'+(!gender?'selected':'')+'>​(n/a)</option>',
+              '<option value="male"'+(gender==='male'||gender==='masculino'||gender==='m'?'selected':'')+'>Masculino</option>',
+              '<option value="female"'+(gender==='female'||gender==='feminino'||gender==='f'?'selected':'')+'>Feminino</option>',
+            '</select></div>',
+          '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
+          '<div><textarea id="df_notes" rows="3" placeholder="Notas...">'+_esc(notes)+'</textarea></div>',
+          person ? '<div style="margin-top:6px;display:flex;gap:10px;align-items:center;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Relações</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button></div>' : ''
+        ].join('');
+        drawer.classList.add('open');
+        overlay.classList.add('open');
+        setTimeout(()=>{ const fi=document.getElementById('df_firstName'); if(fi) fi.focus(); }, 50);
+      }
+
+      function closeDrawer(){
+        document.getElementById('personDrawer').classList.remove('open');
+        document.getElementById('drawerOverlay').classList.remove('open');
+      }
+
+      function openDrawerSection(personId, section){
+        const people = loadPeople();
+        const person = people.find(p=>String(p.id)===String(personId));
+        if(!person) return;
+        const footer = document.querySelector('.drawer-footer');
+        if(footer) footer.style.display='none';
+        const phdr = document.getElementById('drawerPersonHeader');
+        if(phdr) phdr.style.display='none';
+        const backBtn = document.getElementById('drawerBackBtn');
+        if(backBtn){ backBtn.style.display=''; backBtn._personId=String(personId); }
+        const sectionLabel = section==='relacoes'?'Relações':'Eventos';
+        const personName = (((person.firstName||'')+' '+(person.lastName||'')).trim())||'';
+        document.getElementById('drawerTitle').textContent = sectionLabel+' — '+personName;
+        const body = document.getElementById('drawerBody');
+        body.innerHTML = section==='relacoes' ? _renderDrawerRelations(String(personId), people) : _renderDrawerEvents(String(personId));
+      }
+
+      function _drawerGetEvents(){ try{ return JSON.parse(localStorage.getItem('events:myLineage')||'[]'); }catch(e){ return []; } }
+
+      function _renderDrawerEvents(personId){
+        const evs = _drawerGetEvents().filter(ev=>String(ev.personId)===personId&&!ev.deletedAt);
+        const typeLabels={BIRTH:'Nascimento',BAPTISM:'Batismo',DEATH:'Óbito',MARRIAGE:'Casamento',DIVORCE:'Divórcio',ADOPTION:'Adoção',CUSTOM:'Outro'};
+        function fmtDate(d){ if(!d) return ''; const p=d.split(/[-T]/); return p.length>=3?p[2]+'/'+p[1]+'/'+p[0]:d; }
+        let html=`<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddEvent('${_esc(personId)}')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Evento</button></div>`;
+        if(!evs.length){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhum evento cadastrado.</div>'; return html; }
+        html+='<div class="mini-list">';
+        evs.forEach(ev=>{
+          const label=typeLabels[(ev.type||'').toUpperCase()]||ev.type||'';
+          html+=`<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">${_esc(label)}</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">${_esc(fmtDate(ev.date||''))}</span></div><button onclick="_drawerDeleteEvent('${_esc(ev.id)}','${_esc(personId)}')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;line-height:1;flex-shrink:0;"><i class="mdi mdi-trash-can-outline"></i></button></div>${ev.location?`<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; ${_esc(ev.location)}</div>`:''} ${ev.notes?`<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">${_esc(ev.notes)}</div>`:''}</div>`;
+        });
+        html+='</div>';
+        return html;
+      }
+
+      function _drawerDeleteEvent(eventId, personId){
+        if(!confirm('Apagar este evento?')) return;
+        let events=_drawerGetEvents();
+        events=events.map(ev=>ev.id===eventId?{...ev,deletedAt:new Date().toISOString()}:ev);
+        localStorage.setItem('events:myLineage',JSON.stringify(events));
+        const body=document.getElementById('drawerBody');
+        if(body) body.innerHTML=_renderDrawerEvents(personId);
+      }
+
+      function _renderDrawerRelations(personId, people){
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const rels=relations.filter(r=>r&&String(r.from)===personId);
+        const typeDesc={siblin:'Irmão / Irmã',ancestor:'Pai / Mãe',child:'Filho(a)',mate:'Companheiro(a)'};
+        let html=`<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddRelation('${_esc(personId)}')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Relação</button></div>`;
+        if(!rels.length){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhuma relação cadastrada.</div>'; return html; }
+        html+='<div class="mini-list">';
+        rels.forEach(r=>{
+          const p=people.find(x=>x.id===r.to);
+          let desc=typeDesc[r.type]||r.type||'';
+          if(p){ const g=((p.gender||'')+'').toLowerCase(); const isFem=g==='female'||g==='feminino'||g==='f'; const isMal=g==='male'||g==='masculino'||g==='m'; if(desc.includes('Filho')) desc=isFem?'Filha':isMal?'Filho':'Filho(a)'; if(desc.includes('Pai')||desc.includes('Mãe')) desc=isFem?'Mãe':isMal?'Pai':'Pai / Mãe'; if(desc.toLowerCase().includes('compan')||desc.includes('mate')) desc=isFem?'Companheira':isMal?'Companheiro':'Companheiro(a)'; if(desc.includes('Irm')) desc=isFem?'Irmã':isMal?'Irmão':'Irmão / Irmã'; }
+          const name=p?(((p.firstName||'')+' '+(p.lastName||'')).trim()):r.to;
+          html+=`<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">${_esc(name)}</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">${_esc(desc)}</span></div><button onclick="_drawerDeleteRelation('${_esc(personId)}','${_esc(r.to)}','${_esc(r.type)}')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;line-height:1;flex-shrink:0;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>`;
+        });
+        html+='</div>';
+        return html;
+      }
+
+      function _drawerShowAddEvent(personId){
+        const body=document.getElementById('drawerBody');
+        if(!body) return;
+        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Novo Evento</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="addEvType" style="width:100%;"><option value="BIRTH">Nascimento</option><option value="BAPTISM">Batismo</option><option value="DEATH">Óbito</option><option value="MARRIAGE">Casamento</option><option value="DIVORCE">Divórcio</option><option value="ADOPTION">Adoção</option><option value="CUSTOM">Outro</option></select></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><input id="addEvDate" type="date" style="width:100%;" /></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="addEvLocation" type="text" placeholder="Local do evento" style="width:100%;" /></div><div class="form-group" style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="addEvNotes" rows="3" placeholder="Notas adicionais" style="width:100%;resize:vertical;"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection('${_esc(personId)}','eventos')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewEvent('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
+      }
+
+      function _drawerSaveNewEvent(personId){
+        const type=(document.getElementById('addEvType')||{}).value||'CUSTOM';
+        const date=(document.getElementById('addEvDate')||{}).value||'';
+        const location=((document.getElementById('addEvLocation')||{}).value||'').trim();
+        const notes=((document.getElementById('addEvNotes')||{}).value||'').trim();
+        let events=_drawerGetEvents();
+        const newEv={id:'ev_'+Date.now(),personId:String(personId),type:type.toUpperCase()};
+        if(date) newEv.date=date;
+        if(location) newEv.location=location;
+        if(notes) newEv.notes=notes;
+        events.push(newEv);
+        localStorage.setItem('events:myLineage',JSON.stringify(events));
+        openDrawerSection(personId,'eventos');
+      }
+
+      function _drawerShowAddRelation(personId){
+        const people=loadPeople().filter(p=>!p.deletedAt&&String(p.id)!==String(personId));
+        const body=document.getElementById('drawerBody');
+        if(!body) return;
+        const opts=people.map(p=>{ const name=(((p.firstName||'')+' '+(p.lastName||'')).trim())||p.id; return `<option value="${_esc(String(p.id))}">${_esc(name)}</option>`; }).join('');
+        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Nova Relação</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo de relação</label><select id="addRelType" style="width:100%;"><option value="ancestor">Pai / Mãe</option><option value="child">Filho(a)</option><option value="mate">Companheiro(a)</option><option value="siblin">Irmão / Irmã</option></select></div><div class="form-group" style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pessoa</label><select id="addRelTo" style="width:100%;">${opts||'<option disabled>Nenhuma pessoa disponível</option>'}</select></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection('${_esc(personId)}','relacoes')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewRelation('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
+      }
+
+      function _drawerSaveNewRelation(personId){
+        const toId=(document.getElementById('addRelTo')||{}).value||'';
+        const type=(document.getElementById('addRelType')||{}).value||'mate';
+        if(!toId){ alert('Seleciona uma pessoa.'); return; }
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const already=relations.some(r=>String(r.from)===String(personId)&&String(r.to)===String(toId)&&String(r.type)===String(type));
+        if(already){ alert('Esta relação já existe.'); return; }
+        relations.push({from:String(personId),to:String(toId),type});
+        localStorage.setItem('relations:myLineage',JSON.stringify(relations));
+        openDrawerSection(personId,'relacoes');
+      }
+
+      function _drawerDeleteRelation(fromId,toId,relType){
+        if(!confirm('Apagar esta relação?')) return;
+        let relations=[];
+        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        relations=relations.filter(r=>!(String(r.from)===String(fromId)&&String(r.to)===String(toId)&&String(r.type)===String(relType)));
+        localStorage.setItem('relations:myLineage',JSON.stringify(relations));
+        const body=document.getElementById('drawerBody');
+        if(body) body.innerHTML=_renderDrawerRelations(fromId,loadPeople());
+      }
+
+      function drawerSave(){
+        const firstName=(document.getElementById('df_firstName')||{}).value||'';
+        const lastName=(document.getElementById('df_lastName')||{}).value||'';
+        const gender=(document.getElementById('df_gender')||{}).value||'';
+        const notes=(document.getElementById('df_notes')||{}).value||'';
+        let people=loadPeople();
+        if(_drawerMode==='create'){
+          const newId='p_'+Date.now();
+          people.push({id:newId,firstName:firstName.trim(),lastName:lastName.trim(),gender,notes,createdAt:new Date().toISOString()});
+          savePeople(people);
+        } else {
+          const idx=people.findIndex(p=>String(p.id)===String(_drawerPersonId));
+          if(idx!==-1){ people[idx]=Object.assign({},people[idx],{firstName:firstName.trim(),lastName:lastName.trim(),gender,notes,updatedAt:new Date().toISOString()}); savePeople(people); }
+        }
+        closeDrawer();
+        renderTable();
+      }
+
+      function drawerDeletePerson(){
+        if(!_drawerPersonId) return;
+        if(!confirm('Apagar esta pessoa?')) return;
+        let people=loadPeople();
+        const idx=people.findIndex(p=>String(p.id)===String(_drawerPersonId));
+        if(idx!==-1){ people[idx]=Object.assign({},people[idx],{deletedAt:new Date().toISOString()}); savePeople(people); }
+        closeDrawer();
+        renderTable();
+      }
+
+      document.getElementById('drawerCloseBtn').addEventListener('click', closeDrawer);
+      document.getElementById('drawerCancelBtn').addEventListener('click', closeDrawer);
+      document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
+      document.getElementById('drawerSaveBtn').addEventListener('click', drawerSave);
+      document.getElementById('drawerDeleteBtn').addEventListener('click', drawerDeletePerson);
+      document.getElementById('drawerBackBtn').addEventListener('click', function(){ const pid=this._personId; if(pid) openDrawer('edit',pid); });
     </script>
   </body>
 </html>

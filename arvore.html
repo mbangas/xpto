@@ -1083,10 +1083,11 @@
 
       function _renderDrawerEvents(personId){
         const evs = getEvents().filter(ev => String(ev.personId) === personId && !ev.deletedAt);
-        if(!evs.length) return '<div style="color:#888;padding:12px 0;">Nenhum evento cadastrado.</div>';
         const typeLabels = { BIRTH:'Nascimento', BAPTISM:'Batismo', DEATH:'Óbito', MARRIAGE:'Casamento', DIVORCE:'Divórcio', ADOPTION:'Adoção', CUSTOM:'Outro' };
         function fmtDate(d){ if(!d) return ''; const parts = d.split(/[-T]/); return parts.length >= 3 ? parts[2]+'/'+parts[1]+'/'+parts[0] : d; }
-        let html = '<div class="mini-list">';
+        let html = `<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddEvent('${_esc(personId)}')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Evento</button></div>`;
+        if(!evs.length){ html += '<div style="color:#888;padding:4px 0 12px;">Nenhum evento cadastrado.</div>'; return html; }
+        html += '<div class="mini-list">';
         evs.forEach(ev => {
           const label = typeLabels[(ev.type||'').toUpperCase()] || ev.type || '';
           html += `<div class="mini-card" style="padding:10px 12px;">`
@@ -1118,9 +1119,10 @@
         let relations = [];
         try{ relations = JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
         const rels = relations.filter(r => r && String(r.from) === personId);
-        if(!rels.length) return '<div style="color:#888;padding:12px 0;">Nenhuma relação cadastrada.</div>';
         const typeDesc = { siblin:'Irmão / Irmã', ancestor:'Pai / Mãe', child:'Filho(a)', mate:'Companheiro(a)' };
-        let html = '<div class="mini-list">';
+        let html = `<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddRelation('${_esc(personId)}')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Relação</button></div>`;
+        if(!rels.length){ html += '<div style="color:#888;padding:4px 0 12px;">Nenhuma relação cadastrada.</div>'; return html; }
+        html += '<div class="mini-list">';
         rels.forEach(r => {
           const p = people.find(x => x.id === r.to);
           let desc = typeDesc[r.type] || r.type || '';
@@ -1148,6 +1150,106 @@
         });
         html += '</div>';
         return html;
+      }
+
+      // ── Inline add-event form ──────────────────────────────────────────
+      function _drawerShowAddEvent(personId){
+        const body = document.getElementById('drawerBody');
+        if(!body) return;
+        body.innerHTML = `
+          <div style="padding:4px 0 8px;">
+            <h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Novo Evento</h3>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label>
+              <select id="addEvType" class="form-control" style="width:100%;">
+                <option value="BIRTH">Nascimento</option>
+                <option value="BAPTISM">Batismo</option>
+                <option value="DEATH">Óbito</option>
+                <option value="MARRIAGE">Casamento</option>
+                <option value="DIVORCE">Divórcio</option>
+                <option value="ADOPTION">Adoção</option>
+                <option value="CUSTOM">Outro</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label>
+              <input id="addEvDate" type="date" class="form-control" style="width:100%;" />
+            </div>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label>
+              <input id="addEvLocation" type="text" class="form-control" placeholder="Local do evento" style="width:100%;" />
+            </div>
+            <div class="form-group" style="margin-bottom:14px;">
+              <label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label>
+              <textarea id="addEvNotes" class="form-control" rows="3" placeholder="Notas adicionais" style="width:100%;resize:vertical;"></textarea>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button class="btn btn-ghost btn-sm" onclick="openDrawerSection('${_esc(personId)}','eventos')">Cancelar</button>
+              <button class="btn btn-sm" onclick="_drawerSaveNewEvent('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button>
+            </div>
+          </div>`;
+      }
+
+      function _drawerSaveNewEvent(personId){
+        const type     = (document.getElementById('addEvType')||{}).value || 'CUSTOM';
+        const date     = (document.getElementById('addEvDate')||{}).value || '';
+        const location = ((document.getElementById('addEvLocation')||{}).value || '').trim();
+        const notes    = ((document.getElementById('addEvNotes')||{}).value || '').trim();
+        let events = [];
+        try{ events = JSON.parse(localStorage.getItem('events:myLineage')||'[]'); }catch(e){}
+        const newEv = { id: 'ev_' + Date.now(), personId: String(personId), type: type.toUpperCase() };
+        if(date)     newEv.date     = date;
+        if(location) newEv.location = location;
+        if(notes)    newEv.notes    = notes;
+        events.push(newEv);
+        localStorage.setItem('events:myLineage', JSON.stringify(events));
+        openDrawerSection(personId, 'eventos');
+      }
+
+      // ── Inline add-relation form ──────────────────────────────────────────
+      function _drawerShowAddRelation(personId){
+        const people = getPeople().filter(p => !p.deletedAt && String(p.id) !== String(personId));
+        const body = document.getElementById('drawerBody');
+        if(!body) return;
+        const opts = people.map(p => {
+          const name = (((p.firstName||'')+' '+(p.lastName||'')).trim()) || p.name || p.id;
+          return `<option value="${_esc(String(p.id))}">${_esc(name)}</option>`;
+        }).join('');
+        body.innerHTML = `
+          <div style="padding:4px 0 8px;">
+            <h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Nova Relação</h3>
+            <div class="form-group" style="margin-bottom:10px;">
+              <label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo de relação</label>
+              <select id="addRelType" class="form-control" style="width:100%;">
+                <option value="ancestor">Pai / Mãe</option>
+                <option value="child">Filho(a)</option>
+                <option value="mate">Companheiro(a)</option>
+                <option value="siblin">Irmão / Irmã</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:14px;">
+              <label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pessoa</label>
+              <select id="addRelTo" class="form-control" style="width:100%;">${opts||'<option disabled>Nenhuma pessoa disponível</option>'}</select>
+            </div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+              <button class="btn btn-ghost btn-sm" onclick="openDrawerSection('${_esc(personId)}','relacoes')">Cancelar</button>
+              <button class="btn btn-sm" onclick="_drawerSaveNewRelation('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button>
+            </div>
+          </div>`;
+      }
+
+      function _drawerSaveNewRelation(personId){
+        const toId  = (document.getElementById('addRelTo')||{}).value || '';
+        const type  = (document.getElementById('addRelType')||{}).value || 'mate';
+        if(!toId){ alert('Seleciona uma pessoa.'); return; }
+        let relations = [];
+        try{ relations = JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
+        const already = relations.some(r => String(r.from)===String(personId) && String(r.to)===String(toId) && String(r.type)===String(type));
+        if(already){ alert('Esta relação já existe.'); return; }
+        relations.push({ from: String(personId), to: String(toId), type });
+        localStorage.setItem('relations:myLineage', JSON.stringify(relations));
+        openDrawerSection(personId, 'relacoes');
+        renderGraph();
       }
 
       function _drawerDeleteRelation(fromId, toId, relType){

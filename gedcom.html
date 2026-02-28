@@ -267,10 +267,13 @@
           renderImportHistory();
 
           // Log to history
+          const _totalRecs = (result.stats.individuals || 0) + (result.stats.families || 0)
+            + (result.stats.sources || 0) + (result.stats.multimedia || 0)
+            + (result.stats.notes || 0) + (result.stats.repositories || 0);
           DB.addHistory([{
             ts: new Date().toISOString(),
-            action: 'GEDCOM importado',
-            detail: `${f.name} — ${result.stats.individuals} pessoas, ${result.stats.families} famílias`,
+            action: `GEDCOM importado — ${_totalRecs} registo${_totalRecs !== 1 ? 's' : ''}`,
+            detail: `${f.name}: ${result.stats.individuals} pessoas, ${result.stats.families} famílias`,
             category: 'gedcom'
           }]);
 

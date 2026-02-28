@@ -755,7 +755,9 @@
             img.src = src;
             img.title = m.title || '';
             img.style.cssText = 'width:72px;height:72px;object-fit:cover;border-radius:6px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);display:block;';
-            img.addEventListener('click', (function(mid, pid){ return function(){ window._drawerViewPhoto(mid, pid); }; })(m.id, personId));
+            (function(mid, pid){
+              img.onclick = function(ev){ ev.stopPropagation(); window._drawerViewPhoto(mid, pid); };
+            })(m.id, personId);
             wrap.appendChild(img);
           } else {
             var placeholder = document.createElement('div');
@@ -769,7 +771,9 @@
             placeholder.appendChild(iconEl);
             placeholder.appendChild(label);
             placeholder.title = 'Clique para carregar: ' + (src || '(sem nome)');
-            placeholder.addEventListener('click', (function(mid, pid){ return function(){ window._drawerLinkGedcomPhoto(mid, pid); }; })(m.id, personId));
+            (function(mid, pid){
+              placeholder.onclick = function(ev){ ev.stopPropagation(); window._drawerLinkGedcomPhoto(mid, pid); };
+            })(m.id, personId);
             wrap.appendChild(placeholder);
           }
 
@@ -895,16 +899,25 @@
       }
 
       window._drawerViewPhoto = function(mediaId, personId){
-        _drawerPhotoPersonId=personId||null;
-        if(personId){
-          const media=DB.getMultimediaForIndividual(personId);
-          _drawerPhotoList=media.map(function(m){ return m.id; });
-        } else {
-          _drawerPhotoList=[mediaId];
+        try {
+          _drawerPhotoPersonId=personId||null;
+          if(personId){
+            const media=DB.getMultimediaForIndividual(personId);
+            _drawerPhotoList=media.map(function(m){ return m.id; });
+          } else {
+            _drawerPhotoList=[mediaId];
+          }
+          if(!_drawerPhotoList.includes(mediaId)) _drawerPhotoList=[mediaId];
+          _loadPhotoIntoModal(mediaId);
+          // Move modal to body last-child so it's always on top of every stacking context
+          var modal = document.getElementById('drawerPhotoModal');
+          document.body.appendChild(modal);
+          modal.style.display = 'flex';
+          modal.style.zIndex = '2147483647';
+        } catch(e) {
+          alert('Erro ao abrir foto: ' + e.message);
+          console.error('[_drawerViewPhoto]', e);
         }
-        if(!_drawerPhotoList.includes(mediaId)) _drawerPhotoList=[mediaId];
-        _loadPhotoIntoModal(mediaId);
-        document.getElementById('drawerPhotoModal').style.display='flex';
       };
 
       window._drawerNavPhoto = function(dir){

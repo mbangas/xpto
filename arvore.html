@@ -355,13 +355,24 @@
 
       let f3ChartHandle=null;
 
-      function renderChart(startIndi){
+      function renderChart(startIndi, preserveView){
         const selectedType=getChartType();
 
         /* ── Donatso Family Chart ──────────────────────────────────────── */
         if(selectedType==='donatso'){
           document.getElementById('topolaWrap').style.display='none';
           const fcWrap=document.getElementById('familyChartWrap');
+
+          // Capture zoom/pan state before destroying the chart
+          let savedZoom=null;
+          if(preserveView){
+            const oldSvg=fcWrap.querySelector('svg.main_svg')||fcWrap.querySelector('svg');
+            if(oldSvg && oldSvg.__zoom){
+              const z=oldSvg.__zoom;
+              savedZoom={x:z.x, y:z.y, k:z.k};
+            }
+          }
+
           fcWrap.style.display='';
           fcWrap.innerHTML='';
           f3ChartHandle=null;
@@ -388,7 +399,18 @@
             });
             f3ChartHandle
               .updateMainId(startIndi)
-              .updateTree({initial:true, tree_position:'main_to_middle'});
+              .updateTree({initial:true, tree_position: savedZoom ? 'none' : 'main_to_middle'});
+            // Restore zoom/pan after the chart has settled
+            if(savedZoom){
+              requestAnimationFrame(function(){
+                const newSvg=fcWrap.querySelector('svg.main_svg')||fcWrap.querySelector('svg');
+                if(!newSvg) return;
+                const mainG=newSvg.querySelector('g');
+                if(mainG) mainG.setAttribute('transform','translate('+savedZoom.x+','+savedZoom.y+') scale('+savedZoom.k+')');
+                // Patch d3-zoom internal state so subsequent pan/zoom is coherent
+                newSvg.__zoom={x:savedZoom.x, y:savedZoom.y, k:savedZoom.k};
+              });
+            }
           }catch(err){
             console.error('Donatso render error:',err);
             fcWrap.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#e06060;font-size:14px;">Erro ao renderizar: '+_esc(err.message)+'</div>';
@@ -400,6 +422,9 @@
         document.getElementById('familyChartWrap').style.display='none';
         document.getElementById('topolaWrap').style.display='';
         f3ChartHandle=null;
+
+        // Snapshot current viewbox before re-rendering so we can restore it
+        const savedVb = preserveView ? {..._vb} : null;
 
         const json=buildTopolaJson();
         const svgEl=document.getElementById('topolaSvg');
@@ -430,10 +455,15 @@
           const info=chartHandle.render({startIndi:startIndi||undefined});
           _chartSize=info.size;
           _focusPt=[info.origin[0], info.origin[1]];
-          // Initial view: 1:1 scale centred on focus person
-          const wrap=document.getElementById('topolaWrap');
-          const W=wrap.clientWidth||900, H=wrap.clientHeight||600;
-          _vb={x:_focusPt[0]-W/2, y:_focusPt[1]-H/2, w:W, h:H};
+          if(savedVb){
+            // Preserve the exact viewbox the user had before saving
+            _vb=savedVb;
+          } else {
+            // Initial view: 1:1 scale centred on focus person
+            const wrap=document.getElementById('topolaWrap');
+            const W=wrap.clientWidth||900, H=wrap.clientHeight||600;
+            _vb={x:_focusPt[0]-W/2, y:_focusPt[1]-H/2, w:W, h:H};
+          }
           _applyViewBox();
         }catch(err){
           console.error('Topola render error:',err);
@@ -590,7 +620,7 @@
           '<div><label>Género</label><select id="df_gender"><option value=""'+(!sex?' selected':'')+'>​(n/a)</option><option value="M"'+(sex==='M'?' selected':'')+'>Masculino</option><option value="F"'+(sex==='F'?' selected':'')+'>Feminino</option><option value="X"'+(sex==='X'?' selected':'')+'>Outro</option></select></div>',
           '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
           '<div><textarea id="df_notes" rows="3" placeholder="Notas...">'+_esc(notes)+'</textarea></div>',
-          indi?'<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Relações</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button></div>':''
+          indi?'<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Relações</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button></div><div style="margin-top:10px;"><button class="btn btn-sm" style="font-size:0.82rem;gap:5px;" onclick="openAddRelativeForm(\''+indi.id+'\')" title="Adicionar familiar ligado a esta pessoa"><i class="mdi mdi-account-plus-outline"></i> Adicionar Parente</button></div>':''
         ].join('');
         document.getElementById('personDrawer').classList.add('open');
         document.getElementById('drawerOverlay').classList.add('open');
@@ -656,6 +686,202 @@
         return html;
       }
 
+      /* ── Add Relative form ─────────────────────────────────────────────────── */
+      // Relationships that fully imply gender — no need to ask
+      const _REL_GENDER = {pai:'M', mae:'F', irmao:'M', irma:'F'};
+
+      /**
+       * Robustly find the family in which `personId` appears as a child.
+       * indi.famc is the canonical reference, but data imported from GEDCOM or
+       * edited via app.html may only update the family's children[] without
+       * back-filling indi.famc.  If we only trust indi.famc we risk creating a
+       * second parent-family and corrupting the tree.
+       * When the family is found via scan we also repair indi.famc in-place.
+       */
+      function _resolveParentFamId(personId){
+        const indi = DB.getIndividual(personId); if(!indi) return null;
+        // 1. Canonical field
+        if(indi.famc && DB.getFamily(indi.famc)) return indi.famc;
+        // 2. Scan all families for one that lists this person as a child
+        const fam = DB.getFamilies().find(f=>(f.children||[]).includes(personId));
+        if(!fam) return null;
+        // Repair the missing back-reference so future lookups are fast
+        DB.saveIndividual({ ...indi, famc: fam.id });
+        return fam.id;
+      }
+
+      function _nrpUpdateSexSection(relValue){
+        const section = document.getElementById('nrp_sex_section');
+        const sexSel  = document.getElementById('nrp_sex');
+        if(!section||!sexSel) return;
+        const implied = _REL_GENDER[relValue];
+        if(implied){
+          sexSel.value = implied;
+          section.style.display = 'none';   // gender is known — hide the field
+        } else {
+          sexSel.value = '';
+          section.style.display = '';        // show for filho / cônjuge
+        }
+      }
+
+      window.openAddRelativeForm = function(personId){
+        const indi = DB.getIndividual(personId); if(!indi) return;
+        const footer = document.querySelector('.drawer-footer'); if(footer) footer.style.display='none';
+        const phdr = document.getElementById('drawerPersonHeader'); if(phdr) phdr.style.display='none';
+        const backBtn = document.getElementById('drawerBackBtn');
+        if(backBtn){ backBtn.style.display=''; backBtn._personId=personId; }
+        document.getElementById('drawerTitle').textContent='Novo Parente de '+DB.getDisplayName(indi);
+
+        // Only offer Pai/Mãe when the person does NOT yet have a parent family
+        const hasParents = !!_resolveParentFamId(personId);
+
+        const body = document.getElementById('drawerBody');
+        body.innerHTML=[
+          '<div class="drawer-section-label">Grau de Parentesco</div>',
+          '<div><select id="nrp_rel" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid rgba(163,163,255,0.18);background:var(--bg-card);color:var(--text-main);font-size:0.95rem;">',
+          '<option value="filho">Filho(a)</option>',
+          hasParents ? '' : '<option value="pai">Pai</option>',
+          hasParents ? '' : '<option value="mae">Mãe</option>',
+          '<option value="conjuge">Cônjuge / Parceiro(a)</option>',
+          '<option value="irmao">Irmão</option>',
+          '<option value="irma">Irmã</option>',
+          '</select></div>',
+          '<div class="drawer-section-label" style="margin-top:12px;">Nome</div>',
+          '<div class="form-row">',
+            '<div><label>Primeiro nome</label><input type="text" id="nrp_first" placeholder="Nome" /></div>',
+            '<div><label>Apelido</label><input type="text" id="nrp_last" placeholder="Apelido" /></div>',
+          '</div>',
+          '<div id="nrp_sex_section">',
+            '<div class="drawer-section-label" style="margin-top:12px;">Género</div>',
+            '<div><select id="nrp_sex" style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid rgba(163,163,255,0.18);background:var(--bg-card);color:var(--text-main);font-size:0.95rem;"><option value="">(n/a)</option><option value="M">Masculino</option><option value="F">Feminino</option><option value="X">Outro</option></select></div>',
+          '</div>',
+          '<div style="margin-top:18px;display:flex;gap:10px;">',
+            '<button class="btn btn-sm" style="flex:1;" onclick="_saveNewRelative(\''+_esc(personId)+'\')" id="nrp_saveBtn"><i class="mdi mdi-content-save-outline"></i> Criar e Ligar</button>',
+            '<button class="btn btn-ghost btn-sm" onclick="openDrawer(\'edit\',\''+_esc(personId)+'\')" style="flex:0.4;">Cancelar</button>',
+          '</div>',
+          '<div id="nrp_msg" style="margin-top:8px;font-size:0.87rem;"></div>'
+        ].join('');
+
+        // Set initial state for the first option in the list
+        _nrpUpdateSexSection(document.getElementById('nrp_rel').value);
+
+        document.getElementById('nrp_rel').addEventListener('change', function(){
+          _nrpUpdateSexSection(this.value);
+        });
+
+        setTimeout(()=>{ const fi=document.getElementById('nrp_first'); if(fi) fi.focus(); },50);
+      };
+
+      window._saveNewRelative = function(sourcePersonId){
+        const relSelect = document.getElementById('nrp_rel');
+        const firstInput = document.getElementById('nrp_first');
+        const lastInput  = document.getElementById('nrp_last');
+        const sexSelect  = document.getElementById('nrp_sex');
+        const msgEl      = document.getElementById('nrp_msg');
+        if(!relSelect||!firstInput) return;
+        const rel   = relSelect.value;
+        const first = firstInput.value.trim();
+        const last  = lastInput ? lastInput.value.trim() : '';
+        const sex   = sexSelect ? sexSelect.value : '';
+        if(!first){ if(msgEl){ msgEl.style.color='#e06060'; msgEl.textContent='Insira pelo menos o primeiro nome.'; } return; }
+        if(msgEl){ msgEl.style.color=''; msgEl.textContent=''; }
+        const src = DB.getIndividual(sourcePersonId); if(!src) return;
+
+        // Helpers (operate on already-fetched objects, never re-fetch mid-operation)
+        function addChild(fam, childId){
+          const children = fam.children ? [...fam.children] : [];
+          if(!children.includes(childId)) children.push(childId);
+          DB.saveFamily({ ...fam, children });
+        }
+        function addFams(person, famId){
+          const fams = person.fams ? [...person.fams] : [];
+          if(!fams.includes(famId)) fams.push(famId);
+          DB.saveIndividual({ ...person, fams });
+        }
+
+        // ── Pre-compute the family id / slot so the new person is created
+        //    in ONE shot with famc/fams already correct, avoiding a two-step
+        //    create-then-update that can leave famc=null if the user navigates
+        //    away between the two async saves.
+
+        if(rel === 'filho'){
+          // Determine or create the parent family BEFORE creating the child
+          let fam = DB.getFamilies().find(f=>f.husb===src.id||f.wife===src.id);
+          let famIdForChild;
+          if(!fam){
+            // Placeholder family – no children yet (child id unknown at this point)
+            const slot = src.sex==='F' ? {wife:src.id} : {husb:src.id};
+            fam = DB.saveFamily({ ...slot, children:[] });
+            addFams(DB.getIndividual(src.id), fam.id);
+          }
+          famIdForChild = fam.id;
+          // Create child with famc already set in the same POST
+          const newPerson = DB.saveIndividual({ names:[{given:first,surname:last,type:'birth'}], sex:sex||'', notes:'', events:[], famc:famIdForChild });
+          const newId = newPerson.id;
+          // Now add to family children
+          addChild(DB.getFamily(famIdForChild), newId);
+
+        } else if(rel === 'pai'){
+          let famId = _resolveParentFamId(src.id);
+          if(!famId){
+            // Create family with source as child first (no parent yet)
+            const fam = DB.saveFamily({ children:[src.id] });
+            famId = fam.id;
+            DB.saveIndividual({ ...DB.getIndividual(src.id), famc: famId });
+          }
+          // Create new father with fams already set
+          const newPerson = DB.saveIndividual({ names:[{given:first,surname:last,type:'birth'}], sex:sex||'M', notes:'', events:[], fams:[famId] });
+          const newId = newPerson.id;
+          const fam = DB.getFamily(famId);
+          if(!fam.husb) DB.saveFamily({ ...fam, husb: newId });
+
+        } else if(rel === 'mae'){
+          let famId = _resolveParentFamId(src.id);
+          if(!famId){
+            const fam = DB.saveFamily({ children:[src.id] });
+            famId = fam.id;
+            DB.saveIndividual({ ...DB.getIndividual(src.id), famc: famId });
+          }
+          // Create new mother with fams already set
+          const newPerson = DB.saveIndividual({ names:[{given:first,surname:last,type:'birth'}], sex:sex||'F', notes:'', events:[], fams:[famId] });
+          const newId = newPerson.id;
+          const fam = DB.getFamily(famId);
+          if(!fam.wife) DB.saveFamily({ ...fam, wife: newId });
+
+        } else if(rel === 'conjuge'){
+          // Create new spouse first (no fams yet — family id unknown)
+          const newPerson = DB.saveIndividual({ names:[{given:first,surname:last,type:'birth'}], sex:sex||'', notes:'', events:[] });
+          const newId = newPerson.id;
+          let famData;
+          if(src.sex==='F') famData = { wife: src.id, husb: newId };
+          else              famData = { husb: src.id, wife: newId };
+          const fam = DB.saveFamily({ ...famData, children:[] });
+          addFams(DB.getIndividual(src.id), fam.id);
+          addFams(DB.getIndividual(newId), fam.id);
+
+        } else if(rel === 'irmao' || rel === 'irma'){
+          let famId = _resolveParentFamId(src.id);
+          if(!famId){
+            // Create family now; sibling will be added after we know its id
+            const fam = DB.saveFamily({ children:[src.id] });
+            famId = fam.id;
+            DB.saveIndividual({ ...DB.getIndividual(src.id), famc: famId });
+          }
+          // Create sibling with famc already set in the same POST
+          const newPerson = DB.saveIndividual({ names:[{given:first,surname:last,type:'birth'}], sex:sex||'', notes:'', events:[], famc:famId });
+          const newId = newPerson.id;
+          // Add to family children list
+          addChild(DB.getFamily(famId), newId);
+        }
+
+        // Go back to source person view and re-render chart
+        closeDrawer();
+        populateFocusSelect(sourcePersonId);
+        renderChart(sourcePersonId, true);
+        // Re-open source drawer so user can see result
+        setTimeout(()=>openDrawer('edit', sourcePersonId), 120);
+      };
+
       /* ── Photos section (minimal for tree) ─────────────────────────────── */
       function _renderPhotos(personId){
         const media=DB.getMultimediaForIndividual(personId);
@@ -675,6 +901,8 @@
         const surname=(document.getElementById('df_lastName')||{}).value||'';
         const sex=(document.getElementById('df_gender')||{}).value||'U';
         const notes=(document.getElementById('df_notes')||{}).value||'';
+        // Capture focus BEFORE the save so we can restore it after
+        const keepFocus = _getSelectedOrFocusId();
         if(_drawerMode==='create'){
           DB.saveIndividual({names:[{given:given.trim(),surname:surname.trim(),type:'birth'}],sex,notes,events:[]});
         } else if(_drawerPersonId){
@@ -682,16 +910,23 @@
           if(indi){indi.names=[{given:given.trim(),surname:surname.trim(),type:'birth'}];indi.sex=sex;indi.notes=notes;DB.saveIndividual(indi);}
         }
         closeDrawer();
-        populateFocusSelect(document.getElementById('focusPersonSelect').value);
-        renderChart(document.getElementById('focusPersonSelect').value);
+        // Always refresh the person list; keep the tree focused on whoever was focused before
+        populateFocusSelect(keepFocus);
+        renderChart(keepFocus, true);
       }
 
       function drawerDeletePerson(){
         if(!_drawerPersonId||!confirm('Apagar esta pessoa?')) return;
-        DB.deleteIndividual(_drawerPersonId);
+        const deletedId = _drawerPersonId;
+        const currentFocus = _getSelectedOrFocusId();
+        DB.deleteIndividual(deletedId);
         closeDrawer();
-        populateFocusSelect(null);
-        renderChart(null);
+        // If the deleted person was the focused one, fall back to the first remaining person;
+        // otherwise keep the same focus unchanged.
+        const stillValid = DB.getIndividuals().find(i=>i.id===currentFocus);
+        const newFocus = stillValid ? currentFocus : (DB.getIndividuals()[0]||{}).id || null;
+        populateFocusSelect(newFocus);
+        renderChart(newFocus, true);
       }
 
       document.getElementById('drawerCloseBtn').addEventListener('click',closeDrawer);

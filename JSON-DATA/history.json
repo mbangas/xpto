@@ -1,5 +1,141 @@
 [
   {
+    "timestamp": "2026-02-28T11:03:56.055Z",
+    "entity": "Individual",
+    "action": "update",
+    "id": "I100",
+    "description": "Indivíduo: xxx yyy",
+    "detail": "update indivíduo I100"
+  },
+  {
+    "timestamp": "2026-02-28T11:03:52.664Z",
+    "entity": "Individual",
+    "action": "update",
+    "id": "I101",
+    "description": "Indivíduo: www zzz",
+    "detail": "update indivíduo I101"
+  },
+  {
+    "timestamp": "2026-02-28T11:03:52.663Z",
+    "entity": "Family",
+    "action": "update",
+    "id": "F29",
+    "description": "Família F29",
+    "detail": "update família F29"
+  },
+  {
+    "timestamp": "2026-02-28T11:03:52.662Z",
+    "entity": "Individual",
+    "action": "create",
+    "id": "I101",
+    "description": "Indivíduo: www zzz",
+    "detail": "create indivíduo I101"
+  },
+  {
+    "timestamp": "2026-02-28T11:00:13.811Z",
+    "entity": "Individual",
+    "action": "update",
+    "id": "I113",
+    "description": "Indivíduo: Susana Maria Alves Silvério Ferreira Bangueses",
+    "detail": "update indivíduo I113"
+  },
+  {
+    "timestamp": "2026-02-28T11:00:05.484Z",
+    "entity": "Family",
+    "action": "update",
+    "id": "F29",
+    "description": "Família F29",
+    "detail": "update família F29"
+  },
+  {
+    "timestamp": "2026-02-28T11:00:05.482Z",
+    "entity": "Individual",
+    "action": "create",
+    "id": "I100",
+    "description": "Indivíduo: xxx yyy",
+    "detail": "create indivíduo I100"
+  },
+  {
+    "timestamp": "2026-02-28T11:00:05.489Z",
+    "entity": "Individual",
+    "action": "update",
+    "id": "I100",
+    "description": "Indivíduo: xxx yyy",
+    "detail": "update indivíduo I100"
+  },
+  {
+    "timestamp": "2026-02-28T10:56:31.781Z",
+    "entity": "Individual",
+    "action": "delete",
+    "id": "I98",
+    "description": "Indivíduo I98",
+    "detail": "delete indivíduo I98"
+  },
+  {
+    "timestamp": "2026-02-28T10:55:36.706Z",
+    "entity": "Individual",
+    "action": "delete",
+    "id": "I99",
+    "description": "Indivíduo I99",
+    "detail": "delete indivíduo I99"
+  },
+  {
+    "timestamp": "2026-02-28T10:54:12.054Z",
+    "entity": "Individual",
+    "action": "update",
+    "id": "I98",
+    "description": "Indivíduo: xxx yyy",
+    "detail": "update indivíduo I98"
+  },
+  {
+    "timestamp": "2026-02-28T10:54:04.367Z",
+    "entity": "Individual",
+    "action": "update",
+    "id": "I99",
+    "description": "Indivíduo: www zzz",
+    "detail": "update indivíduo I99"
+  },
+  {
+    "timestamp": "2026-02-28T10:54:04.365Z",
+    "entity": "Individual",
+    "action": "create",
+    "id": "I99",
+    "description": "Indivíduo: www zzz",
+    "detail": "create indivíduo I99"
+  },
+  {
+    "timestamp": "2026-02-28T10:54:04.366Z",
+    "entity": "Family",
+    "action": "update",
+    "id": "F29",
+    "description": "Família F29",
+    "detail": "update família F29"
+  },
+  {
+    "timestamp": "2026-02-28T10:46:29.122Z",
+    "entity": "Individual",
+    "action": "update",
+    "id": "I98",
+    "description": "Indivíduo: xxx yyy",
+    "detail": "update indivíduo I98"
+  },
+  {
+    "timestamp": "2026-02-28T10:46:29.118Z",
+    "entity": "Individual",
+    "action": "create",
+    "id": "I98",
+    "description": "Indivíduo: xxx yyy",
+    "detail": "create indivíduo I98"
+  },
+  {
+    "timestamp": "2026-02-28T10:46:29.120Z",
+    "entity": "Family",
+    "action": "update",
+    "id": "F29",
+    "description": "Família F29",
+    "detail": "update família F29"
+  },
+  {
     "ts": "2026-02-28T01:52:56.472Z",
     "action": "GEDCOM importado",
     "detail": "GEDCOM - 2026-02-28.ged — 1859 pessoas, 782 famílias",

@@ -22,9 +22,17 @@
       .chart-zoom-btns button{width:32px;height:32px;padding:0;font-size:1rem;display:flex;align-items:center;justify-content:center;border-radius:6px;}
       .chart-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
       .chart-toolbar select,.chart-toolbar button{font-size:0.85rem;}
+      /* Donatso family-chart theme integration */
+      #familyChartWrap.f3{--background-color:var(--bg-main,#1a1d2e);--text-color:var(--text-main,#e2e4f0);--female-color:#e26aa6;--male-color:#4493f8;--genderless-color:#9aa0a6;}
+      #familyChartWrap .f3-nav-cont{display:none;}
+      #familyChartWrap path.link{stroke:rgba(200,210,230,0.7) !important;stroke-width:1.5px !important;}
+      #familyChartWrap .card-body-rect{rx:6;ry:6;}
+      #familyChartWrap svg.main_svg text{font-size:12px;fill:#fff;}
     </style>
+    <link rel="stylesheet" href="css/family-chart.css">
     <script src="remote-storage.js"></script>
     <script src="topola-bundle.js"></script>
+    <script src="family-chart-bundle.js"></script>
   </head>
   <body class="page-tree">
     <div class="app-shell">
@@ -65,6 +73,7 @@
               <option value="hourglass">Hourglass (Ascend. + Descend.)</option>
               <option value="relatives">Relatives</option>
               <option value="fancy">Fancy</option>
+              <option value="donatso">Donatso Family Chart</option>
             </select>
             <label style="font-size:0.85rem;color:var(--text-secondary);margin-left:12px;">Pessoa:</label>
             <div style="position:relative;display:inline-block;" id="focusPersonCombo">
@@ -78,13 +87,14 @@
           </div>
           <div id="topolaWrap">
             <svg id="topolaSvg"></svg>
-            <div class="chart-zoom-btns">
+            <div class="chart-zoom-btns" id="topolaZoomBtns">
               <button class="btn btn-ghost" id="zoomInBtn" title="Zoom +"><i class="mdi mdi-plus"></i></button>
               <button class="btn btn-ghost" id="fitChartBtn" title="Ver tudo"><i class="mdi mdi-fit-to-screen-outline"></i></button>
               <button class="btn btn-ghost" id="centerChartBtn" title="Centrar na pessoa"><i class="mdi mdi-crosshairs"></i></button>
               <button class="btn btn-ghost" id="zoomOutBtn" title="Zoom −"><i class="mdi mdi-minus"></i></button>
             </div>
           </div>
+          <div id="familyChartWrap" class="f3" style="display:none;width:100%;height:calc(100vh - 220px);min-height:400px;border-radius:10px;overflow:hidden;position:relative;"></div>
           <div class="legend">
             <span><span class="avatar" style="background:#4493f8"></span> Masculino</span>
             <span><span class="avatar" style="background:#e26aa6"></span> Feminino</span>
@@ -280,7 +290,92 @@
         fancy: T.FancyChart
       };
 
+      /* ── Build Donatso family-chart data ──────────────────────────────── */
+      function buildFamilyChartData(){
+        const indis=DB.getIndividuals();
+        const fams=DB.getFamilies();
+        const famMap={};
+        fams.forEach(f=>famMap[f.id]=f);
+        const validIndiIds=new Set(indis.map(i=>i.id));
+        return indis.map(indi=>{
+          const parents=[];
+          if(indi.famc&&famMap[indi.famc]){
+            const fam=famMap[indi.famc];
+            if(fam.husb&&validIndiIds.has(fam.husb)) parents.push(fam.husb);
+            if(fam.wife&&validIndiIds.has(fam.wife)) parents.push(fam.wife);
+          }
+          const spouses=[],children=[];
+          (indi.fams||[]).forEach(famId=>{
+            const fam=famMap[famId]; if(!fam) return;
+            if(fam.husb&&fam.husb!==indi.id&&validIndiIds.has(fam.husb)&&!spouses.includes(fam.husb)) spouses.push(fam.husb);
+            if(fam.wife&&fam.wife!==indi.id&&validIndiIds.has(fam.wife)&&!spouses.includes(fam.wife)) spouses.push(fam.wife);
+            (fam.children||[]).forEach(cid=>{ if(validIndiIds.has(cid)&&!children.includes(cid)) children.push(cid); });
+          });
+          const birth=DB.getBirthEvent(indi),death=DB.getDeathEvent(indi);
+          const thumb=DB.getThumbnailForPerson(indi.id);
+          return {
+            id: indi.id,
+            data: {
+              gender: indi.sex==='F'?'F':'M',
+              first_name: DB.getGivenName(indi)||'',
+              last_name: DB.getSurname(indi)||'',
+              birthday: birth&&birth.date?birth.date:'',
+              deathday: death&&death.date?death.date:'',
+              avatar: thumb||undefined
+            },
+            rels:{parents,spouses,children}
+          };
+        });
+      }
+
+      let f3ChartHandle=null;
+
       function renderChart(startIndi){
+        const selectedType=document.getElementById('chartTypeSelect').value;
+
+        /* ── Donatso Family Chart ──────────────────────────────────────── */
+        if(selectedType==='donatso'){
+          document.getElementById('topolaWrap').style.display='none';
+          const fcWrap=document.getElementById('familyChartWrap');
+          fcWrap.style.display='';
+          fcWrap.innerHTML='';
+          f3ChartHandle=null;
+          const fcData=buildFamilyChartData();
+          if(!fcData.length){
+            fcWrap.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#888;font-size:16px;">Sem dados. Adicione pessoas no Cadastro.</div>';
+            return;
+          }
+          const validFcIds=new Set(fcData.map(d=>d.id));
+          if(!startIndi||!validFcIds.has(startIndi)) startIndi=fcData[0].id;
+          try{
+            const F3=window.F3Lib;
+            f3ChartHandle=F3.createChart(fcWrap, fcData);
+            const card=f3ChartHandle.setCardSvg();
+            card.setCardDisplay([
+              function(d){ return [d.data.first_name, d.data.last_name].filter(Boolean).join(' ')||'—'; },
+              function(d){ return d.data.birthday ? '\u2605 '+d.data.birthday : ''; },
+              function(d){ return d.data.deathday ? '\u271D '+d.data.deathday : ''; }
+            ]);
+            card.setCardDim({w:230, h:80, text_x:75, text_y:12, img_w:62, img_h:72, img_x:4, img_y:4});
+            card.setMiniTree(false);
+            card.setOnCardClick(function(e,d){
+              if(d&&d.data&&d.data.id) openDrawer('edit',d.data.id);
+            });
+            f3ChartHandle
+              .updateMainId(startIndi)
+              .updateTree({initial:true, tree_position:'main_to_middle'});
+          }catch(err){
+            console.error('Donatso render error:',err);
+            fcWrap.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#e06060;font-size:14px;">Erro ao renderizar: '+_esc(err.message)+'</div>';
+          }
+          return;
+        }
+
+        /* ── Topola charts ─────────────────────────────────────────────── */
+        document.getElementById('familyChartWrap').style.display='none';
+        document.getElementById('topolaWrap').style.display='';
+        f3ChartHandle=null;
+
         const json=buildTopolaJson();
         const svgEl=document.getElementById('topolaSvg');
         if(!json.indis.length){

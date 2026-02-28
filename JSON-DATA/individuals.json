@@ -28110,9 +28110,7 @@
     "events": [
       {
         "type": "BIRT",
-        "date": "26 JAN 2010",
-        "place": "",
-        "notes": []
+        "date": "26 JAN 2010"
       },
       {
         "type": "BAPM",
@@ -28128,7 +28126,7 @@
     "sourceRefs": [],
     "multimediaRefs": [],
     "createdAt": "2026-02-28T01:52:55.104Z",
-    "updatedAt": "2026-02-28T01:52:55.104Z",
+    "updatedAt": "2026-02-28T11:59:23.668Z",
     "deletedAt": null
   },
   "I781": {

@@ -164,7 +164,30 @@
 
       /* ── Helpers ──────────────────────────────────────────────────────── */
       const MONTHS_MAP = {JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12};
+      const MONTHS = ['','JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+      const QUAL_TO_GED = {'Antes de':'BEF','Depois de':'AFT','Cerca de':'ABT'};
+      const GED_TO_QUAL = {BEF:'Antes de',AFT:'Depois de',ABT:'Cerca de',EST:'Cerca de'};
       function _esc(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+      function buildGedcomDate(day,month,year,qualifier){
+        let p=[];
+        if(qualifier && qualifier!=='Exatamente'){ p.push(QUAL_TO_GED[qualifier]||qualifier); }
+        if(day) p.push(String(day));
+        if(month) p.push(MONTHS[month]||'');
+        if(year) p.push(String(year));
+        return p.join(' ');
+      }
+      function parseGedcomDate(s){
+        if(!s) return {};
+        const tokens=s.toUpperCase().split(/\s+/);
+        let q=null,d=null,m=null,y=null;
+        for(const t of tokens){
+          if(GED_TO_QUAL[t]) q=GED_TO_QUAL[t];
+          else if(MONTHS_MAP[t]) m=MONTHS_MAP[t];
+          else if(/^\d{3,4}$/.test(t)) y=parseInt(t);
+          else if(/^\d{1,2}$/.test(t)&&!d) d=parseInt(t);
+        }
+        return {day:d,month:m,year:y,qualifier:q};
+      }
 
       function parseGedcomDateToTopola(dateStr){
         if(!dateStr) return undefined;
@@ -701,26 +724,85 @@
         else body.innerHTML=_renderEvents(personId);
       };
 
-      /* ── Events section (simplified for tree page) ─────────────────────── */
+      /* ── Events section ──────────────────────────────────────────────────── */
       const EVENT_TYPES={BIRT:'Nascimento',BAPM:'Batismo',CHR:'Batizado',DEAT:'Óbito',BURI:'Sepultamento',CREM:'Cremação',ADOP:'Adoção',OCCU:'Ocupação',RESI:'Residência',EVEN:'Outro'};
-      function fmtEventDate(ev){ if(!ev||!ev.date) return ''; return ev.date; }
+      function fmtEventDate(ev){
+        if(!ev||!ev.date) return '';
+        const p=parseGedcomDate(ev.date);
+        const qualMap={'Antes de':'ant.','Depois de':'dep.','Cerca de':'c.'};
+        const q=p.qualifier?(qualMap[p.qualifier]||p.qualifier)+' ':'';
+        let parts=[];
+        if(p.day) parts.push(String(p.day).padStart(2,'0'));
+        if(p.month) parts.push(String(p.month).padStart(2,'0'));
+        if(p.year) parts.push(String(p.year));
+        return q+(parts.length?parts.join('/'):ev.date);
+      }
 
       function _renderEvents(personId){
         const indi=DB.getIndividual(personId);
         const evs=(indi&&indi.events||[]);
-        let html='<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_treeAddEvent(\''+_esc(personId)+'\')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar</button></div>';
-        if(!evs.length) return html+'<div style="color:#888;">Nenhum evento.</div>';
+        let html='<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_treeAddEvent(\''+_esc(personId)+'\')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Evento</button></div>';
+        if(!evs.length){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhum evento cadastrado.</div>'; return html; }
         html+='<div class="mini-list">';
         evs.forEach((ev,i)=>{
-          html+='<div class="mini-card" style="padding:10px 12px;"><span style="font-weight:600;">'+(EVENT_TYPES[ev.type]||ev.type)+'</span> <span style="color:#888;margin-left:8px;">'+_esc(fmtEventDate(ev))+'</span>'+(ev.place?' <span style="color:#aaa;margin-left:8px;">'+_esc(ev.place)+'</span>':'')+'</div>';
+          const label=EVENT_TYPES[ev.type]||ev.type||'';
+          html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">'+_esc(label)+'</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">'+_esc(fmtEventDate(ev))+'</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_treeEditEvent('+i+',\''+_esc(personId)+'\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_treeDeleteEvent('+i+',\''+_esc(personId)+'\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>'+(ev.place?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; '+_esc(ev.place)+'</div>':'')+(ev.notes?'<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">'+_esc(ev.notes)+'</div>':'')+'</div>';
         });
         html+='</div>';
         return html;
       }
 
+      window._treeDeleteEvent=function(idx,personId){
+        if(!confirm('Apagar este evento?')) return;
+        const indi=DB.getIndividual(personId); if(!indi) return;
+        indi.events.splice(idx,1);
+        DB.saveIndividual(indi);
+        document.getElementById('drawerBody').innerHTML=_renderEvents(personId);
+      };
+
+      window._treeEditEvent=function(idx,personId){
+        const indi=DB.getIndividual(personId); if(!indi) return;
+        const ev=indi.events[idx]; if(!ev) return;
+        const p=parseGedcomDate(ev.date);
+        const body=document.getElementById('drawerBody');
+        const opts=Object.entries(EVENT_TYPES).map(([k,v])=>'<option value="'+k+'"'+(ev.type===k?' selected':'')+'>'+v+'</option>').join('');
+        body.innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Editar Evento</h3><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="tevType" style="width:100%;">'+opts+'</select></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="tevQual" style="width:100%;margin-bottom:6px;"><option value="Exatamente"'+((!p.qualifier||p.qualifier==="Exatamente")?" selected":"")+'>Exatamente</option><option value="Antes de"'+(p.qualifier==="Antes de"?" selected":"")+'>Antes de</option><option value="Depois de"'+(p.qualifier==="Depois de"?" selected":"")+'>Depois de</option><option value="Cerca de"'+(p.qualifier==="Cerca de"?" selected":"")+'>Cerca de</option></select><div style="display:flex;gap:6px;"><input id="tevDay" type="number" min="1" max="31" placeholder="Dia" value="'+(p.day||'')+'" style="flex:1;min-width:0;text-align:center;"/><input id="tevMonth" type="number" min="1" max="12" placeholder="Mês" value="'+(p.month||'')+'" style="flex:1;min-width:0;text-align:center;"/><input id="tevYear" type="number" min="1" max="9999" placeholder="Ano" value="'+(p.year||'')+'" style="flex:2;min-width:0;text-align:center;"/></div></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="tevPlace" type="text" value="'+_esc(ev.place||'')+'" style="width:100%;"/></div><div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="tevNotes" rows="3" style="width:100%;resize:vertical;">'+_esc(ev.notes||'')+'</textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\''+_esc(personId)+'\',\'eventos\')">Cancelar</button><button class="btn btn-sm" onclick="_treeSaveEditEvent('+idx+',\''+_esc(personId)+'\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+      };
+
+      window._treeSaveEditEvent=function(idx,personId){
+        const indi=DB.getIndividual(personId); if(!indi) return;
+        const type=(document.getElementById('tevType')||{}).value||'EVEN';
+        const qual=(document.getElementById('tevQual')||{}).value;
+        const day=parseInt((document.getElementById('tevDay')||{}).value)||null;
+        const month=parseInt((document.getElementById('tevMonth')||{}).value)||null;
+        const year=parseInt((document.getElementById('tevYear')||{}).value)||null;
+        if(!day&&!month&&!year){ alert('Preencha pelo menos um campo de data.'); return; }
+        const place=((document.getElementById('tevPlace')||{}).value||'').trim();
+        const notes=((document.getElementById('tevNotes')||{}).value||'').trim();
+        indi.events[idx]={type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined};
+        DB.saveIndividual(indi);
+        openDrawerSection(personId,'eventos');
+      };
+
       window._treeAddEvent=function(personId){
-        // Navigate to app.html drawer for full event editing
-        window.location.href='app.html?edit='+encodeURIComponent(personId);
+        const opts=Object.entries(EVENT_TYPES).map(([k,v])=>'<option value="'+k+'">'+v+'</option>').join('');
+        document.getElementById('drawerBody').innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Novo Evento</h3><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="newEvType" style="width:100%;">'+opts+'</select></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="newEvQual" style="width:100%;margin-bottom:6px;"><option value="Exatamente" selected>Exatamente</option><option value="Antes de">Antes de</option><option value="Depois de">Depois de</option><option value="Cerca de">Cerca de</option></select><div style="display:flex;gap:6px;"><input id="newEvDay" type="number" min="1" max="31" placeholder="Dia" style="flex:1;min-width:0;text-align:center;"/><input id="newEvMonth" type="number" min="1" max="12" placeholder="Mês" style="flex:1;min-width:0;text-align:center;"/><input id="newEvYear" type="number" min="1" max="9999" placeholder="Ano" style="flex:2;min-width:0;text-align:center;"/></div></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="newEvPlace" type="text" placeholder="Local do evento" style="width:100%;"/></div><div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="newEvNotes" rows="3" placeholder="Notas..." style="width:100%;resize:vertical;"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\''+_esc(personId)+'\',\'eventos\')">Cancelar</button><button class="btn btn-sm" onclick="_treeSaveNewEvent(\''+_esc(personId)+'\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+      };
+
+      window._treeSaveNewEvent=function(personId){
+        const indi=DB.getIndividual(personId); if(!indi) return;
+        const type=(document.getElementById('newEvType')||{}).value||'EVEN';
+        const qual=(document.getElementById('newEvQual')||{}).value;
+        const day=parseInt((document.getElementById('newEvDay')||{}).value)||null;
+        const month=parseInt((document.getElementById('newEvMonth')||{}).value)||null;
+        const year=parseInt((document.getElementById('newEvYear')||{}).value)||null;
+        if(!day&&!month&&!year){ alert('Preencha pelo menos um campo de data.'); return; }
+        const place=((document.getElementById('newEvPlace')||{}).value||'').trim();
+        const notes=((document.getElementById('newEvNotes')||{}).value||'').trim();
+        if(!indi.events) indi.events=[];
+        indi.events.push({type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined});
+        DB.saveIndividual(indi);
+        openDrawerSection(personId,'eventos');
       };
 
       /* ── Relations section ─────────────────────────────────────────────── */

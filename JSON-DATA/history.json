@@ -1,5 +1,21 @@
 [
   {
+    "timestamp": "2026-02-28T11:59:22.560Z",
+    "entity": "Individual",
+    "action": "update",
+    "id": "I780",
+    "description": "Indivíduo: Rita Ferreira Bangueses",
+    "detail": "update indivíduo I780"
+  },
+  {
+    "timestamp": "2026-02-28T11:59:07.593Z",
+    "entity": "Individual",
+    "action": "update",
+    "id": "I780",
+    "description": "Indivíduo: Rita Ferreira Bangueses",
+    "detail": "update indivíduo I780"
+  },
+  {
     "timestamp": "2026-02-28T11:43:29.032Z",
     "entity": "Individual",
     "action": "delete",

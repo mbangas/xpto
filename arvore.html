@@ -170,17 +170,23 @@
       function buildTopolaJson(){
         const indis=DB.getIndividuals();
         const fams=DB.getFamilies();
+        // Build a set of valid (non-deleted) family IDs so we can filter refs
+        const validFamIds=new Set(fams.map(f=>f.id));
+        const validIndiIds=new Set(indis.map(i=>i.id));
         const tIndis=indis.map(indi=>{
           const birth=DB.getBirthEvent(indi);
           const death=DB.getDeathEvent(indi);
           const thumb=DB.getThumbnailForPerson(indi.id);
+          // Filter out refs to deleted/missing families
+          const famcVal=(indi.famc&&validFamIds.has(indi.famc))?indi.famc:undefined;
+          const famsVal=(indi.fams||[]).filter(fid=>validFamIds.has(fid));
           return {
             id: indi.id,
             firstName: DB.getGivenName(indi)||undefined,
             lastName: DB.getSurname(indi)||undefined,
             sex: indi.sex||undefined,
-            famc: indi.famc||undefined,
-            fams: (indi.fams&&indi.fams.length)?indi.fams:undefined,
+            famc: famcVal,
+            fams: famsVal.length?famsVal:undefined,
             birth: birth?{...parseGedcomDateToTopola(birth.date),place:birth.place||undefined}:undefined,
             death: death?{...parseGedcomDateToTopola(death.date),place:death.place||undefined}:undefined,
             images: thumb?[{url:thumb,title:''}]:undefined
@@ -188,11 +194,13 @@
         });
         const tFams=fams.map(fam=>{
           const marr=(fam.events||[]).find(e=>e.type==='MARR');
+          // Filter out refs to deleted/missing individuals
+          const children=(fam.children||[]).filter(cid=>validIndiIds.has(cid));
           return {
             id: fam.id,
-            husb: fam.husb||undefined,
-            wife: fam.wife||undefined,
-            children: (fam.children&&fam.children.length)?fam.children:undefined,
+            husb: (fam.husb&&validIndiIds.has(fam.husb))?fam.husb:undefined,
+            wife: (fam.wife&&validIndiIds.has(fam.wife))?fam.wife:undefined,
+            children: children.length?children:undefined,
             marriage: marr?{...parseGedcomDateToTopola(marr.date),place:marr.place||undefined}:undefined
           };
         });
@@ -281,6 +289,9 @@
           svgEl.innerHTML='<text x="400" y="200" text-anchor="middle" fill="#888" font-size="16">Sem dados. Adicione pessoas no Cadastro.</text>';
           return;
         }
+        // Ensure startIndi exists in the current dataset; fall back to first person
+        const validIds=new Set(json.indis.map(i=>i.id));
+        if(!startIndi||!validIds.has(startIndi)) startIndi=json.indis[0].id;
         const chartType=CHART_TYPES[document.getElementById('chartTypeSelect').value]||T.HourglassChart;
         svgEl.removeAttribute('viewBox');
         svgEl.innerHTML=''; // clear
@@ -314,12 +325,14 @@
 
       /* ── Focus person ─────────────────────────────────────────────────── */
       function getFocusPersonId(){
+        const validIds=new Set(DB.getIndividuals().map(i=>i.id));
         // Check temp setting (from Cadastro "Ver na Árvore")
         const temp=DB.getSetting('tempFocusPerson');
-        if(temp){ DB.setSetting('tempFocusPerson',null); return temp; }
-        // Check configured focus person
+        if(temp){ DB.setSetting('tempFocusPerson',null); if(validIds.has(temp)) return temp; }
+        // Check configured focus person — stored as {id, name, when} object
         const focused=DB.getSetting('focusedPerson');
-        if(focused) return focused;
+        const focusedId=focused&&(typeof focused==='object'?focused.id:focused);
+        if(focusedId && validIds.has(focusedId)) return focusedId;
         // Default: first individual
         const indis=DB.getIndividuals();
         return indis.length?indis[0].id:null;
@@ -327,15 +340,20 @@
 
       // ── Searchable person combo ────────────────────────────────────
       let _allPersons=[];
+      let _autoFocusId=null; // focus person from settings, used when nothing manually selected
 
-      function populateFocusSelect(selectedId){
+      function populateFocusSelect(focusId){
         _allPersons=DB.getIndividuals().map(indi=>({id:indi.id,name:DB.getDisplayName(indi)}));
-        const hidden=document.getElementById('focusPersonSelect');
-        const input=document.getElementById('focusPersonInput');
-        const found=_allPersons.find(p=>p.id===selectedId);
-        hidden.value=selectedId||'';
-        input.value=found?found.name:'';
+        _autoFocusId=focusId||null;
+        // Leave input empty — search is user-initiated only
+        document.getElementById('focusPersonSelect').value='';
+        document.getElementById('focusPersonInput').value='';
         _renderDropdown('');
+      }
+
+      function _getSelectedOrFocusId(){
+        const v=document.getElementById('focusPersonSelect').value;
+        return v||_autoFocusId||(_allPersons.length?_allPersons[0].id:null);
       }
 
       function _renderDropdown(query){
@@ -395,13 +413,10 @@
       /* ── Init ──────────────────────────────────────────────────────────── */
       const focusId=getFocusPersonId();
       populateFocusSelect(focusId);
-      showFocusInfo(focusId);
       renderChart(focusId);
 
       document.getElementById('renderChartBtn').addEventListener('click',function(){
-        const sel=document.getElementById('focusPersonSelect');
-        const id=sel.value;
-        showFocusInfo(id);
+        const id=_getSelectedOrFocusId();
         renderChart(id);
       });
 
@@ -411,15 +426,11 @@
       document.getElementById('centerChartBtn').addEventListener('click',()=>_centerViewBox(_focusPt[0],_focusPt[1]));
 
       document.getElementById('resetFocusBtn').addEventListener('click',function(){
-        const configured=DB.getSetting('focusedPerson');
-        const indis=DB.getIndividuals();
-        const id=configured||(indis.length?indis[0].id:null);
-        if(id){
-          const p=_allPersons.find(x=>x.id===id);
-          _selectPerson(id, p?p.name:'');
-          showFocusInfo(id);
-          renderChart(id);
-        }
+        // Clear manual selection, revert to settings focus
+        document.getElementById('focusPersonSelect').value='';
+        document.getElementById('focusPersonInput').value='';
+        const id=_getSelectedOrFocusId();
+        if(id) renderChart(id);
       });
 
       /* ═══════════════════════════════════════════════════════════════════

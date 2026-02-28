@@ -1,11 +1,13 @@
 {
   "focusedPerson": {
-    "id": "I1",
-    "name": "João Silva"
+    "name": "Miguel Filipe do Amaral Bangueses",
+    "when": "2026-02-28T03:52:09.848Z",
+    "id": "I112"
   },
   "photoBase": {
-    "folder": "fotos",
-    "files": 0
+    "folder": "img-temp",
+    "files": 4,
+    "when": "2026-02-28T03:51:57.267Z"
   },
   "importHistory": [
     {
@@ -14,5 +16,10 @@
       "individuals": 1859,
       "families": 782
     }
-  ]
+  ],
+  "docBase": {
+    "folder": "doc-temp",
+    "files": 1,
+    "when": "2026-02-28T03:51:37.410Z"
+  }
 }

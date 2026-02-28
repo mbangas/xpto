@@ -13,8 +13,13 @@
       .tag-label{position:absolute;background:rgba(0,0,0,0.6);color:#fff;padding:2px 6px;border-radius:6px;font-size:12px;transform:translateY(-120%);white-space:nowrap}
       .tag-form{position:absolute;background:var(--bg-card);padding:8px;border-radius:8px;box-shadow:0 10px 30px rgba(0,0,0,0.4);z-index:620}
       .tag-form input{margin-bottom:6px;}
-      #topolaChart{width:100%;overflow:auto;position:relative;}
-      #topolaChart svg{display:block;min-height:400px;}
+      #topolaWrap{position:relative;width:100%;height:calc(100vh - 220px);min-height:400px;overflow:hidden;background:var(--bg-main);border-radius:10px;}
+      #topolaSvg .link{stroke:#9aa0a6 !important;stroke-width:1.5px !important;}
+      #topolaSvg .link.additional-marriage{stroke:#9aa0a6 !important;stroke-dasharray:4 !important;}
+      #topolaSvg{width:100%;height:100%;display:block;cursor:grab;user-select:none;}
+      #topolaSvg.panning{cursor:grabbing;}
+      .chart-zoom-btns{position:absolute;bottom:12px;right:12px;display:flex;flex-direction:column;gap:4px;z-index:10;}
+      .chart-zoom-btns button{width:32px;height:32px;padding:0;font-size:1rem;display:flex;align-items:center;justify-content:center;border-radius:6px;}
       .chart-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
       .chart-toolbar select,.chart-toolbar button{font-size:0.85rem;}
     </style>
@@ -62,11 +67,23 @@
               <option value="fancy">Fancy</option>
             </select>
             <label style="font-size:0.85rem;color:var(--text-secondary);margin-left:12px;">Pessoa:</label>
-            <select id="focusPersonSelect"></select>
+            <div style="position:relative;display:inline-block;" id="focusPersonCombo">
+              <input type="text" id="focusPersonInput" placeholder="Pesquisar pessoa…" autocomplete="off"
+                style="font-size:0.85rem;padding:4px 28px 4px 8px;border-radius:6px;border:1px solid rgba(163,163,255,0.18);background:var(--bg-card);color:var(--text-main);min-width:220px;">
+              <i class="mdi mdi-magnify" style="position:absolute;right:7px;top:50%;transform:translateY(-50%);color:var(--text-secondary);pointer-events:none;font-size:1rem;"></i>
+              <input type="hidden" id="focusPersonSelect">
+              <div id="focusPersonDropdown" style="display:none;position:absolute;top:calc(100% + 2px);left:0;min-width:100%;max-height:220px;overflow-y:auto;background:var(--bg-card);border:1px solid rgba(163,163,255,0.22);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.45);z-index:500;"></div>
+            </div>
             <button id="renderChartBtn" class="btn btn-sm"><i class="mdi mdi-refresh"></i> Renderizar</button>
           </div>
-          <div id="topolaChart">
-            <svg id="topolaSvg" style="width:100%;height:600px;"></svg>
+          <div id="topolaWrap">
+            <svg id="topolaSvg"></svg>
+            <div class="chart-zoom-btns">
+              <button class="btn btn-ghost" id="zoomInBtn" title="Zoom +"><i class="mdi mdi-plus"></i></button>
+              <button class="btn btn-ghost" id="fitChartBtn" title="Ver tudo"><i class="mdi mdi-fit-to-screen-outline"></i></button>
+              <button class="btn btn-ghost" id="centerChartBtn" title="Centrar na pessoa"><i class="mdi mdi-crosshairs"></i></button>
+              <button class="btn btn-ghost" id="zoomOutBtn" title="Zoom −"><i class="mdi mdi-minus"></i></button>
+            </div>
           </div>
           <div class="legend">
             <span><span class="avatar" style="background:#4493f8"></span> Masculino</span>
@@ -75,7 +92,7 @@
           </div>
         </div>
 
-        <div id="person-focus" class="person-focus" aria-live="polite"></div>
+
       </main>
     </div>
 
@@ -182,6 +199,70 @@
         return {indis:tIndis,fams:tFams};
       }
 
+      /* ── ViewBox pan/zoom state ──────────────────────────────────────── */
+      let _vb={x:0,y:0,w:800,h:600};
+      let _chartSize=[0,0];
+      let _focusPt=[0,0];
+
+      function _applyViewBox(){
+        document.getElementById('topolaSvg').setAttribute('viewBox',`${_vb.x} ${_vb.y} ${_vb.w} ${_vb.h}`);
+      }
+
+      function _zoomViewBox(factor, cx, cy){
+        // cx, cy: centre point in SVG display coords (defaults to viewBox centre)
+        const svgEl=document.getElementById('topolaSvg');
+        const rect=svgEl.getBoundingClientRect();
+        if(cx===undefined) cx=rect.width/2;
+        if(cy===undefined) cy=rect.height/2;
+        // convert display coords → viewBox coords
+        const scaleX=_vb.w/rect.width, scaleY=_vb.h/rect.height;
+        const vbCx=_vb.x+cx*scaleX, vbCy=_vb.y+cy*scaleY;
+        _vb.w*=factor; _vb.h*=factor;
+        _vb.x=vbCx-cx*scaleX*factor;
+        _vb.y=vbCy-cy*scaleY*factor;
+        _applyViewBox();
+      }
+
+      function _centerViewBox(svgX, svgY){
+        const svgEl=document.getElementById('topolaSvg');
+        const rect=svgEl.getBoundingClientRect();
+        _vb.x=svgX-_vb.w/2; _vb.y=svgY-_vb.h/2;
+        _applyViewBox();
+      }
+
+      function _fitViewBox(){
+        _vb.x=0; _vb.y=0; _vb.w=_chartSize[0]; _vb.h=_chartSize[1];
+        _applyViewBox();
+      }
+
+      /* Pointer-based pan */
+      (function _initPan(){
+        const svgEl=()=>document.getElementById('topolaSvg');
+        let panStart=null;
+        document.addEventListener('pointerdown',e=>{
+          if(!e.target.closest('#topolaWrap')||e.target.closest('button')) return;
+          panStart={px:e.clientX,py:e.clientY,vbx:_vb.x,vby:_vb.y};
+          svgEl().classList.add('panning');
+          e.currentTarget.setPointerCapture&&e.currentTarget.setPointerCapture(e.pointerId);
+        });
+        document.addEventListener('pointermove',e=>{
+          if(!panStart) return;
+          const svgR=svgEl().getBoundingClientRect();
+          const sx=_vb.w/svgR.width, sy=_vb.h/svgR.height;
+          _vb.x=panStart.vbx-(e.clientX-panStart.px)*sx;
+          _vb.y=panStart.vby-(e.clientY-panStart.py)*sy;
+          _applyViewBox();
+        });
+        document.addEventListener('pointerup',()=>{panStart=null; svgEl()&&svgEl().classList.remove('panning');});
+        document.addEventListener('wheel',e=>{
+          if(!e.target.closest('#topolaWrap')) return;
+          e.preventDefault();
+          const svgR=svgEl().getBoundingClientRect();
+          const cx=e.clientX-svgR.left, cy=e.clientY-svgR.top;
+          _zoomViewBox(e.deltaY>0?1.15:1/1.15, cx, cy);
+        },{passive:false});
+      })();
+
       /* ── Chart rendering ──────────────────────────────────────────────── */
       let chartHandle=null;
 
@@ -193,13 +274,16 @@
 
       function renderChart(startIndi){
         const json=buildTopolaJson();
+        const svgEl=document.getElementById('topolaSvg');
         if(!json.indis.length){
-          document.getElementById('topolaSvg').innerHTML='<text x="50%" y="50%" text-anchor="middle" fill="#888" font-size="16">Sem dados. Adicione pessoas no Cadastro.</text>';
+          _chartSize=[800,400]; _vb={x:0,y:0,w:800,h:400};
+          svgEl.setAttribute('viewBox','0 0 800 400');
+          svgEl.innerHTML='<text x="400" y="200" text-anchor="middle" fill="#888" font-size="16">Sem dados. Adicione pessoas no Cadastro.</text>';
           return;
         }
         const chartType=CHART_TYPES[document.getElementById('chartTypeSelect').value]||T.HourglassChart;
-        const svg=document.getElementById('topolaSvg');
-        svg.innerHTML=''; // clear
+        svgEl.removeAttribute('viewBox');
+        svgEl.innerHTML=''; // clear
         try{
           chartHandle=T.createChart({
             json,
@@ -207,15 +291,24 @@
             renderer: T.DetailedRenderer,
             svgSelector: '#topolaSvg',
             indiCallback: function(info){ if(info&&info.id) openDrawer('edit',info.id); },
-            animate: true,
-            updateSvgSize: true,
+            animate: false,
+            updateSvgSize: false,
             horizontal: false,
             locale: 'pt'
           });
-          chartHandle.render({startIndi:startIndi||undefined});
+          const info=chartHandle.render({startIndi:startIndi||undefined});
+          _chartSize=info.size;
+          _focusPt=[info.origin[0], info.origin[1]];
+          // Initial view: 1:1 scale centred on focus person
+          const wrap=document.getElementById('topolaWrap');
+          const W=wrap.clientWidth||900, H=wrap.clientHeight||600;
+          _vb={x:_focusPt[0]-W/2, y:_focusPt[1]-H/2, w:W, h:H};
+          _applyViewBox();
         }catch(err){
           console.error('Topola render error:',err);
-          svg.innerHTML='<text x="50%" y="50%" text-anchor="middle" fill="#e06060" font-size="14">Erro ao renderizar: '+_esc(err.message)+'</text>';
+          _chartSize=[800,400]; _vb={x:0,y:0,w:800,h:400};
+          svgEl.setAttribute('viewBox','0 0 800 400');
+          svgEl.innerHTML='<text x="400" y="200" text-anchor="middle" fill="#e06060" font-size="14">Erro ao renderizar: '+_esc(err.message)+'</text>';
         }
       }
 
@@ -232,31 +325,72 @@
         return indis.length?indis[0].id:null;
       }
 
+      // ── Searchable person combo ────────────────────────────────────
+      let _allPersons=[];
+
       function populateFocusSelect(selectedId){
-        const sel=document.getElementById('focusPersonSelect');
-        sel.innerHTML='';
-        DB.getIndividuals().forEach(indi=>{
-          const opt=document.createElement('option');
-          opt.value=indi.id;
-          opt.textContent=DB.getDisplayName(indi);
-          if(indi.id===selectedId) opt.selected=true;
-          sel.appendChild(opt);
-        });
+        _allPersons=DB.getIndividuals().map(indi=>({id:indi.id,name:DB.getDisplayName(indi)}));
+        const hidden=document.getElementById('focusPersonSelect');
+        const input=document.getElementById('focusPersonInput');
+        const found=_allPersons.find(p=>p.id===selectedId);
+        hidden.value=selectedId||'';
+        input.value=found?found.name:'';
+        _renderDropdown('');
       }
 
-      /* ── Person focus info bar ─────────────────────────────────────────── */
-      function showFocusInfo(indiId){
-        const el=document.getElementById('person-focus');
-        const indi=DB.getIndividual(indiId);
-        if(!indi){ el.innerHTML=''; return; }
-        const name=DB.getDisplayName(indi);
-        const birth=DB.getBirthEvent(indi);
-        const death=DB.getDeathEvent(indi);
-        let info=name;
-        if(birth&&birth.date) info+=' | \u2605 '+birth.date;
-        if(death&&death.date) info+=' | \u271D '+death.date;
-        el.innerHTML='<i class="mdi mdi-account-circle" style="color:var(--accent);"></i> '+_esc(info);
+      function _renderDropdown(query){
+        const dd=document.getElementById('focusPersonDropdown');
+        const q=query.trim().toLowerCase();
+        const filtered=q?_allPersons.filter(p=>p.name.toLowerCase().includes(q)):_allPersons;
+        dd.innerHTML='';
+        if(!filtered.length){
+          dd.innerHTML='<div style="padding:8px 12px;color:var(--text-secondary);font-size:0.85rem;">Sem resultados</div>';
+        } else {
+          const hidden=document.getElementById('focusPersonSelect');
+          filtered.forEach(p=>{
+            const item=document.createElement('div');
+            item.textContent=p.name;
+            item.dataset.id=p.id;
+            item.style.cssText='padding:7px 12px;cursor:pointer;font-size:0.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;';
+            if(p.id===hidden.value) item.style.background='rgba(68,147,248,0.18)';
+            item.addEventListener('mouseenter',()=>item.style.background='rgba(68,147,248,0.12)');
+            item.addEventListener('mouseleave',()=>item.style.background=p.id===hidden.value?'rgba(68,147,248,0.18)':'');
+            item.addEventListener('mousedown',e=>{
+              e.preventDefault();
+              _selectPerson(p.id,p.name);
+            });
+            dd.appendChild(item);
+          });
+        }
       }
+
+      function _selectPerson(id,name){
+        document.getElementById('focusPersonSelect').value=id;
+        document.getElementById('focusPersonInput').value=name;
+        document.getElementById('focusPersonDropdown').style.display='none';
+      }
+
+      (function _bindCombo(){
+        const input=document.getElementById('focusPersonInput');
+        const dd=document.getElementById('focusPersonDropdown');
+        input.addEventListener('focus',()=>{ _renderDropdown(input.value); dd.style.display='block'; });
+        input.addEventListener('input',()=>{ _renderDropdown(input.value); dd.style.display='block'; });
+        input.addEventListener('blur',()=>{ setTimeout(()=>{ dd.style.display='none'; },150); });
+        input.addEventListener('keydown',e=>{
+          if(e.key==='Escape'){ dd.style.display='none'; input.blur(); }
+          if(e.key==='Enter'){
+            const first=dd.querySelector('[data-id]');
+            if(first){ _selectPerson(first.dataset.id,first.textContent); input.blur(); }
+          }
+          if(e.key==='ArrowDown'){
+            e.preventDefault();
+            const items=[...dd.querySelectorAll('[data-id]')];
+            if(items.length){ items[0].dispatchEvent(new MouseEvent('mousedown',{bubbles:true,cancelable:true})); }
+          }
+        });
+      })();
+
+      function showFocusInfo(){}
 
       /* ── Init ──────────────────────────────────────────────────────────── */
       const focusId=getFocusPersonId();
@@ -271,12 +405,18 @@
         renderChart(id);
       });
 
+      document.getElementById('zoomInBtn').addEventListener('click',()=>_zoomViewBox(1/1.3));
+      document.getElementById('zoomOutBtn').addEventListener('click',()=>_zoomViewBox(1.3));
+      document.getElementById('fitChartBtn').addEventListener('click',()=>_fitViewBox());
+      document.getElementById('centerChartBtn').addEventListener('click',()=>_centerViewBox(_focusPt[0],_focusPt[1]));
+
       document.getElementById('resetFocusBtn').addEventListener('click',function(){
         const configured=DB.getSetting('focusedPerson');
         const indis=DB.getIndividuals();
         const id=configured||(indis.length?indis[0].id:null);
         if(id){
-          document.getElementById('focusPersonSelect').value=id;
+          const p=_allPersons.find(x=>x.id===id);
+          _selectPerson(id, p?p.name:'');
           showFocusInfo(id);
           renderChart(id);
         }
@@ -379,7 +519,7 @@
           let desc=r.type;
           if(r.sex==='F'){if(desc.includes('Filho'))desc='Filha';if(desc.includes('Pai'))desc='Mãe';if(desc.includes('Compan'))desc='Companheira';if(desc.includes('Irm'))desc='Irmã';}
           else if(r.sex==='M'){if(desc.includes('Filho'))desc='Filho';if(desc.includes('Mãe'))desc='Pai';if(desc.includes('Compan'))desc='Companheiro';if(desc.includes('Irm'))desc='Irmão';}
-          html+='<div class="mini-card" style="padding:10px 12px;cursor:pointer;" onclick="(function(){document.getElementById(\'focusPersonSelect\').value=\''+r.id+'\';document.getElementById(\'renderChartBtn\').click();closeDrawer();}())"><span style="font-weight:600;">'+_esc(r.name)+'</span> <span style="color:#aaa;margin-left:8px;">'+_esc(desc)+'</span></div>';
+          html+='<div class="mini-card" style="padding:10px 12px;cursor:pointer;" onclick="(function(){_selectPerson(\''+r.id+'\',\''+r.name.replace(/'/g,"\\'")+'\'  );document.getElementById(\'renderChartBtn\').click();closeDrawer();}())"><span style="font-weight:600;">'+_esc(r.name)+'</span> <span style="color:#aaa;margin-left:8px;">'+_esc(desc)+'</span></div>';
         });
         html+='</div>';
         return html;

@@ -376,7 +376,11 @@
     const media = DB.getMultimediaForIndividual(indiId);
     for (const m of media) {
       if (m.dataUrl) return m.dataUrl;
-      if (m.files && m.files.length && m.files[0].file) return m.files[0].file;
+      // only use file path if it looks like a valid URL (not a bare filename)
+      if (m.files && m.files.length && m.files[0].file) {
+        const f = m.files[0].file;
+        if (f.startsWith('data:') || f.startsWith('http') || f.startsWith('/')) return f;
+      }
     }
     return null;
   };

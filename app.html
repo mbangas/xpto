@@ -693,7 +693,20 @@
         html+='<div style="display:flex;flex-wrap:wrap;gap:10px;">';
         media.forEach(m=>{
           const src=m.dataUrl||(m.files&&m.files[0]?m.files[0].file:'')||'';
-          html+='<div style="position:relative;display:inline-block;"><img src="'+src+'" style="width:72px;height:72px;object-fit:cover;border-radius:6px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);" onclick="_drawerViewPhoto(\''+_esc(m.id)+'\')" title="'+_esc(m.title||'')+'" /><button onclick="_drawerUnlinkPhoto(\''+_esc(m.id)+'\',\''+_esc(personId)+'\')" title="Remover vínculo" style="position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;"><i class="mdi mdi-close"></i></button></div>';
+          const hasImage = src.startsWith('data:') || src.startsWith('http') || src.startsWith('/');
+          if(hasImage){
+            html+='<div style="position:relative;display:inline-block;"><img src="'+src+'" style="width:72px;height:72px;object-fit:cover;border-radius:6px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);" onclick="_drawerViewPhoto(\''+_esc(m.id)+'\')" title="'+_esc(m.title||m.files?.[0]?.file||'')+'" /><button onclick="_drawerUnlinkPhoto(\''+_esc(m.id)+'\',\''+_esc(personId)+'\')" title="Remover vínculo" style="position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;"><i class="mdi mdi-close"></i></button></div>';
+          } else {
+            // GEDCOM-imported photo: has filename but no image data yet
+            const fname=src||'(sem nome)';
+            html+='<div style="position:relative;display:inline-block;width:72px;">'
+              +'<div style="width:72px;height:72px;border-radius:6px;background:#2a2a3a;border:1px dashed #555;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;" onclick="_drawerLinkGedcomPhoto(\''+_esc(m.id)+'\',\''+_esc(personId)+'\')" title="Clique para carregar: '+_esc(fname)+'">'
+              +'<i class="mdi mdi-image-off" style="font-size:1.4rem;color:#888;"></i>'
+              +'<span style="font-size:0.55rem;color:#888;text-align:center;word-break:break-all;padding:0 3px;max-height:28px;overflow:hidden;">'+_esc(fname)+'</span>'
+              +'</div>'
+              +'<button onclick="_drawerUnlinkPhoto(\''+_esc(m.id)+'\',\''+_esc(personId)+'\')" title="Remover vínculo" style="position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;"><i class="mdi mdi-close"></i></button>'
+              +'</div>';
+          }
         });
         html+='</div>';
         return html;
@@ -710,6 +723,28 @@
           if(indi){ if(!indi.multimediaRefs) indi.multimediaRefs=[]; indi.multimediaRefs.push(media.id); DB.saveIndividual(indi); }
           input.value=''; openDrawerSection(personId,'fotos');
         }catch(err){ alert('Erro: '+err); }
+      };
+
+      window._drawerLinkGedcomPhoto = function(mediaId, personId){
+        // For GEDCOM-imported photos that have a filename but no image data,
+        // let the user pick the actual file to associate with this multimedia record
+        const input=document.createElement('input');
+        input.type='file'; input.accept='image/*';
+        input.onchange=async function(){
+          if(!input.files||!input.files.length) return;
+          const f=input.files[0];
+          try{
+            const dataUrl=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); });
+            const m=DB.getMultimediaItem(mediaId);
+            if(!m) return;
+            m.dataUrl=dataUrl;
+            m.files=[{file:dataUrl,format:f.type}];
+            if(!m.title) m.title=f.name;
+            DB.saveMultimedia(m);
+            openDrawerSection(personId,'fotos');
+          }catch(err){ alert('Erro ao carregar imagem: '+err); }
+        };
+        input.click();
       };
 
       window._drawerUnlinkPhoto = function(mediaId,personId){

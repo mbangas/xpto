@@ -318,6 +318,7 @@ app.post('/api/gedcom/import', express.text({ type: '*/*', limit: '50mb' }), (re
     const result = parseGedcomToJson(text);
     writeCollection('individuals', result.individuals);
     writeCollection('families', result.families);
+    if (result.multimedia && Object.keys(result.multimedia).length) writeCollection('multimedia', result.multimedia);
     res.json({ ok:true, stats:result.stats, warnings:result.warnings });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
@@ -336,7 +337,7 @@ function parseGedcomToJson(text) {
   }
   if (cur) recs.push(cur);
 
-  const individuals={}, families={}, warnings=[];
+  const individuals={}, families={}, multimedia={}, warnings=[];
   const now = nowISO();
 
   function subLines(lines, idx) {
@@ -407,9 +408,49 @@ function parseGedcomToJson(text) {
             indi.sourceRefs.push(sr);
           }
         }
+        if(rest.startsWith('OBJE')){
+          const m2=rest.match(/@([^@]+)@/);
+          if(m2){
+            // reference to a top-level OBJE record
+            if(!indi.multimediaRefs.includes(m2[1])) indi.multimediaRefs.push(m2[1]);
+          } else {
+            // inline OBJE: create an anonymous multimedia record
+            const file={file:'',form:''};
+            subLines(rec.lines,i).forEach(s=>{
+              if(s.rest.startsWith('FILE'))file.file=s.rest.replace(/^FILE\s*/,'').trim();
+              if(s.rest.startsWith('FORM'))file.form=s.rest.replace(/^FORM\s*/,'').trim();
+            });
+            if(file.file){
+              const mid='M_'+id+'_'+indi.multimediaRefs.length;
+              multimedia[mid]={id:mid,type:'OBJE',files:[file],notes:[],sourceRefs:[],dataUrl:null,tags:[],createdAt:now,updatedAt:now,deletedAt:null};
+              indi.multimediaRefs.push(mid);
+            }
+          }
+        }
       }
       if(!indi.names.length) warnings.push({id,reason:'Missing name'});
       individuals[id] = indi;
+      continue;
+    }
+    // OBJE (top-level multimedia)
+    const om = first.match(/^@([^@]+)@\s+OBJE/);
+    if (om) {
+      const id = om[1];
+      const obje = { id, type:'OBJE', files:[], notes:[], sourceRefs:[], dataUrl:null, tags:[], createdAt:now, updatedAt:now, deletedAt:null };
+      let fileObj = null;
+      for (let i = 1; i < rec.lines.length; i++) {
+        const {lev,rest} = rec.lines[i];
+        if (lev === 1 && rest.startsWith('FILE')) {
+          fileObj = { file: rest.replace(/^FILE\s*/,'').trim(), form:'' };
+          obje.files.push(fileObj);
+        }
+        if (lev === 2 && rest.startsWith('FORM') && fileObj) {
+          fileObj.form = rest.replace(/^FORM\s*/,'').trim();
+        }
+        if (lev === 1 && rest.startsWith('NOTE')) obje.notes.push(rest.replace(/^NOTE\s*/,'').trim());
+        if (lev === 1 && rest.startsWith('TITL')) obje.tags.push(rest.replace(/^TITL\s*/,'').trim());
+      }
+      multimedia[id] = obje;
       continue;
     }
     // FAM
@@ -422,6 +463,10 @@ function parseGedcomToJson(text) {
         if(rest.startsWith('HUSB')){const m2=rest.match(/@([^@]+)@/);if(m2)fam.husb=m2[1];}
         if(rest.startsWith('WIFE')){const m2=rest.match(/@([^@]+)@/);if(m2)fam.wife=m2[1];}
         if(rest.startsWith('CHIL')){const m2=rest.match(/@([^@]+)@/);if(m2)fam.children.push(m2[1]);}
+        if(rest.startsWith('OBJE')){
+          const m2=rest.match(/@([^@]+)@/);
+          if(m2){if(!fam.multimediaRefs.includes(m2[1]))fam.multimediaRefs.push(m2[1]);}
+        }
         const famEvTypes=['MARR','DIV','ANUL','ENGA','MARB','MARC','MARL','MARS','EVEN'];
         for(const et of famEvTypes){
           if(rest.startsWith(et+' ')||rest===et){
@@ -441,7 +486,7 @@ function parseGedcomToJson(text) {
       families[id] = fam;
     }
   }
-  return { individuals, families, stats:{individuals:Object.keys(individuals).length,families:Object.keys(families).length,warnings:warnings.length}, warnings };
+  return { individuals, families, multimedia, stats:{individuals:Object.keys(individuals).length,families:Object.keys(families).length,multimedia:Object.keys(multimedia).length,warnings:warnings.length}, warnings };
 }
 
 /* ── Topola JSON ─────────────────────────────────────────────────────── */

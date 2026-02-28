@@ -1,5 +1,17 @@
 [
   {
+    "ts": "2026-02-28T12:14:35.481Z",
+    "action": "GEDCOM importado",
+    "detail": "GEDCOM - 2026-02-28.ged — 1859 pessoas, 782 famílias",
+    "category": "gedcom"
+  },
+  {
+    "ts": "2026-02-28T12:07:48.665Z",
+    "action": "GEDCOM importado",
+    "detail": "GEDCOM - 2026-02-28.ged — 1859 pessoas, 782 famílias",
+    "category": "gedcom"
+  },
+  {
     "timestamp": "2026-02-28T11:59:22.560Z",
     "entity": "Individual",
     "action": "update",

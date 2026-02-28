@@ -678,7 +678,7 @@
           '<div><label>Género</label><select id="df_gender"><option value=""'+(!sex?' selected':'')+'>​(n/a)</option><option value="M"'+(sex==='M'?' selected':'')+'>Masculino</option><option value="F"'+(sex==='F'?' selected':'')+'>Feminino</option><option value="X"'+(sex==='X'?' selected':'')+'>Outro</option></select></div>',
           '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
           '<div><textarea id="df_notes" rows="3" placeholder="Notas...">'+_esc(notes)+'</textarea></div>',
-          indi?'<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Relações</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button></div><div style="margin-top:10px;"><button class="btn btn-sm" style="font-size:0.82rem;gap:5px;" onclick="openAddRelativeForm(\''+indi.id+'\')" title="Adicionar familiar ligado a esta pessoa"><i class="mdi mdi-account-plus-outline"></i> Adicionar Parente</button></div>':''
+          indi?'<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Relações</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button></div><div style="margin-top:10px;display:flex;gap:8px;"><button class="btn btn-sm" style="font-size:0.82rem;gap:5px;" onclick="openAddRelativeForm(\''+indi.id+'\')"><i class="mdi mdi-account-plus-outline"></i> Adicionar Parente</button><button class="btn btn-sm" style="font-size:0.82rem;gap:5px;" onclick="_drawerShowLinkPerson(\''+indi.id+'\')"><i class="mdi mdi-link-variant"></i> Ligar</button></div>':''
         ].join('');
         document.getElementById('personDrawer').classList.add('open');
         document.getElementById('drawerOverlay').classList.add('open');
@@ -996,6 +996,88 @@
         populateFocusSelect(sourcePersonId);
         refreshChartInPlace();
         setTimeout(()=>openDrawer('edit', sourcePersonId), 120);
+      };
+
+      /* ── Link existing person ──────────────────────────────────────────── */
+      function _linkRelation(personId,targetId,relType){
+        const indi=DB.getIndividual(personId);
+        const target=DB.getIndividual(targetId);
+        if(!indi||!target) return;
+        if(relType==='mate'){
+          DB.ensureFamily(personId,targetId);
+        } else if(relType==='ancestor'){
+          if(!indi.famc){
+            const fam=DB.saveFamily({husb:target.sex==='M'?targetId:null,wife:target.sex==='F'?targetId:null,children:[personId],events:[]});
+            indi.famc=fam.id; DB.saveIndividual(indi);
+            if(!target.fams) target.fams=[];
+            if(!target.fams.includes(fam.id)){ target.fams.push(fam.id); DB.saveIndividual(target); }
+          } else {
+            const fam=DB.getFamily(indi.famc);
+            if(fam){
+              if(!fam.husb&&target.sex!=='F'){ fam.husb=targetId; }
+              else if(!fam.wife){ fam.wife=targetId; }
+              else { fam.husb=targetId; }
+              DB.saveFamily(fam);
+              if(!target.fams) target.fams=[];
+              if(!target.fams.includes(fam.id)){ target.fams.push(fam.id); DB.saveIndividual(target); }
+            }
+          }
+        } else if(relType==='child'){
+          const fams=DB.getFamiliesAsSpouse(personId);
+          let fam=fams.length?fams[0]:null;
+          if(!fam){
+            fam=DB.saveFamily({husb:indi.sex==='M'?personId:null,wife:indi.sex==='F'?personId:null,children:[],events:[]});
+            if(!indi.fams) indi.fams=[];
+            indi.fams.push(fam.id); DB.saveIndividual(indi);
+          }
+          if(!fam.children) fam.children=[];
+          if(!fam.children.includes(targetId)){ fam.children.push(targetId); DB.saveFamily(fam); }
+          target.famc=fam.id; DB.saveIndividual(target);
+        } else if(relType==='siblin'){
+          if(indi.famc){
+            const fam=DB.getFamily(indi.famc);
+            if(fam){
+              if(!fam.children) fam.children=[];
+              if(!fam.children.includes(targetId)){ fam.children.push(targetId); DB.saveFamily(fam); }
+              target.famc=fam.id; DB.saveIndividual(target);
+            }
+          } else {
+            const fam=DB.saveFamily({children:[personId,targetId],events:[]});
+            indi.famc=fam.id; DB.saveIndividual(indi);
+            target.famc=fam.id; DB.saveIndividual(target);
+          }
+        }
+      }
+
+      window._drawerShowLinkPerson = function(personId){
+        const indi=DB.getIndividual(personId); if(!indi) return;
+        const parents=DB.getParents(personId);
+        const footer=document.querySelector('.drawer-footer'); if(footer) footer.style.display='none';
+        const phdr=document.getElementById('drawerPersonHeader'); if(phdr) phdr.style.display='none';
+        const backBtn=document.getElementById('drawerBackBtn'); if(backBtn){ backBtn.style.display=''; backBtn._personId=personId; }
+        document.getElementById('drawerTitle').textContent='Ligar — '+DB.getDisplayName(indi);
+        let kinOpts='<option value="siblin">Irmão / Irmã</option><option value="child">Filho(a)</option>';
+        if(parents.length<2) kinOpts='<option value="ancestor">Pai / Mãe</option>'+kinOpts;
+        kinOpts+='<option value="mate">Companheiro(a)</option>';
+        const others=DB.getIndividuals().filter(i=>i.id!==personId);
+        const opts=others.map(i=>'<option value="'+i.id+'">'+_esc(DB.getDisplayName(i))+'</option>').join('');
+        document.getElementById('drawerBody').innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Ligar Pessoa Existente</h3><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Grau de parentesco</label><select id="linkPersKinship" style="width:100%;">'+kinOpts+'</select></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pesquisar pessoa</label><input id="linkPersSearch" type="text" placeholder="Pesquisar por nome..." style="width:100%;margin-bottom:6px;" /><select id="linkPersTarget" size="6" style="width:100%;min-height:110px;">'+opts+'</select></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;"><button class="btn btn-ghost btn-sm" onclick="openDrawer(\'edit\',\''+_esc(personId)+'\')" >Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveLinkPerson(\''+_esc(personId)+'\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+        const sel=document.getElementById('linkPersTarget');
+        if(sel) sel._allOpts=others.map(i=>({value:i.id,text:DB.getDisplayName(i)}));
+        const si=document.getElementById('linkPersSearch');
+        if(si){ si.addEventListener('input',function(){ const q=this.value.toLowerCase(); const all=sel._allOpts||[]; sel.innerHTML=all.filter(o=>o.text.toLowerCase().includes(q)).map(o=>'<option value="'+o.value+'">'+_esc(o.text)+'</option>').join(''); }); si.focus(); }
+      };
+
+      window._drawerSaveLinkPerson = function(personId){
+        const relType=(document.getElementById('linkPersKinship')||{}).value;
+        const targetId=(document.getElementById('linkPersTarget')||{}).value;
+        if(!relType||!targetId){ alert('Selecione tipo e pessoa.'); return; }
+        if(targetId===personId){ alert('Não pode ligar uma pessoa a si própria.'); return; }
+        _linkRelation(personId,targetId,relType);
+        closeDrawer();
+        populateFocusSelect(personId);
+        refreshChartInPlace();
+        setTimeout(()=>openDrawer('edit', personId), 120);
       };
 
       /* ── Photos section (minimal for tree) ─────────────────────────────── */

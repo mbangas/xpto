@@ -10,6 +10,7 @@
 
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
 [![Express](https://img.shields.io/badge/Express-4.x-000000?style=flat-square&logo=express&logoColor=white)](https://expressjs.com)
+[![GEDCOM](https://img.shields.io/badge/GEDCOM-7.0-4c8bf5?style=flat-square)](https://gedcom.io)
 [![Licença](https://img.shields.io/badge/licença-MIT-blue?style=flat-square)](LICENSE)
 
 </div>
@@ -18,46 +19,52 @@
 
 ## Sobre a aplicação
 
-**myLineage** é uma aplicação web de genealogia que permite gerir registos de pessoas, eventos, relações familiares, fotografias e documentos, diretamente no navegador, com persistência local em ficheiros JSON.
+**myLineage** é uma aplicação web de genealogia compatível com **GEDCOM 7** que permite gerir indivíduos, famílias, fontes, repositórios, multimédia e notas, com persistência local em ficheiros JSON servidos por uma API REST.
 
 ### Funcionalidades principais
 
-| Módulo | Descrição |
-|---|---|
-| **Cadastro** | Criar, editar e remover pessoas com dados pessoais, datas e notas |
-| **Eventos** | Registar nascimentos, batismos, casamentos, óbitos, divórcios e adopções |
-| **Relações** | Ligar pessoas por filiação, fratria e laços conjugais |
-| **Árvore** | Visualização interativa da árvore genealógica em grafo |
-| **Indicadores** | Dashboard com gráficos e estatísticas (distribuição por género, nascimentos por década, longevidade, top nomes, etc.) |
-| **GEDCOM** | Importação e exportação de ficheiros `.ged` (GEDCOM 5.5 / 5.5.1) |
-| **Álbum** | Galeria de thumbnails de todas as fotografias da Biblioteca de Fotos; modal com pré-visualização e informação da foto |
-| **Documentos** | Galeria de documentos da Biblioteca de Documentos; pré-visualização de PDF, imagem, texto, vídeo, áudio e download para outros tipos |
-| **Detalhe da Pessoa** | Vista completa de uma pessoa: dados, eventos, relações, fotos (com upload, identificação de pessoas por região e notas) |
-| **Definições** | Configuração da Biblioteca de Fotos, Biblioteca de Documentos e Pessoa em Foco |
+| Módulo | Página | Descrição |
+|---|---|---|
+| **Início** | `index.html` | Dashboard de boas-vindas com atalhos para todos os módulos |
+| **Cadastro** | `app.html` | Criar, editar e remover indivíduos (nomes, sexo, eventos, atributos, fontes, notas) |
+| **Árvore** | `arvore.html` | Visualização interativa da árvore genealógica (Topola + family-chart) |
+| **Indicadores** | `indicadores.html` | Dashboard com estatísticas: género, nascimentos, óbitos, casamentos, fontes, multimédia |
+| **GEDCOM** | `gedcom.html` | Importação e exportação de ficheiros `.ged` (GEDCOM 7.0) |
+| **Álbum** | `album.html` | Galeria de multimédia associada aos registos OBJE |
+| **Documentos** | `documentos.html` | Biblioteca de documentos com pré-visualização de PDF, imagem, vídeo e áudio |
+| **Histórico** | `historico.html` | Registo de auditoria de todas as alterações (criações, edições, eliminações) |
+| **Validação** | `validacao.html` | Análise de consistência e qualidade dos dados GEDCOM |
+| **Definições** | `configuracao.html` | Configurações gerais da aplicação |
+| **APIs** | `apis.html` | Referência interativa de todos os endpoints REST |
 
 ---
 
 ### Arquitectura
 
 ```
-Navegador (localStorage + IndexedDB)
-        │  sincroniza via
+Browser (HTML + JS)
+        │  fetch REST
         ▼
-remote-storage.js  ──────────►  Express server (server.js)
-   (shim síncrono)                      │
-                                        ▼
-                                  JSON-DATA/
-                              *.json  (um ficheiro por chave)
-
-Biblioteca de Fotos / Documentos
-  → acedida diretamente pelo browser via File System Access API
-  → handle de directório persistido em IndexedDB (myLineage-db)
+server.js  (Express)
+        │
+        ├─ /api/individuals    ──► JSON-DATA/individuals.json
+        ├─ /api/families       ──► JSON-DATA/families.json
+        ├─ /api/sources        ──► JSON-DATA/sources.json
+        ├─ /api/repositories   ──► JSON-DATA/repositories.json
+        ├─ /api/multimedia     ──► JSON-DATA/multimedia.json
+        ├─ /api/notes          ──► JSON-DATA/notes.json
+        ├─ /api/submitters     ──► JSON-DATA/submitters.json
+        ├─ /api/settings       ──► JSON-DATA/settings.json
+        ├─ /api/history        ──► JSON-DATA/history.json
+        ├─ /api/gedcom/import  ──► parser → bulk write
+        └─ /api/gedcom/export  ──► serializer → .ged download
 ```
 
-- `remote-storage.js` é carregado antes de qualquer outro script e sincroniza o `localStorage` com o servidor ao arrancar, interceptando também `setItem` / `removeItem` para persistir alterações.
-- `server.js` serve os ficheiros estáticos e expõe uma API CRUD em `/api/data/:key`.
+- `remote-storage.js` é carregado em todas as páginas e inicializa o objeto global `window.GedcomDB`, que encapsula todos os acessos à API REST.
+- `history-logger.js` envolve as mutações do `GedcomDB` e regista cada criação, edição e eliminação em `/api/history` (máximo 500 entradas).
+- `server.js` serve os ficheiros estáticos e expõe a API CRUD GEDCOM 7, com soft-delete (`deletedAt`) em todos os registos de entidade.
 - Os dados ficam em `JSON-DATA/` como ficheiros `.json`, facilitando backup e controlo de versão.
-- As pastas de fotos e documentos são acedidas localmente via **File System Access API** — o browser pede permissão uma vez e o handle fica guardado em IndexedDB.
+- As visualizações de árvore usam os bundles pré-compilados `topola-bundle.js` (Topola) e `family-chart-bundle.js` (family-chart), gerados por `esbuild`.
 
 ---
 
@@ -67,21 +74,22 @@ Biblioteca de Fotos / Documentos
 
 - [Node.js](https://nodejs.org) v18 ou superior
 - npm (incluído com o Node.js)
-- Browser com suporte a **File System Access API** (Chrome / Edge ≥ 86) para as bibliotecas de fotos e documentos
 
 ### Instalação e arranque
 
 ```bash
 # 1. Clonar o repositório
-git clone https://github.com/mbangas/xpto.git
-cd xpto
+git clone https://github.com/mbangas/myLineage.git
+cd myLineage
 
 # 2. Instalar dependências
 npm install
 
-# 3. Iniciar o servidor
+# 3. Compilar os bundles e iniciar o servidor
 npm start
 ```
+
+O `npm start` executa primeiro `npm run build:all` (esbuild) antes de lançar o servidor.
 
 A aplicação fica disponível em **http://localhost:3000**.
 
@@ -95,100 +103,119 @@ A aplicação fica disponível em **http://localhost:3000**.
 ### Estrutura de ficheiros
 
 ```
-xpto/
-├── index.html          # Página de entrada (landing)
-├── app.html            # Cadastro de pessoas
-├── indicadores.html    # Dashboard de indicadores
-├── arvore.html         # Visualização em árvore genealógica
-├── gedcom.html         # Importação e exportação GEDCOM
-├── album.html          # Álbum de fotografias (Biblioteca de Fotos)
-├── documentos.html     # Biblioteca de Documentos
-├── configuracao.html   # Definições (bibliotecas, pessoa em foco)
-├── apis.html           # Referência das APIs e chaves de dados
-├── landing.html        # Página pública de apresentação
-├── style.css           # Design system (dark theme)
-├── landing.css         # Estilos da landing page
-├── sys-dates.css       # Estilos de datas do sistema
-├── server.js           # Servidor Express + API CRUD
-├── remote-storage.js   # Shim localStorage ↔ servidor
+myLineage/
+├── index.html             # Início — dashboard de boas-vindas
+├── app.html               # Cadastro de indivíduos
+├── arvore.html            # Árvore genealógica interativa
+├── indicadores.html       # Indicadores e estatísticas
+├── gedcom.html            # Importação e exportação GEDCOM 7
+├── album.html             # Galeria de multimédia (OBJE)
+├── documentos.html        # Biblioteca de documentos
+├── historico.html         # Histórico de auditoria
+├── validacao.html         # Validação e qualidade dos dados
+├── configuracao.html      # Definições da aplicação
+├── apis.html              # Referência de APIs
+├── server.js              # Servidor Express + API GEDCOM 7
+├── remote-storage.js      # Inicialização do GedcomDB global
+├── history-logger.js      # Logger de auditoria de mutações
+├── topola-entry.js        # Entry-point para bundle Topola
+├── topola-bundle.js       # Bundle pré-compilado (gerado)
+├── family-chart-entry.js  # Entry-point para bundle family-chart
+├── family-chart-bundle.js # Bundle pré-compilado (gerado)
 ├── package.json
-├── GEDCOM/             # Ficheiros GEDCOM de exemplo
-│   └── GEDCOM (1).ged
-└── JSON-DATA/          # Dados persistidos (gerado automaticamente)
-    ├── people%3AmyLineage.json
-    ├── events%3AmyLineage.json
-    ├── relations%3AmyLineage.json
-    ├── photos%3AmyLineage.json
-    ├── photoRelations%3AmyLineage.json
-    ├── photoBase%3AmyLineage.json
-    ├── docBase%3AmyLineage.json
-    └── focusedPerson%3AmyLineage.json
+├── css/
+│   ├── style.css          # Design system (dark theme)
+│   ├── family-chart.css
+│   └── sys-dates.css
+└── JSON-DATA/             # Dados persistidos (gerado automaticamente)
+    ├── individuals.json
+    ├── families.json
+    ├── sources.json
+    ├── repositories.json
+    ├── multimedia.json
+    ├── notes.json
+    ├── settings.json
+    └── history.json
 ```
 
 ---
 
 ### API de dados
 
-O servidor expõe os seguintes endpoints REST:
+O servidor expõe uma API REST GEDCOM 7 com CRUD completo para cada entidade:
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/api/data` | Lista todas as chaves armazenadas |
-| `GET` | `/api/data/:key` | Lê o valor de uma chave |
-| `POST` | `/api/data/:key` | Grava / atualiza o valor de uma chave |
-| `DELETE` | `/api/data/:key` | Remove uma chave |
+| `GET` | `/api/:entity` | Lista todos os registos activos (sem `deletedAt`) |
+| `GET` | `/api/:entity?includeDeleted=true` | Lista incluindo registos eliminados (soft-delete) |
+| `GET` | `/api/:entity/:id` | Lê um registo pelo ID |
+| `POST` | `/api/:entity` | Cria um novo registo (ID auto-gerado se omitido) |
+| `PUT` | `/api/:entity/:id` | Actualiza um registo existente |
+| `DELETE` | `/api/:entity/:id` | Soft-delete (preenche `deletedAt`) |
+| `POST` | `/api/bulk-replace` | Substitui colecções inteiras de uma vez |
+| `GET` | `/api/header` | Lê o cabeçalho GEDCOM (versão, charset, etc.) |
+| `PUT` | `/api/header` | Actualiza o cabeçalho GEDCOM |
+| `GET` | `/api/settings` | Lê as definições da aplicação |
+| `PUT` | `/api/settings` | Actualiza as definições da aplicação |
+| `GET` | `/api/history` | Lista o histórico de auditoria (máx. 500 entradas) |
+| `POST` | `/api/history` | Adiciona entradas ao histórico |
+| `DELETE` | `/api/history` | Limpa o histórico |
+| `GET` | `/api/stats` | Estatísticas agregadas (totais, eventos, género) |
+| `GET` | `/api/gedcom/export` | Exporta todos os dados em formato GEDCOM 7 (texto) |
+| `GET` | `/api/gedcom/export?format=file` | Exporta como ficheiro `.ged` para download |
+| `POST` | `/api/gedcom/import` | Importa e processa um ficheiro GEDCOM (texto) |
+| `GET` | `/api/topola-json` | Dados formatados para renderização Topola |
 
-Os nomes dos ficheiros em `JSON-DATA/` correspondem a `encodeURIComponent(key) + .json`.
+#### Entidades disponíveis (`/:entity`)
 
-### Chaves de dados principais
-
-| Chave localStorage | Conteúdo |
-|---|---|
-| `people:myLineage` | Array de pessoas (id, nome, género, notas, datas) |
-| `events:myLineage` | Array de eventos por pessoa (tipo, data, local, notas) |
-| `relations:myLineage` | Array de relações entre pessoas (from, to, type) |
-| `photos:myLineage` | Array de fotos com metadados, notas e identificações por região (tags com bbox) |
-| `photoRelations:myLineage` | Mapa `personId → [photoId, …]` |
-| `photoBase:myLineage` | Configuração da pasta de fotos (nome, contagem, data) |
-| `docBase:myLineage` | Configuração da pasta de documentos (nome, contagem, data) |
-| `focusedPerson:myLineage` | Pessoa em foco atual (id, nome, data de definição) |
-
-### IndexedDB — handles de directório
-
-Os handles de File System Access API ficam em `indexedDB` (`myLineage-db`, object store `handles`):
-
-| Chave | Descrição |
-|---|---|
-| `photoBaseHandle` | `FileSystemDirectoryHandle` da pasta de fotos |
-| `docBaseHandle` | `FileSystemDirectoryHandle` da pasta de documentos |
+| Entidade | Prefixo de ID | Ficheiro JSON | Tag GEDCOM |
+|---|---|---|---|
+| `individuals` | `I` | `individuals.json` | `INDI` |
+| `families` | `F` | `families.json` | `FAM` |
+| `sources` | `S` | `sources.json` | `SOUR` |
+| `repositories` | `R` | `repositories.json` | `REPO` |
+| `multimedia` | `M` | `multimedia.json` | `OBJE` |
+| `notes` | `N` | `notes.json` | `NOTE` |
+| `submitters` | `U` | `submitters.json` | `SUBM` |
 
 ---
 
-## Álbum de Fotografias
+## Árvore Genealógica
 
-1. Abra **Definições** e selecione a pasta de fotografias em **Biblioteca de Fotos**.
-2. Navegue para **Álbum** — todas as imagens da pasta são apresentadas como thumbnails.
-3. As fotos com pessoas associadas mostram chips com os nomes.
-4. Clique numa foto para abrir o modal com a imagem e os metadados.
+A página `arvore.html` suporta dois motores de visualização:
 
-Para associar fotos a pessoas, use a página **Detalhe da Pessoa** → secção Fotos.
+- **Topola** — diagrama de descendência / ascendência em SVG, navegável por pessoa.
+- **family-chart** — grafo de família completo.
 
-## Documentos
+Os bundles são compilados com `esbuild` a partir dos entry-points:
 
-1. Abra **Definições** e selecione a pasta em **Biblioteca de Documentos**.
-2. Navegue para **Documentos** — todos os ficheiros são listados como thumbnails com ícone por tipo.
-3. Filtre por tipo (PDF, Word, Excel, imagem, texto, vídeo, …) usando os pills de filtro.
-4. Clique num documento para abrir o visualizador:
-   - **PDF** — incorporado no browser
-   - **Imagens** — visualizador integrado
-   - **Texto / CSV / JSON / código** — conteúdo em texto simples
-   - **Vídeo / Áudio** — player nativo
-   - **Outros** — botão de download
+```bash
+npm run build:topola        # compila topola-bundle.js
+npm run build:familychart   # compila family-chart-bundle.js
+npm run build:all           # compila ambos
+```
 
-## Importação GEDCOM
+## Histórico de Auditoria
+
+O `history-logger.js` envolve automaticamente os métodos de mutação do `GedcomDB` e regista cada operação com:
+
+- Tipo de entidade e ID
+- Acção (`create`, `update`, `delete`)
+- Timestamp ISO 8601
+
+O log é consultável em **Histórico** e limitado a 500 entradas (FIFO).
+
+## Validação GEDCOM
+
+A página **Validação** analisa os dados carregados e reporta:
+
+- Indivíduos sem nome ou sem data de nascimento
+- Famílias sem cônjuge ou sem filhos
+- Referências cruzadas inválidas (FAMC / FAMS inconsistentes)
+- KPIs de qualidade com indicadores visuais
+
+## Importação / Exportação GEDCOM
 
 1. Aceda a **GEDCOM** na barra lateral.
-2. Selecione um ficheiro `.ged` (GEDCOM 5.5 / 5.5.1).
-3. Confirme a importação — os dados são convertidos e guardados automaticamente.
-
-Ficheiros de exemplo estão disponíveis em `GEDCOM/`.
+2. **Importar**: cole ou carregue um ficheiro `.ged` (GEDCOM 5.5, 5.5.1 ou 7.0) e confirme — os registos `INDI` e `FAM` são convertidos e substituem os dados actuais.
+3. **Exportar**: clique em **Exportar .ged** — o servidor serializa todos os dados em GEDCOM 7.0 e devolve o ficheiro para download.

@@ -38,7 +38,6 @@
       <main class="content">
         <div class="topbar">
           <div style="display:flex;align-items:center;gap:12px"><h1>Cadastro</h1></div>
-          <button class="btn btn-sm" id="newPersonBtn"><i class="mdi mdi-account-plus-outline"></i> Nova Pessoa</button>
         </div>
         <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
 
@@ -241,8 +240,6 @@
       (function(){
         const input=document.getElementById('nameFilter');
         if(input) input.addEventListener('input',function(){ currentFilter=this.value.toLowerCase().trim(); currentPage=1; renderTable(); });
-        const nb=document.getElementById('newPersonBtn');
-        if(nb) nb.addEventListener('click',function(){ openDrawer('create'); });
       })();
 
       /* ── Table click handlers ──────────────────────────────────────────── */

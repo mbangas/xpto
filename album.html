@@ -553,6 +553,9 @@
             <button class="album-modal-delete" id="albumModalDelete" title="Apagar foto">
               <i class="mdi mdi-delete-outline" aria-hidden="true"></i>
             </button>
+            <button class="album-modal-maximize" id="albumModalDownload" title="Descarregar foto">
+              <i class="mdi mdi-download" aria-hidden="true"></i>
+            </button>
             <button class="album-modal-maximize" id="albumModalMaximize" title="Maximizar (F)">
               <i class="mdi mdi-arrow-expand" aria-hidden="true" id="albumModalMaximizeIcon"></i>
             </button>
@@ -947,6 +950,28 @@
         document.getElementById('deleteConfirmOverlay').classList.add('open');
       });
 
+      // ── Download helper ─────────────────────────────────────────────
+      async function _downloadPhoto(src, name){
+        if (!src) return;
+        try {
+          let url = src;
+          let revoke = false;
+          if (/^https?:\/\//i.test(src)) {
+            const resp = await fetch(src);
+            const blob = await resp.blob();
+            url = URL.createObjectURL(blob);
+            revoke = true;
+          }
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = name || 'foto';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          if (revoke) setTimeout(() => URL.revokeObjectURL(url), 10000);
+        } catch(e) { console.error('Erro ao descarregar foto:', e); }
+      }
+
       // ── Maximize / restore ───────────────────────────────────────────
       function setMaximized(val){
         const inner = document.querySelector('.album-modal-inner');
@@ -965,6 +990,11 @@
       document.getElementById('albumModalMaximize').addEventListener('click', () => {
         const inner = document.querySelector('.album-modal-inner');
         setMaximized(!inner.classList.contains('maximized'));
+      });
+
+      document.getElementById('albumModalDownload').addEventListener('click', async () => {
+        if (!_currentModalItem) return;
+        await _downloadPhoto(_currentModalItem.src, _currentModalItem.name);
       });
 
       document.getElementById('albumModalClose').addEventListener('click', closeModal);

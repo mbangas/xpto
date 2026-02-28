@@ -422,7 +422,7 @@
         document.getElementById('drawerTitle').textContent=(section==='relacoes'?'Relações':section==='fotos'?'Fotos':'Eventos')+' — '+DB.getDisplayName(indi);
         const body=document.getElementById('drawerBody');
         body.innerHTML=section==='relacoes'?_renderRelations(personId):section==='fotos'?_renderPhotos(personId):_renderEvents(personId);
-        if(section==='fotos') _bindPhotoSectionEvents(body, personId);
+        if(section==='fotos') _buildPhotoGrid(personId);
       };
 
       /* ── Events section ────────────────────────────────────────────────── */
@@ -713,53 +713,75 @@
         renderTable();
       };
 
-      /* ── Photos section ────────────────────────────────────────────────── */
+      /* ── Photos section ───────────────────────────────────────────────── */
+      // _renderPhotos returns the static upload-bar + empty grid container.
+      // _buildPhotoGrid then fills the grid using real DOM nodes + addEventListener.
       function _renderPhotos(personId){
-        const media=DB.getMultimediaForIndividual(personId);
-        let html='<div style="margin-bottom:14px;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;"><label for="drawerPhotoInput" class="btn btn-sm" style="cursor:pointer;font-size:0.83rem;"><i class="mdi mdi-image-plus"></i> Escolher Ficheiro</label><span id="drawerPhotoName" style="color:#aaa;font-size:0.82rem;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Nenhum ficheiro</span><button class="btn btn-sm" data-action="upload-photo" data-person="' + personId + '" style="font-size:0.83rem;"><i class="mdi mdi-upload"></i> Upload</button></div><input type="file" id="drawerPhotoInput" accept="image/*" style="display:none;"/></div>';
-        if(!media.length){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhuma foto associada.</div>'; return html; }
-        html+='<div style="display:flex;flex-wrap:wrap;gap:10px;" data-photos-grid>';
-        media.forEach(function(m){
-          const src=m.dataUrl||(m.files&&m.files[0]?m.files[0].file:'')||'';
-          const hasImage=src.startsWith('data:')||src.startsWith('http')||src.startsWith('/');
-          if(hasImage){
-            const safeSrc=src.replace(/"/g,'%22');
-            html+='<div style="position:relative;display:inline-block;">'
-              +'<img src="'+safeSrc+'" data-action="view-photo" data-mediaid="'+m.id+'" data-personid="'+personId+'" style="width:72px;height:72px;object-fit:cover;border-radius:6px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);" title="'+_esc(m.title||'')+'"/>'
-              +'<button data-action="unlink-photo" data-mediaid="'+m.id+'" data-personid="'+personId+'" title="Remover vínculo" style="position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;"><i class="mdi mdi-close"></i></button>'
-              +'</div>';
-          } else {
-            const fname=_esc(src||'(sem nome)');
-            html+='<div style="position:relative;display:inline-block;width:72px;">'
-              +'<div data-action="link-gedcom-photo" data-mediaid="'+m.id+'" data-personid="'+personId+'" style="width:72px;height:72px;border-radius:6px;background:#2a2a3a;border:1px dashed #555;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;" title="Clique para carregar: '+fname+'">'
-              +'<i class="mdi mdi-image-off" style="font-size:1.4rem;color:#888;"></i>'
-              +'<span style="font-size:0.55rem;color:#888;text-align:center;word-break:break-all;padding:0 3px;max-height:28px;overflow:hidden;">'+fname+'</span>'
-              +'</div>'
-              +'<button data-action="unlink-photo" data-mediaid="'+m.id+'" data-personid="'+personId+'" title="Remover vínculo" style="position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;"><i class="mdi mdi-close"></i></button>'
-              +'</div>';
-          }
-        });
-        html+='</div>';
-        return html;
+        return '<div style="margin-bottom:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+          + '<label for="drawerPhotoInput" class="btn btn-sm" style="cursor:pointer;font-size:0.83rem;"><i class="mdi mdi-image-plus"></i> Escolher Ficheiro</label>'
+          + '<span id="drawerPhotoName" style="color:#aaa;font-size:0.82rem;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Nenhum ficheiro</span>'
+          + '<button class="btn btn-sm" id="drawerUploadBtn" style="font-size:0.83rem;"><i class="mdi mdi-upload"></i> Upload</button>'
+          + '</div>'
+          + '<input type="file" id="drawerPhotoInput" accept="image/*" style="display:none;"/>'
+          + '<div id="_photoGrid" style="display:flex;flex-wrap:wrap;gap:10px;"></div>';
       }
 
-      function _bindPhotoSectionEvents(container, personId){
-        const input=container.querySelector('#drawerPhotoInput');
-        if(input) input.addEventListener('change',function(){
-          const nameEl=container.querySelector('#drawerPhotoName');
-          if(nameEl) nameEl.textContent=this.files&&this.files.length?this.files[0].name:'Nenhum ficheiro';
+      function _buildPhotoGrid(personId){
+        // Wire upload button
+        var uploadBtn = document.getElementById('drawerUploadBtn');
+        if(uploadBtn) uploadBtn.addEventListener('click', function(){ window._drawerUploadPhoto(personId); });
+        var fileInput = document.getElementById('drawerPhotoInput');
+        if(fileInput) fileInput.addEventListener('change', function(){
+          var nameEl = document.getElementById('drawerPhotoName');
+          if(nameEl) nameEl.textContent = fileInput.files&&fileInput.files.length ? fileInput.files[0].name : 'Nenhum ficheiro';
         });
-        container.addEventListener('click',function(ev){
-          const el=ev.target.closest('[data-action]');
-          if(!el) return;
-          const action=el.dataset.action;
-          const mediaId=el.dataset.mediaid;
-          const pid=el.dataset.person||el.dataset.personid||personId;
-          ev.stopPropagation();
-          if(action==='view-photo') _drawerViewPhoto(mediaId,pid);
-          else if(action==='unlink-photo') _drawerUnlinkPhoto(mediaId,pid);
-          else if(action==='link-gedcom-photo') _drawerLinkGedcomPhoto(mediaId,pid);
-          else if(action==='upload-photo') _drawerUploadPhoto(pid);
+
+        var grid = document.getElementById('_photoGrid');
+        if(!grid) return;
+        var media = DB.getMultimediaForIndividual(personId);
+        if(!media.length){
+          grid.innerHTML = '<div style="color:#888;padding:4px 0 12px;">Nenhuma foto associada.</div>';
+          return;
+        }
+
+        media.forEach(function(m){
+          var src = m.dataUrl || (m.files && m.files[0] ? m.files[0].file : '') || '';
+          var hasImage = src.startsWith('data:') || src.startsWith('http') || src.startsWith('/');
+          var wrap = document.createElement('div');
+          wrap.style.cssText = 'position:relative;display:inline-block;';
+
+          if(hasImage){
+            var img = document.createElement('img');
+            img.src = src;
+            img.title = m.title || '';
+            img.style.cssText = 'width:72px;height:72px;object-fit:cover;border-radius:6px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);display:block;';
+            img.addEventListener('click', (function(mid, pid){ return function(){ window._drawerViewPhoto(mid, pid); }; })(m.id, personId));
+            wrap.appendChild(img);
+          } else {
+            var placeholder = document.createElement('div');
+            placeholder.style.cssText = 'width:72px;height:72px;border-radius:6px;background:#2a2a3a;border:1px dashed #555;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;';
+            var iconEl = document.createElement('i');
+            iconEl.className = 'mdi mdi-image-off';
+            iconEl.style.cssText = 'font-size:1.4rem;color:#888;pointer-events:none;';
+            var label = document.createElement('span');
+            label.style.cssText = 'font-size:0.55rem;color:#888;text-align:center;word-break:break-all;padding:0 3px;max-height:28px;overflow:hidden;pointer-events:none;';
+            label.textContent = src || '(sem nome)';
+            placeholder.appendChild(iconEl);
+            placeholder.appendChild(label);
+            placeholder.title = 'Clique para carregar: ' + (src || '(sem nome)');
+            placeholder.addEventListener('click', (function(mid, pid){ return function(){ window._drawerLinkGedcomPhoto(mid, pid); }; })(m.id, personId));
+            wrap.appendChild(placeholder);
+          }
+
+          // Remove/unlink button
+          var removeBtn = document.createElement('button');
+          removeBtn.title = 'Remover vínculo';
+          removeBtn.innerHTML = '<i class="mdi mdi-close" style="pointer-events:none;"></i>';
+          removeBtn.style.cssText = 'position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;';
+          removeBtn.addEventListener('click', (function(mid, pid){ return function(ev){ ev.stopPropagation(); window._drawerUnlinkPhoto(mid, pid); }; })(m.id, personId));
+          wrap.appendChild(removeBtn);
+
+          grid.appendChild(wrap);
         });
       }
 

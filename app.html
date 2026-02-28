@@ -64,12 +64,30 @@
                   <th>Nome</th>
                   <th>Nascimento</th>
                   <th>Idade</th>
+                  <th>Parentesco</th>
                   <th style="text-align:right;">Acções</th>
                 </tr>
               </thead>
               <tbody></tbody>
             </table>
             <div id="paginationControls" style="padding:10px 20px;border-top:1px solid var(--border-subtle);min-height:42px;"></div>
+          </div>
+
+          <!-- Legenda Parentesco -->
+          <div style="display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:10px 4px;">
+            <span style="font-size:0.75rem;color:var(--text-disabled);font-weight:600;letter-spacing:0.04em;text-transform:uppercase;">Legenda:</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-secondary);">
+              <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:rgba(68,147,248,0.25);border:1.5px solid #4493f8;flex-shrink:0;"></span>Linha directa
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-secondary);">
+              <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:rgba(130,100,220,0.25);border:1.5px solid #9b7fe8;flex-shrink:0;"></span>Cônjuges &amp; afins
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-secondary);">
+              <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:rgba(255,155,60,0.25);border:1.5px solid #c97c28;flex-shrink:0;"></span>Colaterais
+            </span>
+            <span style="display:inline-flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--text-secondary);">
+              <span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:rgba(255,215,0,0.25);border:1.5px solid rgba(200,170,0,0.7);flex-shrink:0;"></span>Pessoa em Foco
+            </span>
           </div>
 
         </div>
@@ -171,6 +189,9 @@
       function renderTable(){
         const tbody=document.querySelector('#peopleTable tbody');
         tbody.innerHTML='';
+        const _focusedPerson=DB.getSetting('focusedPerson');
+        const _focusedId=(_focusedPerson&&_focusedPerson.id)||null;
+        const relMap=computeRelationships(_focusedId);
         const hideDeleted=document.getElementById('hideDeleted').checked;
         const all=DB.getIndividuals(!hideDeleted);
         const filtered=all.filter(indi=>{
@@ -208,7 +229,8 @@
                 <span style="font-size:0.7rem;color:${agePillColor};opacity:0.7;">anos</span>
                </div>`
             :'<span style="color:var(--text-disabled);font-size:0.82rem;">—</span>';
-          tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:10px;"><div style="width:28px;height:28px;border-radius:50%;background:${avatarBg};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;color:#fff;font-weight:600;">${avatarChar}</div><a href="#" class="person-link" data-id="${indi.id}" style="font-weight:500;">${name}</a></div></td><td style="color:var(--text-secondary);font-size:0.82rem;font-variant-numeric:tabular-nums;">${birthYear||'—'}</td><td>${ageHTML}</td><td style="text-align:right;" class="actions"><button data-id="${indi.id}" class="tree-focus icon-btn" title="Ver na Árvore"><i class="mdi mdi-sitemap"></i></button></td>`;
+          const relHTML=relMap.has(indi.id)?_relBadgeHtml(relMap.get(indi.id)):'<span style="color:var(--text-disabled);font-size:0.8rem;">—</span>';
+          tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:10px;"><div style="width:28px;height:28px;border-radius:50%;background:${avatarBg};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;color:#fff;font-weight:600;">${avatarChar}</div><a href="#" class="person-link" data-id="${indi.id}" style="font-weight:500;">${name}</a></div></td><td style="color:var(--text-secondary);font-size:0.82rem;font-variant-numeric:tabular-nums;">${birthYear||'—'}</td><td>${ageHTML}</td><td>${relHTML}</td><td style="text-align:right;" class="actions"><button data-id="${indi.id}" class="tree-focus icon-btn" title="Ver na Árvore"><i class="mdi mdi-sitemap"></i></button></td>`;
           tbody.appendChild(tr);
         });
         renderPagination(totalPages);
@@ -234,6 +256,149 @@
         // subtract 1 if birthday hasn't occurred yet in the reference year
         if(refMonth < bMonth || (refMonth===bMonth && refDay < bDay)) age--;
         return age>=0?age:null;
+      }
+
+      /* ── Relationship / Kinship calculator ───────────────────────────── */
+      let _relCache = { focusId: '__none__', map: new Map() };
+      function computeRelationships(focusId) {
+        if (_relCache.focusId === focusId) return _relCache.map;
+        const rels = new Map();
+        if (!focusId) { _relCache = {focusId: focusId, map: rels}; return rels; }
+        const indiMap = {};
+        DB.getIndividuals(true).forEach(function(i){ indiMap[i.id] = i; });
+        const famMap = {};
+        DB.getFamilies(true).forEach(function(f){ famMap[f.id] = f; });
+        // BFS through the biological parent-child tree.
+        // ups = generations from the focused person up to the common ancestor.
+        // downs = generations from the common ancestor down to the target.
+        const bioVisited = new Map();
+        bioVisited.set(focusId, {ups:0, downs:0});
+        const queue = [{id:focusId, ups:0, downs:0}];
+        while (queue.length > 0) {
+          const item = queue.shift();
+          const id = item.id, ups = item.ups, downs = item.downs;
+          const indi = indiMap[id];
+          if (!indi) continue;
+          // Go UP to parents (only when we haven't started going down yet)
+          if (downs === 0 && indi.famc) {
+            const famcIds = Array.isArray(indi.famc) ? indi.famc : [indi.famc];
+            for (let fi = 0; fi < famcIds.length; fi++) {
+              const fam = famMap[famcIds[fi]];
+              if (!fam) continue;
+              const pp = [fam.husb, fam.wife];
+              for (let pi = 0; pi < pp.length; pi++) {
+                const pId = pp[pi];
+                if (pId && !bioVisited.has(pId)) {
+                  bioVisited.set(pId, {ups:ups+1, downs:0});
+                  queue.push({id:pId, ups:ups+1, downs:0});
+                }
+              }
+            }
+          }
+          // Go DOWN to children through fams
+          const fams = indi.fams || [];
+          for (let fi = 0; fi < fams.length; fi++) {
+            const fam = famMap[fams[fi]];
+            if (!fam) continue;
+            const ch = fam.children || [];
+            for (let ci = 0; ci < ch.length; ci++) {
+              const cId = ch[ci];
+              if (!bioVisited.has(cId)) {
+                bioVisited.set(cId, {ups:ups, downs:downs+1});
+                queue.push({id:cId, ups:ups, downs:downs+1});
+              }
+            }
+          }
+        }
+        // Convert visited map to relationship labels
+        bioVisited.forEach(function(v, id) {
+          const indi = indiMap[id];
+          const sex = (indi && indi.sex) || '';
+          rels.set(id, id === focusId ? null : _kinshipLabel(v.ups, v.downs, sex));
+        });
+        // Second pass: spouses and in-laws
+        const spousesToAdd = [];
+        bioVisited.forEach(function(v, id) {
+          const indi = indiMap[id];
+          if (!indi) return;
+          const fams = indi.fams || [];
+          for (let fi = 0; fi < fams.length; fi++) {
+            const fam = famMap[fams[fi]];
+            if (!fam) continue;
+            const couple = [fam.husb, fam.wife];
+            for (let ci = 0; ci < couple.length; ci++) {
+              const spId = couple[ci];
+              if (!spId || spId === id || rels.has(spId)) continue;
+              const spIndi = indiMap[spId];
+              const sf = (spIndi && spIndi.sex) === 'F', sm = (spIndi && spIndi.sex) === 'M';
+              let label = null;
+              if (id === focusId)               label = sf?'Esposa':sm?'Esposo':'Cônjuge';
+              else if (v.ups===0&&v.downs===1)  label = sf?'Nora':sm?'Genro':'Cônjuge de filho/a';
+              else if (v.ups===1&&v.downs===0)  label = sf?'Madrasta':sm?'Padrasto':'Cônjuge do pai/mãe';
+              else if (v.ups===1&&v.downs===1)  label = sf?'Cunhada':sm?'Cunhado':'Cunhado/a';
+              else if (v.ups===0&&v.downs===2)  label = sf?'Cônjuge da neta':sm?'Cônjuge do neto':'Cônjuge do neto/a';
+              else if (v.ups===2&&v.downs===0)  label = sf?'Cônjuge da avó':sm?'Cônjuge do avô':'Cônjuge avô/avó';
+              if (label) spousesToAdd.push({id:spId, label:label});
+            }
+          }
+        });
+        for (let i = 0; i < spousesToAdd.length; i++) {
+          if (!rels.has(spousesToAdd[i].id)) rels.set(spousesToAdd[i].id, spousesToAdd[i].label);
+        }
+        _relCache = {focusId: focusId, map: rels};
+        return rels;
+      }
+
+      function _kinshipLabel(ups, downs, sex) {
+        const f = sex==='F', m = sex==='M';
+        if (ups===1&&downs===0) return f?'Mãe':m?'Pai':'Pai/Mãe';
+        if (ups===2&&downs===0) return f?'Avó':m?'Avô':'Avô/Avó';
+        if (ups===3&&downs===0) return f?'Bisavó':m?'Bisavô':'Bisavô/ó';
+        if (ups===4&&downs===0) return f?'Trisavó':m?'Trisavô':'Trisavô/ó';
+        if (ups>=5&&downs===0)  return (f?'Tetravó ('+ups+'ª)':'Tetravo ('+ups+'º)');
+        if (ups===0&&downs===1) return f?'Filha':m?'Filho':'Filho/a';
+        if (ups===0&&downs===2) return f?'Neta':m?'Neto':'Neto/a';
+        if (ups===0&&downs===3) return f?'Bisneta':m?'Bisneto':'Bisneto/a';
+        if (ups===0&&downs===4) return f?'Trineta':m?'Trineto':'Trineto/a';
+        if (ups===0&&downs>=5)  return (f?'Descendente ('+downs+'x)':'Descendente ('+downs+'x)');
+        if (ups===1&&downs===1) return f?'Irmã':m?'Irmão':'Irmão/ã';
+        if (ups===1&&downs===2) return f?'Sobrinha':m?'Sobrinho':'Sobrinho/a';
+        if (ups===1&&downs===3) return f?'Sobrinha-neta':m?'Sobrinho-neto':'Sobrinho/a-neto';
+        if (ups===1&&downs===4) return f?'Sobrinha-bisneta':m?'Sobrinho-bisneto':'Sobrinho/a-bisneto';
+        if (ups===2&&downs===1) return f?'Tia':m?'Tio':'Tio/Tia';
+        if (ups===3&&downs===1) return f?'Tia-avó':m?'Tio-avô':'Tio-avô/ó';
+        if (ups===4&&downs===1) return f?'Tia-bisavó':m?'Tio-bisavô':'Tio-bisavô/ó';
+        if (ups===2&&downs===2) return f?'1ª Prima':m?'1º Primo':'1º Primo/a';
+        if (ups===3&&downs===3) return f?'2ª Prima':m?'2º Primo':'2º Primo/a';
+        if (ups===4&&downs===4) return f?'3ª Prima':m?'3º Primo':'3º Primo/a';
+        if (ups===2&&downs===3) return (f?'1ª Prima':'1º Primo')+' 1x afastado/a';
+        if (ups===3&&downs===2) return (f?'1ª Prima':'1º Primo')+' 1x afastado/a';
+        if (ups===2&&downs===4) return (f?'1ª Prima':'1º Primo')+' 2x afastado/a';
+        if (ups===4&&downs===2) return (f?'1ª Prima':'1º Primo')+' 2x afastado/a';
+        if (ups===3&&downs===4) return (f?'2ª Prima':'2º Primo')+' 1x afastado/a';
+        if (ups===4&&downs===3) return (f?'2ª Prima':'2º Primo')+' 1x afastado/a';
+        const minDeg = Math.min(ups, downs);
+        const removed = Math.abs(ups - downs);
+        if (minDeg >= 2) {
+          const deg = minDeg - 1;
+          const label = f ? deg+'ª Prima' : m ? deg+'º Primo' : deg+'º Primo/a';
+          return removed > 0 ? label + ' ' + removed + 'x afastado/a' : label;
+        }
+        return 'Parente';
+      }
+
+      function _relBadgeHtml(label) {
+        if (label === null) {
+          return '<span style="display:inline-block;padding:2px 9px;border-radius:12px;font-size:0.73rem;font-weight:700;background:rgba(255,215,0,0.18);border:1px solid rgba(200,170,0,0.45);color:#b89a00;white-space:nowrap;">&#9733; Em Foco</span>';
+        }
+        if (!label) return '<span style="color:var(--text-disabled);font-size:0.8rem;">—</span>';
+        const isDirect = /^(Pai|M\u00e3e|Filho|Filha|Av\u00f4|Av\u00f3|Bisav\u00f4|Bisav\u00f3|Trisav\u00f4|Trisav\u00f3|Trineto|Trineta|Bisneto|Bisneta|Neto|Neta|Tetrav|Descend)/.test(label);
+        const isInLaw = /^(Esposo|Esposa|C\u00f4njuge|Genro|Nora|Padrasto|Madrasta|Cunhado|Cunhada)/.test(label);
+        let bg, bd, col;
+        if (isDirect)     { bg='rgba(68,147,248,0.13)'; bd='rgba(68,147,248,0.35)'; col='#4493f8'; }
+        else if (isInLaw) { bg='rgba(130,100,220,0.13)'; bd='rgba(130,100,220,0.35)'; col='#9b7fe8'; }
+        else              { bg='rgba(255,155,60,0.13)'; bd='rgba(255,155,60,0.35)'; col='#c97c28'; }
+        return '<span style="display:inline-block;padding:2px 9px;border-radius:12px;font-size:0.73rem;font-weight:500;background:'+bg+';border:1px solid '+bd+';color:'+col+';white-space:nowrap;">'+_esc(label)+'</span>';
       }
 
       /* ── Search + nova pessoa ─────────────────────────────────────────── */

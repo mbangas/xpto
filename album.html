@@ -163,7 +163,19 @@
         display: flex;
         flex-direction: column;
         animation: modalIn 0.18s ease;
+        transition: max-width 0.2s ease, max-height 0.2s ease, border-radius 0.2s ease;
       }
+      .album-modal-inner.maximized {
+        max-width: 100vw;
+        width: 100vw;
+        max-height: 100vh;
+        height: 100vh;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      #albumModal:has(.album-modal-inner.maximized) { padding: 0; }
+      .album-modal-inner.maximized .album-modal-img-pane img,
+      .album-modal-inner.maximized .album-modal-img-pane .album-photo-wrap img { max-height: calc(100vh - 57px); }
       @keyframes modalIn {
         from { opacity: 0; transform: scale(0.96) translateY(8px); }
         to   { opacity: 1; transform: scale(1) translateY(0); }
@@ -186,7 +198,8 @@
         text-overflow: ellipsis;
         max-width: calc(100% - 48px);
       }
-      .album-modal-close {
+      .album-modal-close,
+      .album-modal-maximize {
         background: none;
         border: none;
         color: var(--text-secondary);
@@ -198,7 +211,8 @@
         transition: color var(--transition), background var(--transition);
         flex-shrink: 0;
       }
-      .album-modal-close:hover { color: var(--text-main); background: var(--bg-surface-2); }
+      .album-modal-close:hover,
+      .album-modal-maximize:hover { color: var(--text-main); background: var(--bg-surface-2); }
       .album-modal-body {
         display: flex;
         flex: 1;
@@ -432,6 +446,32 @@
         transition: background var(--transition);
       }
       .btn-delete-confirm:hover { background: #c62828; }
+
+      /* ── Modal navigation arrows ────────────────────────────────────── */
+      .album-nav-btn {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        z-index: 10;
+        background: rgba(0,0,0,0.45);
+        border: none;
+        color: #fff;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.6rem;
+        cursor: pointer;
+        transition: background 0.18s, opacity 0.18s;
+        opacity: 0.7;
+        flex-shrink: 0;
+      }
+      .album-nav-btn:hover { background: rgba(0,0,0,0.72); opacity: 1; }
+      .album-nav-btn:disabled { opacity: 0.18; cursor: default; pointer-events: none; }
+      .album-nav-prev { left: 10px; }
+      .album-nav-next { right: 10px; }
     </style>
     <script src="remote-storage.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -513,13 +553,22 @@
             <button class="album-modal-delete" id="albumModalDelete" title="Apagar foto">
               <i class="mdi mdi-delete-outline" aria-hidden="true"></i>
             </button>
+            <button class="album-modal-maximize" id="albumModalMaximize" title="Maximizar (F)">
+              <i class="mdi mdi-arrow-expand" aria-hidden="true" id="albumModalMaximizeIcon"></i>
+            </button>
             <button class="album-modal-close" id="albumModalClose" title="Fechar (Esc)">
               <i class="mdi mdi-close" aria-hidden="true"></i>
             </button>
           </div>
         </div>
         <div class="album-modal-body">
-          <div class="album-modal-img-pane" id="modalImgPane">
+          <div class="album-modal-img-pane" id="modalImgPane" style="position:relative;">
+            <button class="album-nav-btn album-nav-prev" id="albumNavPrev" title="Foto anterior (←)" aria-label="Foto anterior">
+              <i class="mdi mdi-chevron-left" aria-hidden="true"></i>
+            </button>
+            <button class="album-nav-btn album-nav-next" id="albumNavNext" title="Próxima foto (→)" aria-label="Próxima foto">
+              <i class="mdi mdi-chevron-right" aria-hidden="true"></i>
+            </button>
             <div class="album-photo-wrap" id="modalPhotoWrap">
               <img id="modalImg" src="" alt="" />
               <div class="album-tag-overlay" id="modalTagOverlay"></div>
@@ -624,6 +673,7 @@
       let _dirHandle  = null;
       let _dirGranted = false;
       let _currentModalItem = null;
+      let _currentModalIndex = -1;
 
       // ── Render thumbnails ────────────────────────────────────────────
       function renderGrid(items){
@@ -735,8 +785,26 @@
         });
       }
 
+      function openModalByIndex(idx){
+        if(idx < 0 || idx >= _filteredItems.length) return;
+        _currentModalIndex = idx;
+        openModal(_filteredItems[idx]);
+      }
+
+      function updateNavButtons(){
+        const prev = document.getElementById('albumNavPrev');
+        const next = document.getElementById('albumNavNext');
+        if(!prev || !next) return;
+        prev.disabled = (_currentModalIndex <= 0);
+        next.disabled = (_currentModalIndex < 0 || _currentModalIndex >= _filteredItems.length - 1);
+      }
+
       function openModal(item){
+        // Sync index if not set via openModalByIndex
+        const idx = _filteredItems.indexOf(item);
+        if(idx !== -1) _currentModalIndex = idx;
         _currentModalItem = item;
+        updateNavButtons();
         document.getElementById('modalPhotoName').textContent = item.name;
         const img = document.getElementById('modalImg');
         document.getElementById('modalTagOverlay').innerHTML = '';
@@ -818,6 +886,7 @@
       }
 
       function closeModal(){
+        setMaximized(false);
         document.getElementById('albumModal').classList.remove('open');
         const img = document.getElementById('modalImg');
         img.onload = null;
@@ -878,13 +947,45 @@
         document.getElementById('deleteConfirmOverlay').classList.add('open');
       });
 
+      // ── Maximize / restore ───────────────────────────────────────────
+      function setMaximized(val){
+        const inner = document.querySelector('.album-modal-inner');
+        const icon  = document.getElementById('albumModalMaximizeIcon');
+        const btn   = document.getElementById('albumModalMaximize');
+        if(val){
+          inner.classList.add('maximized');
+          icon.classList.replace('mdi-arrow-expand', 'mdi-arrow-collapse');
+          btn.title = 'Restaurar (F)';
+        } else {
+          inner.classList.remove('maximized');
+          icon.classList.replace('mdi-arrow-collapse', 'mdi-arrow-expand');
+          btn.title = 'Maximizar (F)';
+        }
+      }
+      document.getElementById('albumModalMaximize').addEventListener('click', () => {
+        const inner = document.querySelector('.album-modal-inner');
+        setMaximized(!inner.classList.contains('maximized'));
+      });
+
       document.getElementById('albumModalClose').addEventListener('click', closeModal);
       document.getElementById('albumModal').addEventListener('click', e => { if(e.target === document.getElementById('albumModal')) closeModal(); });
-      document.addEventListener('keydown', e => { if(e.key === 'Escape'){
-        const overlay = document.getElementById('deleteConfirmOverlay');
-        if(overlay.classList.contains('open')){ overlay.classList.remove('open'); return; }
-        closeModal();
-      }});
+      document.getElementById('albumNavPrev').addEventListener('click', () => openModalByIndex(_currentModalIndex - 1));
+      document.getElementById('albumNavNext').addEventListener('click', () => openModalByIndex(_currentModalIndex + 1));
+      document.addEventListener('keydown', e => {
+        const modalOpen = document.getElementById('albumModal').classList.contains('open');
+        if(e.key === 'Escape'){
+          const overlay = document.getElementById('deleteConfirmOverlay');
+          if(overlay.classList.contains('open')){ overlay.classList.remove('open'); return; }
+          closeModal();
+          return;
+        }
+        if(modalOpen && e.key === 'ArrowLeft')  { e.preventDefault(); openModalByIndex(_currentModalIndex - 1); }
+        if(modalOpen && e.key === 'ArrowRight') { e.preventDefault(); openModalByIndex(_currentModalIndex + 1); }
+        if(modalOpen && e.key.toLowerCase() === 'f') {
+          const inner = document.querySelector('.album-modal-inner');
+          setMaximized(!inner.classList.contains('maximized'));
+        }
+      });
 
       // ── Search / filter ──────────────────────────────────────────────
       document.getElementById('albumSearch').addEventListener('input', function(){
@@ -923,8 +1024,12 @@
             let src = null;
             const fileName = mmFileName(m);
 
+            // If the file field is already an external URL, use it directly
+            if(fileName && /^https?:\/\//i.test(fileName)){
+              src = fileName;
+            }
             // Prefer reading from directory handle (file on disk)
-            if(fileName && _dirHandle && _dirGranted){
+            else if(fileName && _dirHandle && _dirGranted){
               try{
                 const fh   = await _dirHandle.getFileHandle(fileName);
                 const file = await fh.getFile();
@@ -936,9 +1041,14 @@
               src = m.dataUrl || null;
             }
 
+            // For display, use just the basename if fileName is a full URL
+            const displayName = (fileName && /^https?:\/\//i.test(fileName))
+              ? (m.title || decodeURIComponent(fileName.split('/').pop().split('?')[0]) || m.id)
+              : (fileName || m.id);
+
             items.push({
               id:        m.id,
-              name:      fileName || m.id,
+              name:      displayName,
               fullPath:  fileName || m.id,
               src,
               notes:     mmNotes(m),

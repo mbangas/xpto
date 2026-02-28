@@ -576,11 +576,21 @@
       document.getElementById('centerChartBtn').addEventListener('click',()=>_centerViewBox(_focusPt[0],_focusPt[1]));
 
       document.getElementById('resetFocusBtn').addEventListener('click',function(){
-        // Clear manual selection, revert to settings focus
-        document.getElementById('focusPersonSelect').value='';
-        document.getElementById('focusPersonInput').value='';
-        const id=_getSelectedOrFocusId();
-        if(id) renderChart(id);
+        // Re-read the configured focus person from settings at click time
+        // (the user may have changed it in configuracao.html since page load)
+        const validIds=new Set(DB.getIndividuals().map(i=>i.id));
+        const focused=DB.getSetting('focusedPerson');
+        const focusedId=focused&&(typeof focused==='object'?focused.id:focused);
+        const id=(focusedId&&validIds.has(focusedId))?focusedId:
+                 (DB.getIndividuals()[0]||{}).id||null;
+        if(!id) return;
+        const indi=DB.getIndividual(id);
+        const name=indi?DB.getDisplayName(indi):'';
+        // Update the combo to reflect the reset target
+        document.getElementById('focusPersonSelect').value=id;
+        document.getElementById('focusPersonInput').value=name;
+        _autoFocusId=id;
+        renderChart(id);
       });
 
       /* ═══════════════════════════════════════════════════════════════════

@@ -1,5 +1,21 @@
 [
   {
+    "timestamp": "2026-02-28T11:17:18.942Z",
+    "entity": "Family",
+    "action": "update",
+    "id": "F29",
+    "description": "Família F29",
+    "detail": "update família F29"
+  },
+  {
+    "timestamp": "2026-02-28T11:17:18.940Z",
+    "entity": "Individual",
+    "action": "create",
+    "id": "I102",
+    "description": "Indivíduo: xxx yyy",
+    "detail": "create indivíduo I102"
+  },
+  {
     "timestamp": "2026-02-28T11:03:56.055Z",
     "entity": "Individual",
     "action": "update",

@@ -132,24 +132,51 @@
     </div>
 
     <!-- ── Drawer photo modal ── -->
-    <div id="drawerPhotoModal" style="display:none;position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.72);align-items:flex-start;justify-content:center;z-index:600;overflow-y:auto;padding:24px 0;">
-      <div style="background:var(--bg-card);padding:22px;border-radius:12px;max-width:1000px;width:96%;box-sizing:border-box;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-          <div style="font-weight:700">Visualizar Foto</div>
-          <button onclick="_drawerClosePhotoModal()" class="btn">Fechar</button>
+    <div id="drawerPhotoModal" style="display:none;position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,0.88);align-items:center;justify-content:center;z-index:600;">
+      <div style="background:var(--bg-card);border-radius:14px;max-width:1100px;width:97%;max-height:95vh;box-sizing:border-box;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 64px rgba(0,0,0,0.7);">
+        <!-- Header -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px 10px;border-bottom:1px solid rgba(255,255,255,0.07);flex-shrink:0;">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <i class="mdi mdi-image-outline" style="font-size:1.2rem;color:var(--accent);"></i>
+            <span id="drawerPhotoModalTitle" style="font-weight:700;font-size:1.05rem;">Foto</span>
+            <span id="drawerPhotoCounter" style="font-size:0.82rem;color:#888;padding:2px 8px;background:rgba(255,255,255,0.06);border-radius:20px;"></span>
+          </div>
+          <button onclick="_drawerClosePhotoModal()" class="btn btn-ghost btn-sm" title="Fechar (Esc)"><i class="mdi mdi-close"></i></button>
         </div>
-        <div style="margin-bottom:8px;font-size:0.82rem;color:#aaa;">Arrasta um retângulo sobre a imagem para identificar uma pessoa.</div>
-        <div id="drawerModalImageWrapper" style="display:flex;align-items:center;justify-content:center;margin-bottom:16px;padding:8px;">
-          <div id="drawerModalImageArea" style="max-width:100%;overflow:visible;"></div>
+        <!-- Body: image + info -->
+        <div style="display:flex;flex:1;min-height:0;overflow:hidden;">
+          <!-- Image area with prev/next arrows -->
+          <div style="flex:1;display:flex;align-items:center;justify-content:center;position:relative;padding:12px;min-width:0;background:rgba(0,0,0,0.3);">
+            <!-- Prev button -->
+            <button id="drawerPhotoPrev" onclick="_drawerNavPhoto(-1)" title="Anterior (←)" style="position:absolute;left:8px;top:50%;transform:translateY(-50%);z-index:10;background:rgba(40,40,60,0.85);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:50%;width:40px;height:40px;font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s;" onmouseover="this.style.background='rgba(90,90,180,0.9)'" onmouseout="this.style.background='rgba(40,40,60,0.85)'"><i class="mdi mdi-chevron-left"></i></button>
+            <!-- Image -->
+            <div id="drawerModalImageArea" style="max-width:100%;max-height:100%;overflow:visible;display:flex;align-items:center;justify-content:center;"></div>
+            <!-- Next button -->
+            <button id="drawerPhotoNext" onclick="_drawerNavPhoto(1)" title="Seguinte (→)" style="position:absolute;right:8px;top:50%;transform:translateY(-50%);z-index:10;background:rgba(40,40,60,0.85);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:50%;width:40px;height:40px;font-size:1.3rem;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.15s;" onmouseover="this.style.background='rgba(90,90,180,0.9)'" onmouseout="this.style.background='rgba(40,40,60,0.85)'"><i class="mdi mdi-chevron-right"></i></button>
+          </div>
+          <!-- Info panel -->
+          <div id="drawerPhotoInfoPanel" style="width:260px;flex-shrink:0;display:flex;flex-direction:column;gap:0;border-left:1px solid rgba(255,255,255,0.07);overflow-y:auto;">
+            <div style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.06);">
+              <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:5px;">Ficheiro</div>
+              <div id="drawerPhotoFileName" style="font-size:0.88rem;word-break:break-all;color:var(--text-main);">—</div>
+            </div>
+            <div style="padding:14px 16px;border-bottom:1px solid rgba(255,255,255,0.06);">
+              <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:5px;">Pessoas identificadas</div>
+              <div id="drawerPhotoTaggedPeople" style="font-size:0.88rem;color:var(--text-main);"></div>
+            </div>
+            <div style="padding:14px 16px;flex:1;display:flex;flex-direction:column;">
+              <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:5px;">Notas</div>
+              <textarea id="drawerPhotoNotesArea" style="flex:1;min-height:80px;padding:8px;border-radius:8px;border:1px solid rgba(163,163,255,0.08);background:rgba(35,40,58,0.7);color:var(--text-main);box-sizing:border-box;resize:none;font-size:0.88rem;"></textarea>
+              <button class="btn btn-sm" style="margin-top:8px;" onclick="_drawerSavePhotoNotes()"><i class="mdi mdi-content-save-outline"></i> Guardar Notas</button>
+            </div>
+            <div style="padding:10px 16px;border-top:1px solid rgba(255,255,255,0.06);">
+              <div style="font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;color:#888;margin-bottom:6px;">Identificar pessoa na foto</div>
+              <div style="font-size:0.78rem;color:#888;margin-bottom:6px;">Arrasta um retângulo sobre a imagem.</div>
+            </div>
+          </div>
         </div>
-        <div style="margin-bottom:8px;">
-          <label style="font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Notas da Foto</label>
-          <textarea id="drawerPhotoNotesArea" style="width:100%;min-height:80px;padding:8px;border-radius:8px;border:1px solid rgba(163,163,255,0.08);background:rgba(35,40,58,0.7);color:var(--text-main);box-sizing:border-box;resize:vertical;"></textarea>
-          <div id="drawerPhotoTaggedPeople" style="margin-top:8px;font-size:0.95rem;color:var(--text-main);"></div>
-        </div>
-        <div style="display:flex;gap:8px;justify-content:flex-end;">
-          <button class="btn" onclick="_drawerSavePhotoNotes()">Salvar Notas</button>
-        </div>
+        <!-- Thumbnail strip -->
+        <div id="drawerPhotoStrip" style="display:flex;gap:6px;padding:10px 14px;border-top:1px solid rgba(255,255,255,0.07);flex-shrink:0;overflow-x:auto;background:rgba(0,0,0,0.2);"></div>
       </div>
     </div>
 
@@ -395,6 +422,7 @@
         document.getElementById('drawerTitle').textContent=(section==='relacoes'?'Relações':section==='fotos'?'Fotos':'Eventos')+' — '+DB.getDisplayName(indi);
         const body=document.getElementById('drawerBody');
         body.innerHTML=section==='relacoes'?_renderRelations(personId):section==='fotos'?_renderPhotos(personId):_renderEvents(personId);
+        if(section==='fotos') _bindPhotoSectionEvents(body, personId);
       };
 
       /* ── Events section ────────────────────────────────────────────────── */
@@ -688,28 +716,51 @@
       /* ── Photos section ────────────────────────────────────────────────── */
       function _renderPhotos(personId){
         const media=DB.getMultimediaForIndividual(personId);
-        let html='<div style="margin-bottom:14px;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;"><label for="drawerPhotoInput" class="btn btn-sm" style="cursor:pointer;font-size:0.83rem;"><i class="mdi mdi-image-plus"></i> Escolher Ficheiro</label><span id="drawerPhotoName" style="color:#aaa;font-size:0.82rem;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Nenhum ficheiro</span><button class="btn btn-sm" onclick="_drawerUploadPhoto(\''+_esc(personId)+'\')" style="font-size:0.83rem;"><i class="mdi mdi-upload"></i> Upload</button></div><input type="file" id="drawerPhotoInput" accept="image/*" style="display:none;" onchange="document.getElementById(\'drawerPhotoName\').textContent=this.files&&this.files.length?this.files[0].name:\'Nenhum ficheiro\'" /></div>';
+        let html='<div style="margin-bottom:14px;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;"><label for="drawerPhotoInput" class="btn btn-sm" style="cursor:pointer;font-size:0.83rem;"><i class="mdi mdi-image-plus"></i> Escolher Ficheiro</label><span id="drawerPhotoName" style="color:#aaa;font-size:0.82rem;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Nenhum ficheiro</span><button class="btn btn-sm" data-action="upload-photo" data-person="' + personId + '" style="font-size:0.83rem;"><i class="mdi mdi-upload"></i> Upload</button></div><input type="file" id="drawerPhotoInput" accept="image/*" style="display:none;"/></div>';
         if(!media.length){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhuma foto associada.</div>'; return html; }
-        html+='<div style="display:flex;flex-wrap:wrap;gap:10px;">';
-        media.forEach(m=>{
+        html+='<div style="display:flex;flex-wrap:wrap;gap:10px;" data-photos-grid>';
+        media.forEach(function(m){
           const src=m.dataUrl||(m.files&&m.files[0]?m.files[0].file:'')||'';
-          const hasImage = src.startsWith('data:') || src.startsWith('http') || src.startsWith('/');
+          const hasImage=src.startsWith('data:')||src.startsWith('http')||src.startsWith('/');
           if(hasImage){
-            html+='<div style="position:relative;display:inline-block;"><img src="'+src+'" style="width:72px;height:72px;object-fit:cover;border-radius:6px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);" onclick="_drawerViewPhoto(\''+_esc(m.id)+'\')" title="'+_esc(m.title||m.files?.[0]?.file||'')+'" /><button onclick="_drawerUnlinkPhoto(\''+_esc(m.id)+'\',\''+_esc(personId)+'\')" title="Remover vínculo" style="position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;"><i class="mdi mdi-close"></i></button></div>';
+            const safeSrc=src.replace(/"/g,'%22');
+            html+='<div style="position:relative;display:inline-block;">'
+              +'<img src="'+safeSrc+'" data-action="view-photo" data-mediaid="'+m.id+'" data-personid="'+personId+'" style="width:72px;height:72px;object-fit:cover;border-radius:6px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);" title="'+_esc(m.title||'')+'"/>'
+              +'<button data-action="unlink-photo" data-mediaid="'+m.id+'" data-personid="'+personId+'" title="Remover vínculo" style="position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;"><i class="mdi mdi-close"></i></button>'
+              +'</div>';
           } else {
-            // GEDCOM-imported photo: has filename but no image data yet
-            const fname=src||'(sem nome)';
+            const fname=_esc(src||'(sem nome)');
             html+='<div style="position:relative;display:inline-block;width:72px;">'
-              +'<div style="width:72px;height:72px;border-radius:6px;background:#2a2a3a;border:1px dashed #555;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;" onclick="_drawerLinkGedcomPhoto(\''+_esc(m.id)+'\',\''+_esc(personId)+'\')" title="Clique para carregar: '+_esc(fname)+'">'
+              +'<div data-action="link-gedcom-photo" data-mediaid="'+m.id+'" data-personid="'+personId+'" style="width:72px;height:72px;border-radius:6px;background:#2a2a3a;border:1px dashed #555;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;" title="Clique para carregar: '+fname+'">'
               +'<i class="mdi mdi-image-off" style="font-size:1.4rem;color:#888;"></i>'
-              +'<span style="font-size:0.55rem;color:#888;text-align:center;word-break:break-all;padding:0 3px;max-height:28px;overflow:hidden;">'+_esc(fname)+'</span>'
+              +'<span style="font-size:0.55rem;color:#888;text-align:center;word-break:break-all;padding:0 3px;max-height:28px;overflow:hidden;">'+fname+'</span>'
               +'</div>'
-              +'<button onclick="_drawerUnlinkPhoto(\''+_esc(m.id)+'\',\''+_esc(personId)+'\')" title="Remover vínculo" style="position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;"><i class="mdi mdi-close"></i></button>'
+              +'<button data-action="unlink-photo" data-mediaid="'+m.id+'" data-personid="'+personId+'" title="Remover vínculo" style="position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;"><i class="mdi mdi-close"></i></button>'
               +'</div>';
           }
         });
         html+='</div>';
         return html;
+      }
+
+      function _bindPhotoSectionEvents(container, personId){
+        const input=container.querySelector('#drawerPhotoInput');
+        if(input) input.addEventListener('change',function(){
+          const nameEl=container.querySelector('#drawerPhotoName');
+          if(nameEl) nameEl.textContent=this.files&&this.files.length?this.files[0].name:'Nenhum ficheiro';
+        });
+        container.addEventListener('click',function(ev){
+          const el=ev.target.closest('[data-action]');
+          if(!el) return;
+          const action=el.dataset.action;
+          const mediaId=el.dataset.mediaid;
+          const pid=el.dataset.person||el.dataset.personid||personId;
+          ev.stopPropagation();
+          if(action==='view-photo') _drawerViewPhoto(mediaId,pid);
+          else if(action==='unlink-photo') _drawerUnlinkPhoto(mediaId,pid);
+          else if(action==='link-gedcom-photo') _drawerLinkGedcomPhoto(mediaId,pid);
+          else if(action==='upload-photo') _drawerUploadPhoto(pid);
+        });
       }
 
       window._drawerUploadPhoto = async function(personId){
@@ -755,27 +806,90 @@
       };
 
       /* ── Photo modal ───────────────────────────────────────────────────── */
-      let _drawerCurrentPhotoId=null, _drawerIsDrawing=false, _drawerDrawStart=null, _drawerCurrentDrawEl=null;
+      let _drawerCurrentPhotoId=null, _drawerPhotoList=[], _drawerPhotoPersonId=null;
+      let _drawerIsDrawing=false, _drawerDrawStart=null, _drawerCurrentDrawEl=null;
 
-      window._drawerViewPhoto = function(mediaId){
+      function _buildPhotoSrc(m){ return m.dataUrl||(m.files&&m.files[0]?m.files[0].file:'')||''; }
+
+      function _loadPhotoIntoModal(mediaId){
         const m=DB.getMultimediaItem(mediaId); if(!m) return;
         _drawerCurrentPhotoId=mediaId;
+        const idx=_drawerPhotoList.indexOf(mediaId);
+        const total=_drawerPhotoList.length;
+        // counter
+        const counter=document.getElementById('drawerPhotoCounter');
+        if(counter) counter.textContent=total>1?(idx+1)+' / '+total:'';
+        // title
+        const titleEl=document.getElementById('drawerPhotoModalTitle');
+        if(titleEl) titleEl.textContent=m.title||(m.files&&m.files[0]?m.files[0].file:'')||'Foto';
+        // filename
+        const fnEl=document.getElementById('drawerPhotoFileName');
+        if(fnEl) fnEl.textContent=(m.files&&m.files[0]?m.files[0].file:'')||m.title||'—';
+        // nav buttons opacity
+        const prevBtn=document.getElementById('drawerPhotoPrev');
+        const nextBtn=document.getElementById('drawerPhotoNext');
+        if(prevBtn) prevBtn.style.opacity=total>1?'1':'0.2';
+        if(nextBtn) nextBtn.style.opacity=total>1?'1':'0.2';
+        // image
         const area=document.getElementById('drawerModalImageArea');
         area.innerHTML='';
-        const src=m.dataUrl||(m.files&&m.files[0]?m.files[0].file:'')||'';
+        const src=_buildPhotoSrc(m);
         const container=document.createElement('div'); container.style.position='relative';
         const img=document.createElement('img'); img.id='drawerModalImage';
-        img.style.cssText='display:block;max-width:100%;max-height:70vh;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.5);';
+        img.style.cssText='display:block;max-width:100%;max-height:calc(95vh - 200px);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.5);';
         img.src=src;
         const overlay=document.createElement('div'); overlay.className='tag-overlay';
         overlay.style.cssText='position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:auto;';
         container.appendChild(img); container.appendChild(overlay); area.appendChild(container);
-        const notesEl=document.getElementById('drawerPhotoNotesArea'); if(notesEl) notesEl.value=m.notes||'';
-        _drawerRenderPhotoTags(m);
         overlay.addEventListener('pointerdown',function(ev){ ev.preventDefault(); _startDraw(ev,img,overlay); });
         overlay.addEventListener('pointermove',function(ev){ if(_drawerIsDrawing) _updateDraw(ev,img); });
         overlay.addEventListener('pointerup',function(ev){ if(_drawerIsDrawing) _finishDraw(ev,img,overlay); });
+        // notes
+        const notesEl=document.getElementById('drawerPhotoNotesArea');
+        if(notesEl) notesEl.value=typeof m.notes==='string'?m.notes:(Array.isArray(m.notes)?m.notes.join('\n'):'');
+        _drawerRenderPhotoTags(m);
+        // thumbnail strip
+        const strip=document.getElementById('drawerPhotoStrip');
+        if(strip){
+          strip.innerHTML='';
+          strip.style.display=total>1?'flex':'none';
+          _drawerPhotoList.forEach(function(mid,i){
+            const mi=DB.getMultimediaItem(mid); if(!mi) return;
+            const s=_buildPhotoSrc(mi);
+            const thumb=document.createElement('div');
+            thumb.style.cssText='flex-shrink:0;width:54px;height:54px;border-radius:6px;overflow:hidden;cursor:pointer;border:2px solid '+(mid===mediaId?'var(--accent)':'transparent')+';transition:border 0.15s;';
+            if(s.startsWith('data:')||s.startsWith('http')||s.startsWith('/')){
+              const ti=document.createElement('img'); ti.style.cssText='width:100%;height:100%;object-fit:cover;'; ti.src=s;
+              thumb.appendChild(ti);
+            } else {
+              thumb.style.background='#2a2a3a'; thumb.style.display='flex'; thumb.style.alignItems='center'; thumb.style.justifyContent='center';
+              thumb.innerHTML='<i class="mdi mdi-image-off" style="color:#666;font-size:1.1rem;"></i>';
+            }
+            thumb.addEventListener('click',function(){ _loadPhotoIntoModal(mid); });
+            strip.appendChild(thumb);
+          });
+          const activeThumb=strip.children[idx]; if(activeThumb) activeThumb.scrollIntoView({block:'nearest',inline:'center'});
+        }
+      }
+
+      window._drawerViewPhoto = function(mediaId, personId){
+        _drawerPhotoPersonId=personId||null;
+        if(personId){
+          const media=DB.getMultimediaForIndividual(personId);
+          _drawerPhotoList=media.map(function(m){ return m.id; });
+        } else {
+          _drawerPhotoList=[mediaId];
+        }
+        if(!_drawerPhotoList.includes(mediaId)) _drawerPhotoList=[mediaId];
+        _loadPhotoIntoModal(mediaId);
         document.getElementById('drawerPhotoModal').style.display='flex';
+      };
+
+      window._drawerNavPhoto = function(dir){
+        if(!_drawerPhotoList.length) return;
+        const idx=_drawerPhotoList.indexOf(_drawerCurrentPhotoId);
+        const next=(_drawerPhotoList.length+idx+dir)%_drawerPhotoList.length;
+        _loadPhotoIntoModal(_drawerPhotoList[next]);
       };
 
       window._drawerClosePhotoModal = function(){
@@ -788,8 +902,20 @@
         if(!_drawerCurrentPhotoId) return;
         const m=DB.getMultimediaItem(_drawerCurrentPhotoId); if(!m) return;
         m.notes=((document.getElementById('drawerPhotoNotesArea')||{}).value||'');
-        DB.saveMultimedia(m); alert('Notas guardadas.');
+        DB.saveMultimedia(m);
+        const btn=document.querySelector('#drawerPhotoInfoPanel .btn-sm');
+        if(btn){const orig=btn.innerHTML; btn.innerHTML='<i class="mdi mdi-check"></i> Guardado'; setTimeout(function(){btn.innerHTML=orig;},1500);}
       };
+
+      // keyboard navigation
+      document.addEventListener('keydown',function(ev){
+        if(document.getElementById('drawerPhotoModal').style.display==='none') return;
+        if(ev.key==='ArrowRight') _drawerNavPhoto(1);
+        else if(ev.key==='ArrowLeft') _drawerNavPhoto(-1);
+        else if(ev.key==='Escape') _drawerClosePhotoModal();
+      });
+      // click backdrop to close
+      document.getElementById('drawerPhotoModal').addEventListener('click',function(ev){ if(ev.target===this) _drawerClosePhotoModal(); });
 
       function _drawerRenderPhotoTags(media){
         const overlay=document.querySelector('#drawerModalImageArea .tag-overlay'); if(!overlay) return;

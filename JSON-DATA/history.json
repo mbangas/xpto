@@ -1,5 +1,61 @@
 [
   {
+    "timestamp": "2026-02-28T11:35:26.009Z",
+    "entity": "Individual",
+    "action": "delete",
+    "id": "I371",
+    "description": "Indivíduo I371",
+    "detail": "delete indivíduo I371"
+  },
+  {
+    "timestamp": "2026-02-28T11:35:11.102Z",
+    "entity": "Family",
+    "action": "update",
+    "id": "F29",
+    "description": "Família F29",
+    "detail": "update família F29"
+  },
+  {
+    "timestamp": "2026-02-28T11:35:11.101Z",
+    "entity": "Individual",
+    "action": "create",
+    "id": "I371",
+    "description": "Indivíduo: xxx yyy",
+    "detail": "create indivíduo I371"
+  },
+  {
+    "timestamp": "2026-02-28T11:31:20.228Z",
+    "entity": "Individual",
+    "action": "delete",
+    "id": "I370",
+    "description": "Indivíduo I370",
+    "detail": "delete indivíduo I370"
+  },
+  {
+    "timestamp": "2026-02-28T11:29:51.324Z",
+    "entity": "Individual",
+    "action": "create",
+    "id": "I370",
+    "description": "Indivíduo: xxx yyy",
+    "detail": "create indivíduo I370"
+  },
+  {
+    "timestamp": "2026-02-28T11:29:51.326Z",
+    "entity": "Family",
+    "action": "update",
+    "id": "F29",
+    "description": "Família F29",
+    "detail": "update família F29"
+  },
+  {
+    "timestamp": "2026-02-28T11:25:19.079Z",
+    "entity": "Individual",
+    "action": "delete",
+    "id": "I102",
+    "description": "Indivíduo I102",
+    "detail": "delete indivíduo I102"
+  },
+  {
     "timestamp": "2026-02-28T11:17:18.942Z",
     "entity": "Family",
     "action": "update",

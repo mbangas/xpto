@@ -355,6 +355,41 @@
 
       let f3ChartHandle=null;
 
+      /**
+       * Refresh chart data in-place after a create/edit/delete, preserving the
+       * current zoom level and pan position exactly.
+       *
+       * Donatso: calls f3ChartHandle.updateData() + updateTree({tree_position:'inherit'})
+       *   — zero DOM destruction, the library diffs and patches the existing SVG.
+       * Topola:  snapshots the viewBox first, does a full SVG re-render, then
+       *   restores the snapshot so the viewport does not move.
+       */
+      function refreshChartInPlace(){
+        const selectedType = getChartType();
+
+        if(selectedType === 'donatso'){
+          // If the chart hasn't been built yet, fall back to a full render
+          if(!f3ChartHandle){ renderChart(_getSelectedOrFocusId()); return; }
+          const newData = buildFamilyChartData();
+          try{
+            f3ChartHandle
+              .updateData(newData)
+              .updateTree({initial: false, tree_position: 'inherit'});
+          }catch(e){
+            console.warn('refreshChartInPlace Donatso error, falling back:', e);
+            renderChart(_getSelectedOrFocusId());
+          }
+          return;
+        }
+
+        // Topola: snapshot viewBox, re-render, restore
+        const savedVb = {..._vb};
+        const focusId = _getSelectedOrFocusId();
+        renderChart(focusId);   // normal render (sets new _vb)
+        _vb = savedVb;          // override with saved state
+        _applyViewBox();
+      }
+
       function renderChart(startIndi, preserveView){
         const selectedType=getChartType();
 
@@ -363,13 +398,19 @@
           document.getElementById('topolaWrap').style.display='none';
           const fcWrap=document.getElementById('familyChartWrap');
 
-          // Capture zoom/pan state before destroying the chart
-          let savedZoom=null;
+          // Capture the exact DOM transform string of the main <g> BEFORE
+          // destroying the chart — most reliable source of truth for the
+          // current pan/zoom state regardless of d3-zoom internal state.
+          let savedTransform=null;
           if(preserveView){
             const oldSvg=fcWrap.querySelector('svg.main_svg')||fcWrap.querySelector('svg');
-            if(oldSvg && oldSvg.__zoom){
+            const oldG=oldSvg&&(oldSvg.querySelector(':scope > g')||oldSvg.querySelector('g'));
+            if(oldG) savedTransform=oldG.getAttribute('transform')||null;
+            // Fallback: reconstruct from __zoom if DOM transform is absent
+            if(!savedTransform && oldSvg && oldSvg.__zoom){
               const z=oldSvg.__zoom;
-              savedZoom={x:z.x, y:z.y, k:z.k};
+              if(z.k!==1||z.x!==0||z.y!==0)
+                savedTransform='translate('+z.x+','+z.y+') scale('+z.k+')';
             }
           }
 
@@ -397,18 +438,24 @@
             card.setOnCardClick(function(e,d){
               if(d&&d.data&&d.data.id) openDrawer('edit',d.data.id);
             });
+            // Always let the library do its initial layout (valid tree_position value).
+            // We override the transform afterwards via double-rAF so it runs AFTER
+            // any d3 transition frames that updateTree may have scheduled.
             f3ChartHandle
               .updateMainId(startIndi)
-              .updateTree({initial:true, tree_position: savedZoom ? 'none' : 'main_to_middle'});
-            // Restore zoom/pan after the chart has settled
-            if(savedZoom){
+              .updateTree({initial:true, tree_position:'main_to_middle'});
+            if(savedTransform){
               requestAnimationFrame(function(){
-                const newSvg=fcWrap.querySelector('svg.main_svg')||fcWrap.querySelector('svg');
-                if(!newSvg) return;
-                const mainG=newSvg.querySelector('g');
-                if(mainG) mainG.setAttribute('transform','translate('+savedZoom.x+','+savedZoom.y+') scale('+savedZoom.k+')');
-                // Patch d3-zoom internal state so subsequent pan/zoom is coherent
-                newSvg.__zoom={x:savedZoom.x, y:savedZoom.y, k:savedZoom.k};
+                requestAnimationFrame(function(){
+                  const newSvg=fcWrap.querySelector('svg.main_svg')||fcWrap.querySelector('svg');
+                  if(!newSvg) return;
+                  const mainG=newSvg.querySelector(':scope > g')||newSvg.querySelector('g');
+                  if(!mainG) return;
+                  mainG.setAttribute('transform', savedTransform);
+                  // Keep d3-zoom internal state coherent with what we just applied
+                  const m=savedTransform.match(/translate\(\s*([^,]+),\s*([^)]+)\)[\s,]*scale\(\s*([^)]+)\s*\)/);
+                  if(m) newSvg.__zoom={x:parseFloat(m[1]),y:parseFloat(m[2]),k:parseFloat(m[3])};
+                });
               });
             }
           }catch(err){
@@ -884,11 +931,10 @@
           addChild(DB.getFamily(famId), newId);
         }
 
-        // Go back to source person view and re-render chart
+        // Refresh chart in-place then re-open source drawer
         closeDrawer();
         populateFocusSelect(sourcePersonId);
-        renderChart(sourcePersonId, true);
-        // Re-open source drawer so user can see result
+        refreshChartInPlace();
         setTimeout(()=>openDrawer('edit', sourcePersonId), 120);
       };
 
@@ -920,9 +966,8 @@
           if(indi){indi.names=[{given:given.trim(),surname:surname.trim(),type:'birth'}];indi.sex=sex;indi.notes=notes;DB.saveIndividual(indi);}
         }
         closeDrawer();
-        // Always refresh the person list; keep the tree focused on whoever was focused before
         populateFocusSelect(keepFocus);
-        renderChart(keepFocus, true);
+        refreshChartInPlace();
       }
 
       function drawerDeletePerson(){
@@ -936,7 +981,7 @@
         const stillValid = DB.getIndividuals().find(i=>i.id===currentFocus);
         const newFocus = stillValid ? currentFocus : (DB.getIndividuals()[0]||{}).id || null;
         populateFocusSelect(newFocus);
-        renderChart(newFocus, true);
+        refreshChartInPlace();
       }
 
       document.getElementById('drawerCloseBtn').addEventListener('click',closeDrawer);

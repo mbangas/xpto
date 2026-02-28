@@ -72965,7 +72965,51 @@
     "sourceRefs": [],
     "multimediaRefs": [],
     "createdAt": "2026-02-28T11:17:18.939Z",
-    "updatedAt": "2026-02-28T11:17:20.060Z",
-    "deletedAt": null
+    "updatedAt": "2026-02-28T11:25:20.724Z",
+    "deletedAt": "2026-02-28T11:25:20.724Z"
+  },
+  "I370": {
+    "id": "I370",
+    "type": "INDI",
+    "names": [
+      {
+        "given": "xxx",
+        "surname": "yyy",
+        "type": "birth"
+      }
+    ],
+    "sex": "M",
+    "events": [],
+    "attributes": [],
+    "famc": "F29",
+    "fams": [],
+    "notes": "",
+    "sourceRefs": [],
+    "multimediaRefs": [],
+    "createdAt": "2026-02-28T11:29:51.323Z",
+    "updatedAt": "2026-02-28T11:31:21.754Z",
+    "deletedAt": "2026-02-28T11:31:21.754Z"
+  },
+  "I371": {
+    "id": "I371",
+    "type": "INDI",
+    "names": [
+      {
+        "given": "xxx",
+        "surname": "yyy",
+        "type": "birth"
+      }
+    ],
+    "sex": "M",
+    "events": [],
+    "attributes": [],
+    "famc": "F29",
+    "fams": [],
+    "notes": "",
+    "sourceRefs": [],
+    "multimediaRefs": [],
+    "createdAt": "2026-02-28T11:35:11.101Z",
+    "updatedAt": "2026-02-28T11:35:27.168Z",
+    "deletedAt": "2026-02-28T11:35:27.168Z"
   }
 }

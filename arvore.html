@@ -22,6 +22,10 @@
       .chart-zoom-btns button{width:32px;height:32px;padding:0;font-size:1rem;display:flex;align-items:center;justify-content:center;border-radius:6px;}
       .chart-toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
       .chart-toolbar select,.chart-toolbar button{font-size:0.85rem;}
+      .chart-type-btns{display:flex;gap:4px;align-items:center;flex-wrap:wrap;}
+      .chart-type-btn{font-size:0.82rem;padding:4px 14px;border-radius:20px;border:1px solid rgba(163,163,255,0.28);background:transparent;color:var(--text-secondary);cursor:pointer;transition:background .15s,border-color .15s,color .15s;white-space:nowrap;}
+      .chart-type-btn:hover{border-color:rgba(163,163,255,0.6);color:var(--text-main);}
+      .chart-type-btn.active{border-color:var(--accent,#a3a3ff);background:rgba(163,163,255,0.15);color:var(--text-main);font-weight:600;}
       /* Donatso family-chart theme integration */
       #familyChartWrap.f3{--background-color:var(--bg-main,#1a1d2e);--text-color:var(--text-main,#e2e4f0);--female-color:#e26aa6;--male-color:#4493f8;--genderless-color:#9aa0a6;}
       #familyChartWrap .f3-nav-cont{display:none;}
@@ -68,13 +72,12 @@
 
         <div class="tree-canvas-wrap">
           <div class="chart-toolbar">
-            <label style="font-size:0.85rem;color:var(--text-secondary);">Tipo de gráfico:</label>
-            <select id="chartTypeSelect">
-              <option value="hourglass">Hourglass (Ascend. + Descend.)</option>
-              <option value="relatives">Relatives</option>
-              <option value="fancy">Fancy</option>
-              <option value="donatso">Donatso Family Chart</option>
-            </select>
+            <div class="chart-type-btns" id="chartTypeBtns">
+              <button class="chart-type-btn" data-type="hourglass">Hourglass</button>
+              <button class="chart-type-btn" data-type="relatives">Relatives</button>
+              <button class="chart-type-btn" data-type="fancy">Fancy</button>
+              <button class="chart-type-btn" data-type="donatso">Donatso</button>
+            </div>
             <label style="font-size:0.85rem;color:var(--text-secondary);margin-left:12px;">Pessoa:</label>
             <div style="position:relative;display:inline-block;" id="focusPersonCombo">
               <input type="text" id="focusPersonInput" placeholder="Pesquisar pessoa…" autocomplete="off"
@@ -281,6 +284,28 @@
         },{passive:false});
       })();
 
+      /* ── Chart type preference (localStorage) ──────────────────────────── */
+      const CHART_TYPE_KEY='myLineage_chartType';
+      function getChartType(){
+        return localStorage.getItem(CHART_TYPE_KEY)||'donatso';
+      }
+      function setChartType(type){
+        localStorage.setItem(CHART_TYPE_KEY,type);
+        document.querySelectorAll('#chartTypeBtns .chart-type-btn').forEach(btn=>{
+          btn.classList.toggle('active', btn.dataset.type===type);
+        });
+      }
+      // Bind button clicks
+      document.getElementById('chartTypeBtns').addEventListener('click',function(e){
+        const btn=e.target.closest('.chart-type-btn');
+        if(!btn) return;
+        setChartType(btn.dataset.type);
+        const id=_getSelectedOrFocusId ? _getSelectedOrFocusId() : null;
+        renderChart(id);
+      });
+      // Init button state
+      setChartType(getChartType());
+
       /* ── Chart rendering ──────────────────────────────────────────────── */
       let chartHandle=null;
 
@@ -331,7 +356,7 @@
       let f3ChartHandle=null;
 
       function renderChart(startIndi){
-        const selectedType=document.getElementById('chartTypeSelect').value;
+        const selectedType=getChartType();
 
         /* ── Donatso Family Chart ──────────────────────────────────────── */
         if(selectedType==='donatso'){
@@ -387,7 +412,7 @@
         // Ensure startIndi exists in the current dataset; fall back to first person
         const validIds=new Set(json.indis.map(i=>i.id));
         if(!startIndi||!validIds.has(startIndi)) startIndi=json.indis[0].id;
-        const chartType=CHART_TYPES[document.getElementById('chartTypeSelect').value]||T.HourglassChart;
+        const chartType=CHART_TYPES[getChartType()]||T.HourglassChart;
         svgEl.removeAttribute('viewBox');
         svgEl.innerHTML=''; // clear
         try{

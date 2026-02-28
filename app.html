@@ -69,10 +69,7 @@
             <button type="button" class="accordion-header" data-target="contentDados"><span>Dados Pessoais</span><span class="accordion-arrow"><i class="mdi mdi-chevron-down" aria-hidden="true"></i></span></button>
             <div class="accordion-content" id="contentDados">
               <form id="personForm">
-                <input type="hidden" id="id" name="id" />
-                <input type="hidden" id="createdAt" name="createdAt" />
-                <input type="hidden" id="updatedAt" name="updatedAt" />
-                <input type="hidden" id="deletedAt" name="deletedAt" />
+                <input type="hidden" id="indiId" />
                 <div>
                   <label for="firstName">First Name</label>
                   <input type="text" id="firstName" name="firstName" required />
@@ -85,9 +82,9 @@
                   <label for="gender">Gender</label>
                   <select id="gender" name="gender">
                     <option value="">-- selecione --</option>
-                    <option value="male">Male</option>
-                    <option value="female">Female</option>
-                    <option value="other">Other</option>
+                    <option value="M">Masculino</option>
+                    <option value="F">Feminino</option>
+                    <option value="X">Outro</option>
                   </select>
                 </div>
                 <div class="full">
@@ -102,8 +99,6 @@
               </form>
             </div>
           </div>
-
-          <!-- Apenas Dados Pessoais visíveis na página de Cadastro. Eventos/ Relações mudaram para página de detalhe. -->
         </div>
         <div id="datesInfo" style="font-size:0.85em;color:#666;margin-top:16px;text-align:right;"></div>
       </div>
@@ -127,7 +122,6 @@
           <div class="drawer-person-name" id="drawerPersonName">—</div>
           <div class="drawer-person-sub" id="drawerPersonSub"></div>
         </div>
-
       </div>
       <div class="drawer-body" id="drawerBody"></div>
       <div class="drawer-footer">
@@ -146,9 +140,7 @@
         </div>
         <div style="margin-bottom:8px;font-size:0.82rem;color:#aaa;">Arrasta um retângulo sobre a imagem para identificar uma pessoa.</div>
         <div id="drawerModalImageWrapper" style="display:flex;align-items:center;justify-content:center;margin-bottom:16px;padding:8px;">
-          <div id="drawerModalImageArea" style="max-width:100%;overflow:visible;">
-            <!-- image + overlays inserted by JS -->
-          </div>
+          <div id="drawerModalImageArea" style="max-width:100%;overflow:visible;"></div>
         </div>
         <div style="margin-bottom:8px;">
           <label style="font-weight:600;color:var(--text-secondary);display:block;margin-bottom:6px;">Notas da Foto</label>
@@ -162,1317 +154,667 @@
     </div>
 
     <script>
-            // Novo controle de exibição da ficha
-            const formPanel = document.getElementById('formPanel');
-            function showFormPanel(show = true) {
-              formPanel.style.display = show ? 'block' : 'none';
-            }
-            // Accordion helpers
-            function openAccordion(id) {
-              const el = document.getElementById(id);
-              if (!el) return;
-              el.style.display = 'block';
-              if (el.parentElement) el.parentElement.classList.add('open');
-            }
-            function closeAccordion(id) {
-              const el = document.getElementById(id);
-              if (!el) return;
-              el.style.display = 'none';
-              if (el.parentElement) el.parentElement.classList.remove('open');
-            }
-            function toggleAccordion(id) {
-              const el = document.getElementById(id);
-              if (!el) return;
-              if (el.style.display === 'block') closeAccordion(id); else openAccordion(id);
-            }
-            // Formata data de um evento (suporta campos separados e formato legado)
-            function fmtEventDate(ev) {
-              if (!ev) return '';
-              if (!ev.dateYear && !ev.dateMonth && !ev.dateDay) {
-                if (!ev.date) return '';
-                const p = ev.date.split(/[-T]/);
-                return p.length >= 3 ? p[2]+'/'+p[1]+'/'+p[0] : ev.date;
-              }
-              const qualMap = { 'Antes de': 'ant.', 'Depois de': 'dep.', 'Cerca de': 'c.' };
-              const q = ev.dateQualifier && ev.dateQualifier !== 'Exatamente' ? (qualMap[ev.dateQualifier] || ev.dateQualifier) + ' ' : '';
-              let parts = [];
-              if (ev.dateDay) parts.push(String(ev.dateDay).padStart(2,'0'));
-              if (ev.dateMonth) parts.push(String(ev.dateMonth).padStart(2,'0'));
-              if (ev.dateYear) parts.push(String(ev.dateYear));
-              return q + (parts.length ? parts.join('/') : '');
-            }
-            // Wire accordion headers
-            document.addEventListener('click', function(e){
-              const btn = e.target.closest && e.target.closest('.accordion-header');
-              if (btn && btn.dataset && btn.dataset.target) {
-                toggleAccordion(btn.dataset.target);
-              }
-            });
+    (function(){
+      'use strict';
+      const DB = window.GedcomDB;
 
-            // Modifica editPerson para mostrar ficha e folders
-            const originalEditPerson = editPerson;
-            editPerson = function(id) {
-              const people = loadPeople();
-              const p = people.find(x => x.id === id);
-              if (!p) return alert('Registro não encontrado');
-              document.getElementById('id').value = p.id;
-              document.getElementById('firstName').value = p.firstName || '';
-              document.getElementById('lastName').value = p.lastName || '';
-              document.getElementById('gender').value = p.gender || '';
-              document.getElementById('notes').value = p.notes || '';
-              // Exibe datas no rodapé
-              showDatesInfo(p);
-              // Calcula e exibe idade (ou idade ao falecer)
-              try {
-                const evs = getEvents();
-                const birth = evs.find(e => e.personId === p.id && e.type === 'BIRTH' && !e.deletedAt);
-                const death = evs.find(e => e.personId === p.id && e.type === 'DEATH' && !e.deletedAt);
-                const ageEl = document.getElementById('ageInfo');
-                if (birth && birth.date) {
-                  const ref = death && death.date ? death.date : new Date().toISOString();
-                  const age = computeAge(birth.date, ref);
-                  ageEl.textContent = age == null ? '' : (death ? 'Idade ao falecer: ' + age + ' anos' : 'Idade: ' + age + ' anos');
-                } else if (ageEl) {
-                  ageEl.textContent = '';
-                }
-              } catch (e) { /* ignore */ }
-              showFormPanel(true);
-              // Abre panel de Dados e, se existirem, relações/eventos
-              if (document.getElementById('contentRelacoes')) openAccordion('contentRelacoes');
-              if (document.getElementById('contentEventos')) openAccordion('contentEventos');
-              openAccordion('contentDados');
-              // Preenche pessoas para relação (se select presente)
-              if (document.getElementById('relationPerson')) fillRelationPersonSelect(id);
-              // Renderiza listas apenas se os containers existirem
-              if (document.getElementById('relationsList')) renderRelationsList(id);
-              if (document.getElementById('eventsList')) renderEventsList(id);
-            }
-            // Oculta ficha ao salvar ou limpar
-            document.getElementById('personForm').addEventListener('submit', function(e){
-              e.preventDefault();
-              const id = document.getElementById('id').value || generateUUID();
-              const firstName = document.getElementById('firstName').value.trim();
-              const lastName = document.getElementById('lastName').value.trim();
-              const gender = document.getElementById('gender').value;
-              const notes = document.getElementById('notes').value;
-              const people = loadPeople();
-              const existingIndex = people.findIndex(x => x.id === id);
-              const now = nowISO();
-              let createdAt = now;
-              let deletedAt = null;
-              if (existingIndex >= 0) {
-                createdAt = people[existingIndex].createdAt || now;
-                deletedAt = people[existingIndex].deletedAt || null;
-                people[existingIndex] = {
-                  ...people[existingIndex],
-                  firstName, lastName, gender, notes,
-                  updatedAt: now
-                };
-              } else {
-                people.push({
-                  id,
-                  firstName,
-                  lastName,
-                  gender,
-                  notes,
-                  createdAt: now,
-                  updatedAt: now,
-                  deletedAt: null
-                });
-              }
-              savePeople(people);
-              renderTable();
-              resetForm();
-              showDatesInfo();
-              showFormPanel(false);
-              closeAccordion('contentRelacoes');
-              closeAccordion('contentEventos');
-              closeAccordion('contentDados');
-            });
-            document.getElementById('resetBtn').addEventListener('click', function(){
-              resetForm();
-              showDatesInfo();
-              showFormPanel(false);
-              closeAccordion('contentRelacoes');
-              closeAccordion('contentEventos');
-              closeAccordion('contentDados');
-            });
+      /* ── Helpers ──────────────────────────────────────────────────────── */
+      const MONTHS = ['','JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+      const MONTHS_MAP = {JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12};
+      const QUAL_TO_GED = {'Antes de':'BEF','Depois de':'AFT','Cerca de':'ABT'};
+      const GED_TO_QUAL = {BEF:'Antes de',AFT:'Depois de',ABT:'Cerca de',EST:'Cerca de'};
 
-            // Oculta ficha ao iniciar
-            showFormPanel(false);
-            closeAccordion('contentRelacoes');
-            closeAccordion('contentEventos');
-            closeAccordion('contentDados');
-            // Helpers to toggle small forms: show lists by default
-            function showEventForm(show) {
-              const w = document.getElementById('eventFormWrapper');
-              const list = document.getElementById('eventsList');
-              if (!w || !list) return;
-              w.style.display = show ? 'block' : 'none';
-              list.style.display = show ? 'none' : 'block';
-            }
-            function showRelationForm(show) {
-              const w = document.getElementById('relationFormWrapper');
-              const list = document.getElementById('relationsList');
-              if (!w || !list) return;
-              w.style.display = show ? 'block' : 'none';
-              list.style.display = show ? 'none' : 'block';
-            }
-            // Wire open / cancel buttons for events/relations (if present)
-            (function(){
-              const openEventBtn = document.getElementById('openEventFormBtn');
-              if (openEventBtn) openEventBtn.addEventListener('click', function(){ showEventForm(true); openAccordion('contentEventos'); });
-              const cancelEventBtn = document.getElementById('cancelEventBtn');
-              if (cancelEventBtn) cancelEventBtn.addEventListener('click', function(){ const f = document.getElementById('eventForm'); if(f) f.reset(); showEventForm(false); });
-              const openRelationBtn = document.getElementById('openRelationFormBtn');
-              if (openRelationBtn) openRelationBtn.addEventListener('click', function(){ showRelationForm(true); openAccordion('contentRelacoes'); });
-              const cancelRelationBtn = document.getElementById('cancelRelationBtn');
-              if (cancelRelationBtn) cancelRelationBtn.addEventListener('click', function(){ const f = document.getElementById('relationForm'); if(f) f.reset(); showRelationForm(false); });
-            })();
-            // Eventos
-            function getEvents() {
-              try {
-                const raw = localStorage.getItem('events:myLineage');
-                return raw ? JSON.parse(raw) : [];
-              } catch (e) { return []; }
-            }
-            function saveEvents(events) {
-              localStorage.setItem('events:myLineage', JSON.stringify(events));
-            }
-            function renderEventsList(personId) {
-              // Always show the list view by default when rendering
-              try { showEventForm(false); } catch (e) {}
-              const events = getEvents();
-              const list = document.getElementById('eventsList');
-              const evs = events.filter(ev => ev.personId === personId && !ev.deletedAt);
-              if (evs.length === 0) {
-                list.innerHTML = '<div style="color:#888">Nenhum evento cadastrado.</div>';
-                return;
-              }
-              let html = '<ul>';
-              evs.forEach((ev, idx) => {
-                html += `<li><b>${ev.type}</b> - ${fmtEventDate(ev) || 'Sem data'}${ev.location ? ', ' + ev.location : ''} <br><small>${ev.notes || ''}</small> <button class="remove-event" data-index="${idx}" title="Remover evento" style="background:none;border:none;cursor:pointer;padding:0;margin-left:8px;"><i class="mdi mdi-trash-can" style="font-size:1.2em;" aria-hidden="true"></i></button></li>`;
-              });
-              html += '</ul>';
-              list.innerHTML = html;
-              // Adiciona handler para remover evento
-              document.querySelectorAll('.remove-event').forEach(btn => {
-                btn.addEventListener('click', function(){
-                  const idx = parseInt(this.getAttribute('data-index'));
-                  let events = getEvents();
-                  const evs = events.filter(ev => ev.personId === personId && !ev.deletedAt);
-                  const eventToRemove = evs[idx];
-                  events = events.map(ev => {
-                    if (ev.id === eventToRemove.id) {
-                      return { ...ev, deletedAt: nowISO(), updatedAt: nowISO() };
-                    }
-                    return ev;
-                  });
-                  saveEvents(events);
-                  renderEventsList(personId);
-                  renderTable(); // Atualiza tabela
-                });
-              });
-            }
-            const addEventBtnEl = document.getElementById('addEventBtn');
-            if (addEventBtnEl) addEventBtnEl.addEventListener('click', function(){
-              const personId = document.getElementById('id').value;
-              if (!personId) return alert('Pessoa não selecionada');
-              const type = document.getElementById('eventType').value;
-              const date = document.getElementById('eventDate').value || null;
-              const location = document.getElementById('eventLocation').value || null;
-              const notes = document.getElementById('eventNotes').value || '';
-              if (!type) return alert('Tipo de evento obrigatório');
-              const events = getEvents();
-              const now = nowISO();
-              events.push({
-                id: generateUUID(),
-                personId,
-                type,
-                date,
-                location,
-                notes,
-                createdAt: now,
-                updatedAt: now,
-                deletedAt: null
-              });
-              saveEvents(events);
-              renderEventsList(personId);
-              renderTable(); // Atualiza tabela
-              const evForm = document.getElementById('eventForm'); if (evForm) evForm.reset();
-              showEventForm(false);
-            });
-
-            // Relações
-            function fillRelationPersonSelect(currentId) {
-              const people = loadPeople();
-              const select = document.getElementById('relationPerson');
-              select.innerHTML = '<option value="">-- selecione --</option>';
-              people.forEach(p => {
-                if (p.id !== currentId && !p.deletedAt) {
-                  select.innerHTML += `<option value="${p.id}">${escapeHtml(p.firstName)} ${escapeHtml(p.lastName)}</option>`;
-                }
-              });
-            }
-
-            // Abre a ficha de uma pessoa (usado para navegação por relações)
-            function showPersonDetail(id) {
-              const people = loadPeople();
-              const p = people.find(x => x.id === id);
-              if (!p) return alert('Registro não encontrado');
-              document.getElementById('id').value = p.id;
-              document.getElementById('firstName').value = p.firstName || '';
-              document.getElementById('lastName').value = p.lastName || '';
-              document.getElementById('gender').value = p.gender || '';
-              document.getElementById('notes').value = p.notes || '';
-              if (document.getElementById('createdAt')) document.getElementById('createdAt').value = p.createdAt || '';
-              if (document.getElementById('updatedAt')) document.getElementById('updatedAt').value = p.updatedAt || '';
-              if (document.getElementById('deletedAt')) document.getElementById('deletedAt').value = p.deletedAt || '';
-              showDatesInfo(p);
-              // Calcula e exibe idade (ou idade ao falecer)
-              try {
-                const evs = getEvents();
-                const birth = evs.find(e => e.personId === p.id && e.type === 'BIRTH' && !e.deletedAt);
-                const death = evs.find(e => e.personId === p.id && e.type === 'DEATH' && !e.deletedAt);
-                const ageEl = document.getElementById('ageInfo');
-                if (birth && birth.date) {
-                  const ref = death && death.date ? death.date : new Date().toISOString();
-                  const age = computeAge(birth.date, ref);
-                  ageEl.textContent = age == null ? '' : (death ? 'Idade ao falecer: ' + age + ' anos' : 'Idade: ' + age + ' anos');
-                } else if (ageEl) {
-                  ageEl.textContent = '';
-                }
-              } catch (e) { /* ignore */ }
-              showFormPanel(true);
-              if (document.getElementById('contentRelacoes')) openAccordion('contentRelacoes');
-              if (document.getElementById('contentEventos')) openAccordion('contentEventos');
-              openAccordion('contentDados');
-              if (document.getElementById('relationPerson')) fillRelationPersonSelect(id);
-              if (document.getElementById('relationsList')) renderRelationsList(id);
-              if (document.getElementById('eventsList')) renderEventsList(id);
-              window.scrollTo({ top: 0, behavior: 'smooth' });
-            }
-
-            function getRelations() {
-              try {
-                const raw = localStorage.getItem('relations:myLineage');
-                return raw ? JSON.parse(raw) : [];
-              } catch (e) { return []; }
-            }
-            function saveRelations(relations) {
-              localStorage.setItem('relations:myLineage', JSON.stringify(relations));
-            }
-            function renderRelationsList(personId) {
-              // Ensure relation form is closed and the list is visible
-              try { showRelationForm(false); } catch(e) {}
-              const relations = getRelations();
-              const people = loadPeople();
-              const list = document.getElementById('relationsList');
-              const rels = relations.filter(r => r.from === personId);
-              if (rels.length === 0) {
-                list.innerHTML = '<div style="color:#888">Nenhuma relação cadastrada.</div>';
-                return;
-              }
-              const typeDesc = {
-                siblin: 'Irmão / Irmã',
-                ancestor: 'Pai / Mãe',
-                child: 'Filho(a)',
-                mate: 'Companheiro(a)'
-              };
-              let html = '<ul>';
-              rels.forEach((r, idx) => {
-                const p = people.find(x => x.id === r.to);
-                const desc = typeDesc[r.type] || r.type;
-                  const nameHtml = p ? `<a href="#" class="relation-link" data-id="${p.id}">${escapeHtml(p.firstName + ' ' + p.lastName)}</a>` : escapeHtml(r.to);
-                  html += `<li>${desc}: ${nameHtml} <button class="remove-relation" data-index="${idx}" title="Remover relação" style="background:none;border:none;cursor:pointer;padding:0;margin-left:8px;"><i class="mdi mdi-trash-can" style="font-size:1.2em;" aria-hidden="true"></i></button></li>`;
-              });
-              html += '</ul>';
-              list.innerHTML = html;
-                // add click handlers for relation links (navigate to related person's detail)
-                document.querySelectorAll('.relation-link').forEach(a => {
-                  a.addEventListener('click', function(ev){ ev.preventDefault(); const id = this.getAttribute('data-id'); if(id) showPersonDetail(id); });
-                });
-              // Adiciona handler para remover relação
-              document.querySelectorAll('.remove-relation').forEach(btn => {
-                btn.addEventListener('click', function(){
-                  const idx = parseInt(this.getAttribute('data-index'));
-                  let relations = getRelations();
-                  const rels = relations.filter(r => r.from === personId);
-                  const relToRemove = rels[idx];
-                  const revType = relToRemove.type==='ancestor'?'child':relToRemove.type==='child'?'ancestor':relToRemove.type;
-                  relations = relations.filter(r => !(r.from === personId && r.to === relToRemove.to && r.type === relToRemove.type));
-                  relations = relations.filter(r => !(r.from === relToRemove.to && r.to === personId && r.type === revType));
-                  saveRelations(relations);
-                  renderRelationsList(personId);
-                });
-              });
-            }
-            const addRelationBtnEl = document.getElementById('addRelationBtn');
-            if (addRelationBtnEl) addRelationBtnEl.addEventListener('click', function(){
-              const type = document.getElementById('relationType').value;
-              const to = document.getElementById('relationPerson').value;
-              const from = document.getElementById('id').value;
-              if (!type || !to || !from) return alert('Selecione tipo e pessoa relacionada.');
-              const relations = getRelations();
-              relations.push({ from, to, type });
-              saveRelations(relations);
-              renderRelationsList(from);
-              const relTypeEl = document.getElementById('relationType'); if (relTypeEl) relTypeEl.value = '';
-              const relPersonEl = document.getElementById('relationPerson'); if (relPersonEl) relPersonEl.value = '';
-              showRelationForm(false);
-            });
-      const STORAGE_KEY = 'people:myLineage';
-
-      function nowISO() { return new Date().toISOString(); }
-
-      function generateUUID() {
-        if (crypto && crypto.randomUUID) return crypto.randomUUID();
-        const bytes = crypto.getRandomValues(new Uint8Array(16));
-        bytes[6] = (bytes[6] & 0x0f) | 0x40;
-        bytes[8] = (bytes[8] & 0x3f) | 0x80;
-        const b2h = b => Array.from(b).map(x => x.toString(16).padStart(2,'0')).join('');
-        const s = b2h(bytes);
-        return s.slice(0,8)+'-'+s.slice(8,12)+'-'+s.slice(12,16)+'-'+s.slice(16,20)+'-'+s.slice(20);
+      function buildGedcomDate(day,month,year,qualifier){
+        let p=[];
+        if(qualifier && qualifier!=='Exatamente'){ p.push(QUAL_TO_GED[qualifier]||qualifier); }
+        if(day) p.push(String(day));
+        if(month) p.push(MONTHS[month]||'');
+        if(year) p.push(String(year));
+        return p.join(' ');
       }
-
-      function loadPeople() {
-        try {
-          const raw = localStorage.getItem(STORAGE_KEY);
-          return raw ? JSON.parse(raw) : [];
-        } catch (e) {
-          console.error('Erro ao ler storage', e);
-          return [];
+      function parseGedcomDate(s){
+        if(!s) return {};
+        const tokens=s.toUpperCase().split(/\s+/);
+        let q=null,d=null,m=null,y=null;
+        for(const t of tokens){
+          if(GED_TO_QUAL[t]) q=GED_TO_QUAL[t];
+          else if(MONTHS_MAP[t]) m=MONTHS_MAP[t];
+          else if(/^\d{3,4}$/.test(t)) y=parseInt(t);
+          else if(/^\d{1,2}$/.test(t)&&!d) d=parseInt(t);
         }
+        return {day:d,month:m,year:y,qualifier:q};
+      }
+      function fmtEventDate(ev){
+        if(!ev||!ev.date) return '';
+        const p=parseGedcomDate(ev.date);
+        const qualMap={'Antes de':'ant.','Depois de':'dep.','Cerca de':'c.'};
+        const q=p.qualifier?(qualMap[p.qualifier]||p.qualifier)+' ':'';
+        let parts=[];
+        if(p.day) parts.push(String(p.day).padStart(2,'0'));
+        if(p.month) parts.push(String(p.month).padStart(2,'0'));
+        if(p.year) parts.push(String(p.year));
+        return q+(parts.length?parts.join('/'):ev.date);
       }
 
-      function savePeople(people) { localStorage.setItem(STORAGE_KEY, JSON.stringify(people)); }
+      function _esc(s){ return String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 
-      // Pagination + filter state
+      function formatISODate(dateStr){
+        if(!dateStr) return '';
+        const d=new Date(dateStr);
+        if(isNaN(d)) return dateStr;
+        return d.getDate().toString().padStart(2,'0')+'-'+(d.getMonth()+1).toString().padStart(2,'0')+'-'+d.getFullYear();
+      }
+
+      /* ── Accordion ────────────────────────────────────────────────────── */
+      const formPanel = document.getElementById('formPanel');
+      function showFormPanel(show){ formPanel.style.display = show ? 'block' : 'none'; }
+      function openAccordion(id){ const el=document.getElementById(id); if(!el) return; el.style.display='block'; if(el.parentElement) el.parentElement.classList.add('open'); }
+      function closeAccordion(id){ const el=document.getElementById(id); if(!el) return; el.style.display='none'; if(el.parentElement) el.parentElement.classList.remove('open'); }
+      function toggleAccordion(id){ const el=document.getElementById(id); if(!el) return; if(el.style.display==='block') closeAccordion(id); else openAccordion(id); }
+      document.addEventListener('click',function(e){ const btn=e.target.closest&&e.target.closest('.accordion-header'); if(btn&&btn.dataset&&btn.dataset.target) toggleAccordion(btn.dataset.target); });
+
+      showFormPanel(false);
+      closeAccordion('contentDados');
+
+      /* ── Pagination + filter ──────────────────────────────────────────── */
       let currentPage = 1;
       const PAGE_SIZE = 10;
-      // currentFilter is applied when the user clicks the search button or presses Enter
       let currentFilter = '';
 
-      function renderPagination(totalPages) {
-        const ctrl = document.getElementById('paginationControls');
-        if (!ctrl) return;
-        if (totalPages <= 1) { ctrl.innerHTML = ''; return; }
-        const prevDisabled = currentPage <= 1 ? 'disabled' : '';
-        const nextDisabled = currentPage >= totalPages ? 'disabled' : '';
-        // force no line-breaks and keep controls inline
-        ctrl.style.whiteSpace = 'nowrap';
-        ctrl.style.display = 'inline-flex';
-        ctrl.style.alignItems = 'center';
-        ctrl.style.gap = '6px';
-        ctrl.innerHTML = `<button id="prevPage" ${prevDisabled} class="icon-btn" aria-label="Página anterior"><i class="mdi mdi-chevron-left" aria-hidden="true"></i></button><span style="margin-right:0;">Página ${currentPage} de ${totalPages}</span><button id="nextPage" ${nextDisabled} class="icon-btn" aria-label="Próxima página"><i class="mdi mdi-chevron-right" aria-hidden="true"></i></button>`;
-        const prev = document.getElementById('prevPage');
-        const next = document.getElementById('nextPage');
-        if (prev) prev.addEventListener('click', function(){ if (currentPage>1) { currentPage--; renderTable(); } });
-        if (next) next.addEventListener('click', function(){ if (currentPage<totalPages) { currentPage++; renderTable(); } });
+      function renderPagination(totalPages){
+        const ctrl=document.getElementById('paginationControls');
+        if(!ctrl) return;
+        if(totalPages<=1){ ctrl.innerHTML=''; return; }
+        ctrl.style.whiteSpace='nowrap'; ctrl.style.display='inline-flex'; ctrl.style.alignItems='center'; ctrl.style.gap='6px';
+        ctrl.innerHTML='<button id="prevPage" '+(currentPage<=1?'disabled':'')+' class="icon-btn" aria-label="Página anterior"><i class="mdi mdi-chevron-left"></i></button><span>Página '+currentPage+' de '+totalPages+'</span><button id="nextPage" '+(currentPage>=totalPages?'disabled':'')+' class="icon-btn" aria-label="Próxima página"><i class="mdi mdi-chevron-right"></i></button>';
+        const prev=document.getElementById('prevPage'), next=document.getElementById('nextPage');
+        if(prev) prev.addEventListener('click',function(){ if(currentPage>1){ currentPage--; renderTable(); }});
+        if(next) next.addEventListener('click',function(){ if(currentPage<totalPages){ currentPage++; renderTable(); }});
       }
 
-      function renderTable() {
-        const tbody = document.querySelector('#peopleTable tbody');
-        tbody.innerHTML = '';
-        const all = loadPeople();
-        const hideDeleted = document.getElementById('hideDeleted').checked;
-        const filter = currentFilter;
-
-        // Apply hidden and filter
-        const filtered = all.filter(p => {
-          if (hideDeleted && p.deletedAt) return false;
-          if (!filter) return true;
-          const full = ((p.firstName||'') + ' ' + (p.lastName||'')).toLowerCase();
-          return full.indexOf(filter) !== -1;
+      function renderTable(){
+        const tbody=document.querySelector('#peopleTable tbody');
+        tbody.innerHTML='';
+        const hideDeleted=document.getElementById('hideDeleted').checked;
+        const all=DB.getIndividuals(!hideDeleted);
+        const filtered=all.filter(indi=>{
+          if(hideDeleted && indi.deletedAt) return false;
+          if(!currentFilter) return true;
+          return DB.getDisplayName(indi).toLowerCase().indexOf(currentFilter)!==-1;
         });
-
-        const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-        if (currentPage > totalPages) currentPage = totalPages;
-        const start = (currentPage - 1) * PAGE_SIZE;
-        const pageItems = filtered.slice(start, start + PAGE_SIZE);
-
-        pageItems.forEach(p => {
-          const tr = document.createElement('tr');
-          if (p.deletedAt) tr.classList.add('deleted');
-          const fullName = ((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim();
-          const fullNameEsc = escapeHtml(fullName);
-          tr.innerHTML = `
-            <td><a href="#" class="person-link" data-id="${p.id}">${fullNameEsc}</a></td>
-            <td class="actions">
-              <button data-id="${p.id}" class="tree-focus" title="Ver na Árvore" style="background:none;border:none;cursor:pointer;padding:0;"><i class="mdi mdi-sitemap" style="font-size:1.2em;" aria-hidden="true"></i></button>
-            </td>
-          `;
+        const totalPages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));
+        if(currentPage>totalPages) currentPage=totalPages;
+        const start=(currentPage-1)*PAGE_SIZE;
+        filtered.slice(start,start+PAGE_SIZE).forEach(indi=>{
+          const tr=document.createElement('tr');
+          if(indi.deletedAt) tr.classList.add('deleted');
+          const name=_esc(DB.getDisplayName(indi));
+          tr.innerHTML='<td><a href="#" class="person-link" data-id="'+indi.id+'">'+name+'</a></td><td class="actions"><button data-id="'+indi.id+'" class="tree-focus" title="Ver na Árvore" style="background:none;border:none;cursor:pointer;padding:0;"><i class="mdi mdi-sitemap" style="font-size:1.2em;"></i></button></td>';
           tbody.appendChild(tr);
         });
-
         renderPagination(totalPages);
       }
 
-      // Search button / Enter key behavior: apply filter independently and reset to page 1
+      /* ── Search ────────────────────────────────────────────────────────── */
       (function(){
-        const btn = document.getElementById('nameSearchBtn');
-        const input = document.getElementById('nameFilter');
-        if (btn && input) {
-          btn.addEventListener('click', function(){
-            currentFilter = (input.value || '').toLowerCase().trim();
-            currentPage = 1;
-            renderTable();
-          });
-          input.addEventListener('keydown', function(e){
-            if (e.key === 'Enter'){
-              e.preventDefault();
-              currentFilter = (input.value || '').toLowerCase().trim();
-              currentPage = 1;
-              renderTable();
-            }
-          });
+        const btn=document.getElementById('nameSearchBtn'),input=document.getElementById('nameFilter');
+        if(btn&&input){
+          btn.addEventListener('click',function(){ currentFilter=(input.value||'').toLowerCase().trim(); currentPage=1; renderTable(); });
+          input.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); currentFilter=(this.value||'').toLowerCase().trim(); currentPage=1; renderTable(); }});
         }
       })();
 
-      function escapeHtml(s){ return String(s).replace(/[&<>\"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
-
-      function resetForm() {
+      /* ── Form panel submit ─────────────────────────────────────────────── */
+      function resetForm(){
         document.getElementById('personForm').reset();
-        document.getElementById('id').value = '';
-        // Limpa campos de datas que só existem após salvar (criação deve deixar em branco)
-        if (document.getElementById('createdAt')) document.getElementById('createdAt').value = '';
-        if (document.getElementById('updatedAt')) document.getElementById('updatedAt').value = '';
-        if (document.getElementById('deletedAt')) document.getElementById('deletedAt').value = '';
-          const ageEl = document.getElementById('ageInfo'); if (ageEl) ageEl.textContent = '';
+        document.getElementById('indiId').value='';
+        const a=document.getElementById('ageInfo'); if(a) a.textContent='';
       }
 
-      function formatDate(dateStr) {
-        if (!dateStr) return '';
-        const d = new Date(dateStr);
-        if (isNaN(d)) return escapeHtml(dateStr);
-        const pad = n => n.toString().padStart(2, '0');
-        const day = pad(d.getDate());
-        const month = pad(d.getMonth() + 1);
-        const year = d.getFullYear();
-        return `${day}-${month}-${year}`;
+      function showDatesInfo(indi){
+        const el=document.getElementById('datesInfo');
+        if(!el) return;
+        if(!indi){ el.innerHTML=''; return; }
+        let h='';
+        if(indi.createdAt) h+='<div>Criado em: '+formatISODate(indi.createdAt)+'</div>';
+        if(indi.updatedAt) h+='<div>Atualizado em: '+formatISODate(indi.updatedAt)+'</div>';
+        if(indi.deletedAt) h+='<div>Excluído em: '+formatISODate(indi.deletedAt)+'</div>';
+        el.innerHTML=h;
       }
 
-      function computeAge(birthStr, refStr) {
-        if (!birthStr) return null;
-        const b = new Date(birthStr);
-        const r = refStr ? new Date(refStr) : new Date();
-        if (isNaN(b) || isNaN(r)) return null;
-        let years = r.getFullYear() - b.getFullYear();
-        const m = r.getMonth() - b.getMonth();
-        if (m < 0 || (m === 0 && r.getDate() < b.getDate())) years--;
-        return years;
+      function editPersonInForm(id){
+        const indi=DB.getIndividual(id);
+        if(!indi) return alert('Registro não encontrado');
+        document.getElementById('indiId').value=indi.id;
+        document.getElementById('firstName').value=DB.getGivenName(indi);
+        document.getElementById('lastName').value=DB.getSurname(indi);
+        document.getElementById('gender').value=indi.sex||'';
+        document.getElementById('notes').value=indi.notes||'';
+        showDatesInfo(indi);
+        const birth=DB.getBirthEvent(indi), death=DB.getDeathEvent(indi);
+        const ageEl=document.getElementById('ageInfo');
+        if(birth&&birth.date){
+          const age=DB.computeAge(birth.date, death?death.date:null);
+          ageEl.textContent=age==null?'':(death?'Idade ao falecer: '+age+' anos':'Idade: '+age+' anos');
+        } else if(ageEl) ageEl.textContent='';
+        showFormPanel(true);
+        openAccordion('contentDados');
       }
 
-      function showDatesInfo(person) {
-        const el = document.getElementById('datesInfo');
-        if (!el) return;
-        if (!person) {
-          el.innerHTML = '';
-          return;
-        }
-        let html = '';
-        if (person.createdAt) html += `<div>Criado em: <span>${formatDate(person.createdAt)}</span></div>`;
-        if (person.updatedAt) html += `<div>Atualizado em: <span>${formatDate(person.updatedAt)}</span></div>`;
-        if (person.deletedAt) html += `<div>Excluído em: <span>${formatDate(person.deletedAt)}</span></div>`;
-        el.innerHTML = html;
-      }
-
-      document.getElementById('personForm').addEventListener('submit', function(e){
+      document.getElementById('personForm').addEventListener('submit',function(e){
         e.preventDefault();
-        const id = document.getElementById('id').value || generateUUID();
-        const firstName = document.getElementById('firstName').value.trim();
-        const lastName = document.getElementById('lastName').value.trim();
-        const gender = document.getElementById('gender').value;
-        const notes = document.getElementById('notes').value;
-        const createdAtField = document.getElementById('createdAt').value;
-        const deletedAtField = document.getElementById('deletedAt').value || null;
-
-        const people = loadPeople();
-        const existingIndex = people.findIndex(x => x.id === id);
-        const now = nowISO();
-
-        if (existingIndex >= 0) {
-          people[existingIndex] = {
-            ...people[existingIndex],
-            firstName, lastName, gender, notes,
-            updatedAt: now,
-            deletedAt: deletedAtField || null
-          };
-        } else {
-          people.push({
-            id,
-            firstName,
-            lastName,
-            gender,
-            notes,
-            createdAt: createdAtField || now,
-            updatedAt: now,
-            deletedAt: deletedAtField || null
-          });
-        }
-
-        savePeople(people);
-        renderTable();
-        resetForm();
+        const id=document.getElementById('indiId').value;
+        const given=document.getElementById('firstName').value.trim();
+        const surname=document.getElementById('lastName').value.trim();
+        const sex=document.getElementById('gender').value;
+        const notes=document.getElementById('notes').value;
+        const existing=id?DB.getIndividual(id):null;
+        const data=existing?{...existing}:{};
+        data.names=[{given:given,surname:surname,type:'birth'}];
+        data.sex=sex||'U';
+        data.notes=notes;
+        if(id) data.id=id;
+        DB.saveIndividual(data);
+        renderTable(); resetForm(); showDatesInfo(); showFormPanel(false); closeAccordion('contentDados');
       });
 
-      document.getElementById('resetBtn').addEventListener('click', function(){ resetForm(); });
+      document.getElementById('resetBtn').addEventListener('click',function(){ resetForm(); showDatesInfo(); showFormPanel(false); closeAccordion('contentDados'); });
 
-      document.getElementById('peopleTable').addEventListener('click', function(e){
-        // Prevent default navigation for links
-        if (e.target && e.target.tagName === 'A') e.preventDefault();
-        // Find the closest element that carries a data-id
-        const el = e.target.closest && e.target.closest('[data-id]');
-        if (!el) return;
-        const id = el.getAttribute('data-id');
-        if (!id) return;
-        // If it's the person link or edit: open edit; detail: open detail page; del: soft delete
-        if (el.classList.contains('edit') || el.classList.contains('person-link')) {
-          openDrawer('edit', id);
-        } else if (el.classList.contains('tree-focus')) {
-          sessionStorage.setItem('tempFocusPerson:myLineage', JSON.stringify({ id: id }));
-          window.location.href = 'arvore.html';
+      /* ── Table click handlers ──────────────────────────────────────────── */
+      document.getElementById('peopleTable').addEventListener('click',function(e){
+        if(e.target&&e.target.tagName==='A') e.preventDefault();
+        const el=e.target.closest&&e.target.closest('[data-id]');
+        if(!el) return;
+        const id=el.getAttribute('data-id');
+        if(el.classList.contains('person-link')) openDrawer('edit',id);
+        else if(el.classList.contains('tree-focus')){
+          DB.setSetting('tempFocusPerson',id);
+          window.location.href='arvore.html';
         }
       });
 
       document.getElementById('hideDeleted').addEventListener('change', renderTable);
 
-      function editPerson(id) {
-        const people = loadPeople();
-        const p = people.find(x => x.id === id);
-        if (!p) return alert('Registro não encontrado');
-        document.getElementById('id').value = p.id;
-        document.getElementById('firstName').value = p.firstName || '';
-        document.getElementById('lastName').value = p.lastName || '';
-        document.getElementById('gender').value = p.gender || '';
-        document.getElementById('notes').value = p.notes || '';
-        document.getElementById('createdAt').value = p.createdAt || '';
-        document.getElementById('updatedAt').value = p.updatedAt || '';
-        document.getElementById('deletedAt').value = p.deletedAt || '';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      }
-
-      function softDeletePerson(id) {
-        if (!confirm('Confirmar exclusão (soft delete)?')) return;
-        const people = loadPeople();
-        const i = people.findIndex(x => x.id === id);
-        if (i < 0) return alert('Registro não encontrado');
-        people[i].deletedAt = nowISO();
-        people[i].updatedAt = nowISO();
-        savePeople(people);
-        renderTable();
-      }
-
-      renderTable();
-
-      // ═══════════════════════════════════════════════
-      //  DRAWER — inline person editor (same as árvore)
-      // ═══════════════════════════════════════════════
-      let _drawerPersonId = null;
-      let _drawerMode = 'edit';
-
-      function getPhotos(){ try{ const raw = localStorage.getItem('photos:myLineage'); return raw ? JSON.parse(raw) : []; }catch(e){ return []; } }
-      function getPhotoRelations(){ try{ const raw = localStorage.getItem('photoRelations:myLineage'); return raw ? JSON.parse(raw) : {}; }catch(e){ return {}; } }
-      function getThumbnailForPerson(personId){ try{ const rels = getPhotoRelations(); const photos = getPhotos(); const ids = rels[personId] || []; if(Array.isArray(ids) && ids.length){ for(const id of ids){ const ph = photos.find(p=>String(p.id)===String(id)); if(ph){ return ph.originalDataUrl || ph.dataUrl || null; } } } return null; }catch(e){ return null; } }
-
-      function _esc(s){ return String(s||'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+      /* ═══════════════════════════════════════════════════════════════════
+         DRAWER
+         ═══════════════════════════════════════════════════════════════════ */
+      let _drawerPersonId = null, _drawerMode = 'edit';
 
       function openDrawer(mode, personId){
-        const _footer = document.querySelector('.drawer-footer');
-        if(_footer) _footer.style.display = '';
-        const _backBtn = document.getElementById('drawerBackBtn');
-        if(_backBtn){ _backBtn.style.display = 'none'; _backBtn._personId = null; }
-        const _phdr = document.getElementById('drawerPersonHeader');
-        if(_phdr) _phdr.style.display = '';
-        _drawerMode = mode;
-        _drawerPersonId = personId ? String(personId) : null;
-        const people = loadPeople();
-        const person = personId ? people.find(p=>String(p.id)===String(personId)) : null;
-        const drawer  = document.getElementById('personDrawer');
-        const overlay = document.getElementById('drawerOverlay');
-        document.getElementById('drawerTitle').textContent = mode === 'create' ? 'Nova Pessoa' : 'Editar Pessoa';
-        const nameEl = document.getElementById('drawerPersonName');
-        const subEl  = document.getElementById('drawerPersonSub');
-        const avatarEl = document.getElementById('drawerAvatar');
-        if(person){
-          const fullName = (((person.firstName||'')+' '+(person.lastName||'')).trim()) || '(sem nome)';
-          nameEl.textContent = fullName;
-          let sub = [];
-          const evAll = (function(){ try{ return JSON.parse(localStorage.getItem('events:myLineage')||'[]'); }catch(e){ return []; } })();
-          const evB = evAll.find(e=>String(e.personId)===String(person.id)&&(e.type==='BIRTH'||e.type==='birth')&&!e.deletedAt);
-          if(evB&&evB.date) sub.push('\u2605 '+evB.date);
-          const evD = evAll.find(e=>String(e.personId)===String(person.id)&&(e.type==='DEATH'||e.type==='death')&&!e.deletedAt);
-          if(evD&&evD.date) sub.push('\u271D '+evD.date);
-          subEl.textContent = sub.join('  ·  ');
-          const thumb = getThumbnailForPerson(person.id);
+        const footer=document.querySelector('.drawer-footer'); if(footer) footer.style.display='';
+        const backBtn=document.getElementById('drawerBackBtn'); if(backBtn){ backBtn.style.display='none'; backBtn._personId=null; }
+        const phdr=document.getElementById('drawerPersonHeader'); if(phdr) phdr.style.display='';
+        _drawerMode=mode; _drawerPersonId=personId||null;
+        const indi=personId?DB.getIndividual(personId):null;
+        document.getElementById('drawerTitle').textContent=mode==='create'?'Nova Pessoa':'Editar Pessoa';
+        const nameEl=document.getElementById('drawerPersonName'), subEl=document.getElementById('drawerPersonSub'), avatarEl=document.getElementById('drawerAvatar');
+        if(indi){
+          nameEl.textContent=DB.getDisplayName(indi);
+          let sub=[];
+          const birth=DB.getBirthEvent(indi); if(birth&&birth.date) sub.push('\u2605 '+fmtEventDate(birth));
+          const death=DB.getDeathEvent(indi); if(death&&death.date) sub.push('\u271D '+fmtEventDate(death));
+          subEl.textContent=sub.join('  ·  ');
+          const thumb=DB.getThumbnailForPerson(indi.id);
           if(thumb){ avatarEl.style.backgroundImage='url('+thumb+')'; avatarEl.style.backgroundSize='cover'; avatarEl.style.backgroundPosition='center'; }
-          else{ avatarEl.style.backgroundImage=''; const g=(person.gender||'').toLowerCase(); avatarEl.style.background=(g==='female'||g==='feminino'||g==='f')?'#e26aa6':(g==='male'||g==='masculino'||g==='m')?'#4493f8':'#9aa0a6'; }
+          else{ avatarEl.style.backgroundImage=''; const s=indi.sex; avatarEl.style.background=s==='F'?'#e26aa6':s==='M'?'#4493f8':'#9aa0a6'; }
         } else {
           nameEl.textContent='Nova Pessoa'; subEl.textContent='';
           avatarEl.style.backgroundImage=''; avatarEl.style.background='var(--bg-surface-2)';
         }
-        const body = document.getElementById('drawerBody');
-        const firstName = person?(person.firstName||''):'';
-        const lastName  = person?(person.lastName||''):'';
-        const gender    = person?(person.gender||''):'';
-        const notes     = person?(person.notes||''):'';
-        body.innerHTML = [
+        const body=document.getElementById('drawerBody');
+        const given=indi?DB.getGivenName(indi):'';
+        const surname=indi?DB.getSurname(indi):'';
+        const sex=indi?(indi.sex||''):'';
+        const notes=indi?(indi.notes||''):'';
+        body.innerHTML=[
           '<div class="drawer-section-label">Identidade</div>',
-          '<div class="form-row">',
-            '<div><label>Primeiro nome</label><input type="text" id="df_firstName" value="'+_esc(firstName)+'" placeholder="Nome" /></div>',
-            '<div><label>Apelido</label><input type="text" id="df_lastName" value="'+_esc(lastName)+'" placeholder="Apelido" /></div>',
-          '</div>',
-          '<div><label>Género</label>',
-            '<select id="df_gender">',
-              '<option value=""'+(!gender?'selected':'')+'>​(n/a)</option>',
-              '<option value="male"'+(gender==='male'||gender==='masculino'||gender==='m'?'selected':'')+'>Masculino</option>',
-              '<option value="female"'+(gender==='female'||gender==='feminino'||gender==='f'?'selected':'')+'>Feminino</option>',
-            '</select></div>',
+          '<div class="form-row"><div><label>Primeiro nome</label><input type="text" id="df_firstName" value="'+_esc(given)+'" placeholder="Nome" /></div><div><label>Apelido</label><input type="text" id="df_lastName" value="'+_esc(surname)+'" placeholder="Apelido" /></div></div>',
+          '<div><label>Género</label><select id="df_gender"><option value=""'+(!sex?' selected':'')+'>​(n/a)</option><option value="M"'+(sex==='M'?' selected':'')+'>Masculino</option><option value="F"'+(sex==='F'?' selected':'')+'>Feminino</option><option value="X"'+(sex==='X'?' selected':'')+'>Outro</option></select></div>',
           '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
           '<div><textarea id="df_notes" rows="3" placeholder="Notas...">'+_esc(notes)+'</textarea></div>',
-          person ? '<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Rela\u00e7\u00f5es</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="_drawerShowAddPerson(\''+person.id+'\')"><i class="mdi mdi-account-plus-outline"></i> Adicionar</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="_drawerShowLinkPerson(\''+person.id+'\')"><i class="mdi mdi-link-variant"></i> Ligar</button></div>' : ''
+          indi?'<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Relações</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+indi.id+'\',\'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="_drawerShowAddPerson(\''+indi.id+'\')"><i class="mdi mdi-account-plus-outline"></i> Adicionar</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="_drawerShowLinkPerson(\''+indi.id+'\')"><i class="mdi mdi-link-variant"></i> Ligar</button></div>':''
         ].join('');
-        drawer.classList.add('open');
-        overlay.classList.add('open');
-        setTimeout(()=>{ const fi=document.getElementById('df_firstName'); if(fi) fi.focus(); }, 50);
+        document.getElementById('personDrawer').classList.add('open');
+        document.getElementById('drawerOverlay').classList.add('open');
+        setTimeout(()=>{ const fi=document.getElementById('df_firstName'); if(fi) fi.focus(); },50);
       }
+      window.openDrawer = openDrawer;
 
       function closeDrawer(){
         document.getElementById('personDrawer').classList.remove('open');
         document.getElementById('drawerOverlay').classList.remove('open');
       }
 
-      function openDrawerSection(personId, section){
-        const people = loadPeople();
-        const person = people.find(p=>String(p.id)===String(personId));
-        if(!person) return;
-        const footer = document.querySelector('.drawer-footer');
-        if(footer) footer.style.display='none';
-        const phdr = document.getElementById('drawerPersonHeader');
-        if(phdr) phdr.style.display='none';
-        const backBtn = document.getElementById('drawerBackBtn');
-        if(backBtn){ backBtn.style.display=''; backBtn._personId=String(personId); }
-        const sectionLabel = section==='relacoes'?'Relações':section==='fotos'?'Fotos':'Eventos';
-        const personName = (((person.firstName||'')+' '+(person.lastName||'')).trim())||'';
-        document.getElementById('drawerTitle').textContent = sectionLabel+' — '+personName;
-        const body = document.getElementById('drawerBody');
-        body.innerHTML = section==='relacoes' ? _renderDrawerRelations(String(personId), people) : section==='fotos' ? _renderDrawerPhotos(String(personId)) : _renderDrawerEvents(String(personId));
-      }
+      /* ── Drawer sections ───────────────────────────────────────────────── */
+      window.openDrawerSection = function(personId, section){
+        const indi=DB.getIndividual(personId);
+        if(!indi) return;
+        const footer=document.querySelector('.drawer-footer'); if(footer) footer.style.display='none';
+        const phdr=document.getElementById('drawerPersonHeader'); if(phdr) phdr.style.display='none';
+        const backBtn=document.getElementById('drawerBackBtn'); if(backBtn){ backBtn.style.display=''; backBtn._personId=personId; }
+        document.getElementById('drawerTitle').textContent=(section==='relacoes'?'Relações':section==='fotos'?'Fotos':'Eventos')+' — '+DB.getDisplayName(indi);
+        const body=document.getElementById('drawerBody');
+        body.innerHTML=section==='relacoes'?_renderRelations(personId):section==='fotos'?_renderPhotos(personId):_renderEvents(personId);
+      };
 
-      function _drawerGetEvents(){ try{ return JSON.parse(localStorage.getItem('events:myLineage')||'[]'); }catch(e){ return []; } }
+      /* ── Events section ────────────────────────────────────────────────── */
+      const EVENT_TYPES = {BIRT:'Nascimento',BAPM:'Batismo',CHR:'Batizado',DEAT:'Óbito',BURI:'Sepultamento',CREM:'Cremação',ADOP:'Adoção',OCCU:'Ocupação',RESI:'Residência',EVEN:'Outro'};
 
-      function _renderDrawerEvents(personId){
-        const evs = _drawerGetEvents().filter(ev=>String(ev.personId)===personId&&!ev.deletedAt);
-        const typeLabels={BIRTH:'Nascimento',BAPTISM:'Batismo',DEATH:'Óbito',MARRIAGE:'Casamento',DIVORCE:'Divórcio',ADOPTION:'Adoção',CUSTOM:'Outro'};
-        let html=`<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddEvent('${_esc(personId)}')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Evento</button></div>`;
+      function _renderEvents(personId){
+        const indi=DB.getIndividual(personId);
+        const evs=(indi&&indi.events||[]);
+        let html='<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddEvent(\''+_esc(personId)+'\')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Evento</button></div>';
         if(!evs.length){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhum evento cadastrado.</div>'; return html; }
         html+='<div class="mini-list">';
-        evs.forEach(ev=>{
-          const label=typeLabels[(ev.type||'').toUpperCase()]||ev.type||'';
-          html+=`<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">${_esc(label)}</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">${_esc(fmtEventDate(ev))}</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_drawerShowEditEvent('${_esc(ev.id)}','${_esc(personId)}')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;line-height:1;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_drawerDeleteEvent('${_esc(ev.id)}','${_esc(personId)}')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;line-height:1;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>${ev.location?`<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; ${_esc(ev.location)}</div>`:''} ${ev.notes?`<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">${_esc(ev.notes)}</div>`:''}</div>`;
+        evs.forEach((ev,i)=>{
+          const label=EVENT_TYPES[ev.type]||ev.type||'';
+          html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">'+_esc(label)+'</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">'+_esc(fmtEventDate(ev))+'</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_drawerEditEvent('+i+',\''+_esc(personId)+'\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_drawerDeleteEvent('+i+',\''+_esc(personId)+'\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>'+(ev.place?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; '+_esc(ev.place)+'</div>':'')+(ev.notes?'<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">'+_esc(ev.notes)+'</div>':'')+'</div>';
         });
         html+='</div>';
         return html;
       }
 
-      function _drawerDeleteEvent(eventId, personId){
+      window._drawerDeleteEvent = function(idx,personId){
         if(!confirm('Apagar este evento?')) return;
-        let events=_drawerGetEvents();
-        events=events.map(ev=>ev.id===eventId?{...ev,deletedAt:new Date().toISOString()}:ev);
-        localStorage.setItem('events:myLineage',JSON.stringify(events));
-        const body=document.getElementById('drawerBody');
-        if(body) body.innerHTML=_renderDrawerEvents(personId);
-      }
+        const indi=DB.getIndividual(personId); if(!indi) return;
+        indi.events.splice(idx,1);
+        DB.saveIndividual(indi);
+        document.getElementById('drawerBody').innerHTML=_renderEvents(personId);
+      };
 
-      function _drawerShowEditEvent(eventId, personId){
-        const ev=_drawerGetEvents().find(e=>e.id===eventId);
-        if(!ev){ alert('Evento não encontrado.'); return; }
+      window._drawerEditEvent = function(idx,personId){
+        const indi=DB.getIndividual(personId); if(!indi) return;
+        const ev=indi.events[idx]; if(!ev) return;
+        const p=parseGedcomDate(ev.date);
         const body=document.getElementById('drawerBody');
-        if(!body) return;
-        const typeUp=(ev.type||'').toUpperCase();
-        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Editar Evento</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="editEvType" style="width:100%;"><option value="BIRTH"${typeUp==='BIRTH'?' selected':''}>Nascimento</option><option value="BAPTISM"${typeUp==='BAPTISM'?' selected':''}>Batismo</option><option value="DEATH"${typeUp==='DEATH'?' selected':''}>Óbito</option><option value="MARRIAGE"${typeUp==='MARRIAGE'?' selected':''}>Casamento</option><option value="DIVORCE"${typeUp==='DIVORCE'?' selected':''}>Divórcio</option><option value="ADOPTION"${typeUp==='ADOPTION'?' selected':''}>Adoção</option><option value="CUSTOM"${typeUp==='CUSTOM'||!typeUp?' selected':''}>Outro</option></select></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="editEvQualifier" style="width:100%;margin-bottom:6px;"><option value="Exatamente"${(ev.dateQualifier||'Exatamente')==='Exatamente'?' selected':''}>Exatamente</option><option value="Antes de"${ev.dateQualifier==='Antes de'?' selected':''}>Antes de</option><option value="Depois de"${ev.dateQualifier==='Depois de'?' selected':''}>Depois de</option><option value="Cerca de"${ev.dateQualifier==='Cerca de'?' selected':''}>Cerca de</option></select><div style="display:flex;gap:6px;"><input id="editEvDay" type="number" min="1" max="31" placeholder="Dia" value="${ev.dateDay||''}" style="flex:1;min-width:0;text-align:center;" /><input id="editEvMonth" type="number" min="1" max="12" placeholder="Mês" value="${ev.dateMonth||''}" style="flex:1;min-width:0;text-align:center;" /><input id="editEvYear" type="number" min="1" max="9999" placeholder="Ano" value="${ev.dateYear||''}" style="flex:2;min-width:0;text-align:center;" /></div><div style="font-size:0.75rem;color:#888;margin-top:3px;">Preencha pelo menos um campo de data</div></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="editEvLocation" type="text" placeholder="Local do evento" value="${_esc(ev.location||'')}" style="width:100%;" /></div><div class="form-group" style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="editEvNotes" rows="3" placeholder="Notas adicionais" style="width:100%;resize:vertical;">${_esc(ev.notes||'')}</textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection('${_esc(personId)}','eventos')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveEditEvent('${_esc(eventId)}','${_esc(personId)}')" ><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
-      }
+        const opts=Object.entries(EVENT_TYPES).map(([k,v])=>'<option value="'+k+'"'+(ev.type===k?' selected':'')+'>'+v+'</option>').join('');
+        body.innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Editar Evento</h3><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="editEvType" style="width:100%;">'+opts+'</select></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="editEvQual" style="width:100%;margin-bottom:6px;"><option value="Exatamente"'+((!p.qualifier||p.qualifier==='Exatamente')?' selected':'')+'>Exatamente</option><option value="Antes de"'+(p.qualifier==='Antes de'?' selected':'')+'>Antes de</option><option value="Depois de"'+(p.qualifier==='Depois de'?' selected':'')+'>Depois de</option><option value="Cerca de"'+(p.qualifier==='Cerca de'?' selected':'')+'>Cerca de</option></select><div style="display:flex;gap:6px;"><input id="editEvDay" type="number" min="1" max="31" placeholder="Dia" value="'+(p.day||'')+'" style="flex:1;min-width:0;text-align:center;"/><input id="editEvMonth" type="number" min="1" max="12" placeholder="Mês" value="'+(p.month||'')+'" style="flex:1;min-width:0;text-align:center;"/><input id="editEvYear" type="number" min="1" max="9999" placeholder="Ano" value="'+(p.year||'')+'" style="flex:2;min-width:0;text-align:center;"/></div></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="editEvPlace" type="text" value="'+_esc(ev.place||'')+'" style="width:100%;"/></div><div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="editEvNotes" rows="3" style="width:100%;resize:vertical;">'+_esc(ev.notes||'')+'</textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\''+_esc(personId)+'\',\'eventos\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveEditEvent('+idx+',\''+_esc(personId)+'\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+      };
 
-      function _drawerSaveEditEvent(eventId, personId){
-        const type=(document.getElementById('editEvType')||{}).value||'CUSTOM';
-        const qualifier=(document.getElementById('editEvQualifier')||{}).value||'Exatamente';
-        const day=parseInt((document.getElementById('editEvDay')||{}).value||'')||null;
-        const month=parseInt((document.getElementById('editEvMonth')||{}).value||'')||null;
-        const year=parseInt((document.getElementById('editEvYear')||{}).value||'')||null;
-        if(!day && !month && !year){ alert('Preencha pelo menos um campo de data (dia, mês ou ano).'); return; }
-        const location=((document.getElementById('editEvLocation')||{}).value||'').trim();
+      window._drawerSaveEditEvent = function(idx,personId){
+        const indi=DB.getIndividual(personId); if(!indi) return;
+        const type=(document.getElementById('editEvType')||{}).value||'EVEN';
+        const qual=(document.getElementById('editEvQual')||{}).value;
+        const day=parseInt((document.getElementById('editEvDay')||{}).value)||null;
+        const month=parseInt((document.getElementById('editEvMonth')||{}).value)||null;
+        const year=parseInt((document.getElementById('editEvYear')||{}).value)||null;
+        if(!day&&!month&&!year){ alert('Preencha pelo menos um campo de data.'); return; }
+        const place=((document.getElementById('editEvPlace')||{}).value||'').trim();
         const notes=((document.getElementById('editEvNotes')||{}).value||'').trim();
-        let events=_drawerGetEvents();
-        events=events.map(ev=>{
-          if(ev.id!==eventId) return ev;
-          const updated={...ev,type:type.toUpperCase(),dateQualifier:qualifier,updatedAt:new Date().toISOString()};
-          delete updated.dateDay; delete updated.dateMonth; delete updated.dateYear;
-          if(day) updated.dateDay=day;
-          if(month) updated.dateMonth=month;
-          if(year) updated.dateYear=year;
-          updated.location=location||null;
-          updated.notes=notes||null;
-          return updated;
-        });
-        localStorage.setItem('events:myLineage',JSON.stringify(events));
+        indi.events[idx]={type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined};
+        DB.saveIndividual(indi);
         openDrawerSection(personId,'eventos');
+      };
+
+      window._drawerShowAddEvent = function(personId){
+        const opts=Object.entries(EVENT_TYPES).map(([k,v])=>'<option value="'+k+'">'+v+'</option>').join('');
+        document.getElementById('drawerBody').innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Novo Evento</h3><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="addEvType" style="width:100%;">'+opts+'</select></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="addEvQual" style="width:100%;margin-bottom:6px;"><option value="Exatamente" selected>Exatamente</option><option value="Antes de">Antes de</option><option value="Depois de">Depois de</option><option value="Cerca de">Cerca de</option></select><div style="display:flex;gap:6px;"><input id="addEvDay" type="number" min="1" max="31" placeholder="Dia" style="flex:1;min-width:0;text-align:center;"/><input id="addEvMonth" type="number" min="1" max="12" placeholder="Mês" style="flex:1;min-width:0;text-align:center;"/><input id="addEvYear" type="number" min="1" max="9999" placeholder="Ano" style="flex:2;min-width:0;text-align:center;"/></div></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="addEvPlace" type="text" placeholder="Local do evento" style="width:100%;"/></div><div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="addEvNotes" rows="3" placeholder="Notas..." style="width:100%;resize:vertical;"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\''+_esc(personId)+'\',\'eventos\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewEvent(\''+_esc(personId)+'\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+      };
+
+      window._drawerSaveNewEvent = function(personId){
+        const indi=DB.getIndividual(personId); if(!indi) return;
+        const type=(document.getElementById('addEvType')||{}).value||'EVEN';
+        const qual=(document.getElementById('addEvQual')||{}).value;
+        const day=parseInt((document.getElementById('addEvDay')||{}).value)||null;
+        const month=parseInt((document.getElementById('addEvMonth')||{}).value)||null;
+        const year=parseInt((document.getElementById('addEvYear')||{}).value)||null;
+        if(!day&&!month&&!year){ alert('Preencha pelo menos um campo de data.'); return; }
+        const place=((document.getElementById('addEvPlace')||{}).value||'').trim();
+        const notes=((document.getElementById('addEvNotes')||{}).value||'').trim();
+        if(!indi.events) indi.events=[];
+        indi.events.push({type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined});
+        DB.saveIndividual(indi);
+        openDrawerSection(personId,'eventos');
+      };
+
+      /* ── Relations section ─────────────────────────────────────────────── */
+      function _getRelationsForPerson(personId){
+        const rels=[];
+        const parents=DB.getParents(personId);
+        parents.forEach(p=>rels.push({type:'ancestor',targetId:p.id,name:DB.getDisplayName(p),sex:p.sex}));
+        const children=DB.getChildren(personId);
+        children.forEach(c=>rels.push({type:'child',targetId:c.id,name:DB.getDisplayName(c),sex:c.sex}));
+        const spouses=DB.getSpouses(personId);
+        spouses.forEach(s=>rels.push({type:'mate',targetId:s.id,name:DB.getDisplayName(s),sex:s.sex}));
+        const siblings=DB.getSiblings(personId);
+        siblings.forEach(s=>rels.push({type:'siblin',targetId:s.id,name:DB.getDisplayName(s),sex:s.sex}));
+        return rels;
       }
 
-      function _renderDrawerRelations(personId, people){
-        let relations=[];
-        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
-        const rels=relations.filter(r=>r&&String(r.from)===personId);
+      function _renderRelations(personId){
+        const rels=_getRelationsForPerson(personId);
         const typeDesc={siblin:'Irmão / Irmã',ancestor:'Pai / Mãe',child:'Filho(a)',mate:'Companheiro(a)'};
-        let html=`<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddRelation('${_esc(personId)}')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Relação</button></div>`;
+        let html='<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddRelation(\''+_esc(personId)+'\')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Relação</button></div>';
         if(!rels.length){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhuma relação cadastrada.</div>'; return html; }
         html+='<div class="mini-list">';
         rels.forEach(r=>{
-          const p=people.find(x=>x.id===r.to);
-          let desc=typeDesc[r.type]||r.type||'';
-          if(p){ const g=((p.gender||'')+'').toLowerCase(); const isFem=g==='female'||g==='feminino'||g==='f'; const isMal=g==='male'||g==='masculino'||g==='m'; if(desc.includes('Filho')) desc=isFem?'Filha':isMal?'Filho':'Filho(a)'; if(desc.includes('Pai')||desc.includes('Mãe')) desc=isFem?'Mãe':isMal?'Pai':'Pai / Mãe'; if(desc.toLowerCase().includes('compan')||desc.includes('mate')) desc=isFem?'Companheira':isMal?'Companheiro':'Companheiro(a)'; if(desc.includes('Irm')) desc=isFem?'Irmã':isMal?'Irmão':'Irmão / Irmã'; }
-          const name=p?(((p.firstName||'')+' '+(p.lastName||'')).trim()):r.to;
-          html+=`<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">${_esc(name)}</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">${_esc(desc)}</span></div><button onclick="_drawerDeleteRelation('${_esc(personId)}','${_esc(r.to)}','${_esc(r.type)}')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;line-height:1;flex-shrink:0;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>`;
+          let desc=typeDesc[r.type]||r.type;
+          if(r.sex==='F'){ if(desc.includes('Filho')) desc='Filha'; if(desc.includes('Pai')) desc='Mãe'; if(desc.includes('Compan')) desc='Companheira'; if(desc.includes('Irm')) desc='Irmã'; }
+          else if(r.sex==='M'){ if(desc.includes('Filho')) desc='Filho'; if(desc.includes('Mãe')||desc.includes('Pai')) desc='Pai'; if(desc.includes('Compan')) desc='Companheiro'; if(desc.includes('Irm')) desc='Irmão'; }
+          html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">'+_esc(r.name)+'</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">'+_esc(desc)+'</span></div><button onclick="_drawerDeleteRelation(\''+_esc(personId)+'\',\''+_esc(r.targetId)+'\',\''+_esc(r.type)+'\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;flex-shrink:0;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>';
         });
         html+='</div>';
         return html;
       }
 
-      function _drawerShowAddEvent(personId){
-        const body=document.getElementById('drawerBody');
-        if(!body) return;
-        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Novo Evento</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="addEvType" style="width:100%;"><option value="BIRTH">Nascimento</option><option value="BAPTISM">Batismo</option><option value="DEATH">Óbito</option><option value="MARRIAGE">Casamento</option><option value="DIVORCE">Divórcio</option><option value="ADOPTION">Adoção</option><option value="CUSTOM">Outro</option></select></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="addEvQualifier" style="width:100%;margin-bottom:6px;"><option value="Exatamente" selected>Exatamente</option><option value="Antes de">Antes de</option><option value="Depois de">Depois de</option><option value="Cerca de">Cerca de</option></select><div style="display:flex;gap:6px;"><input id="addEvDay" type="number" min="1" max="31" placeholder="Dia" style="flex:1;min-width:0;text-align:center;" /><input id="addEvMonth" type="number" min="1" max="12" placeholder="Mês" style="flex:1;min-width:0;text-align:center;" /><input id="addEvYear" type="number" min="1" max="9999" placeholder="Ano" style="flex:2;min-width:0;text-align:center;" /></div><div style="font-size:0.75rem;color:#888;margin-top:3px;">Preencha pelo menos um campo de data</div></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="addEvLocation" type="text" placeholder="Local do evento" style="width:100%;" /></div><div class="form-group" style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="addEvNotes" rows="3" placeholder="Notas adicionais" style="width:100%;resize:vertical;"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection('${_esc(personId)}','eventos')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewEvent('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
-      }
-
-      function _drawerSaveNewEvent(personId){
-        const type=(document.getElementById('addEvType')||{}).value||'CUSTOM';
-        const qualifier=(document.getElementById('addEvQualifier')||{}).value||'Exatamente';
-        const day=parseInt((document.getElementById('addEvDay')||{}).value||'')||null;
-        const month=parseInt((document.getElementById('addEvMonth')||{}).value||'')||null;
-        const year=parseInt((document.getElementById('addEvYear')||{}).value||'')||null;
-        if(!day && !month && !year){ alert('Preencha pelo menos um campo de data (dia, mês ou ano).'); return; }
-        const location=((document.getElementById('addEvLocation')||{}).value||'').trim();
-        const notes=((document.getElementById('addEvNotes')||{}).value||'').trim();
-        let events=_drawerGetEvents();
-        const newEv={id:'ev_'+Date.now(),personId:String(personId),type:type.toUpperCase()};
-        newEv.dateQualifier=qualifier;
-        if(day) newEv.dateDay=day;
-        if(month) newEv.dateMonth=month;
-        if(year) newEv.dateYear=year;
-        if(location) newEv.location=location;
-        if(notes) newEv.notes=notes;
-        events.push(newEv);
-        localStorage.setItem('events:myLineage',JSON.stringify(events));
-        openDrawerSection(personId,'eventos');
-      }
-
-      function _drawerShowAddRelation(personId){
-        const people=loadPeople().filter(p=>!p.deletedAt&&String(p.id)!==String(personId));
-        const body=document.getElementById('drawerBody');
-        if(!body) return;
-        const opts=people.map(p=>{ const name=(((p.firstName||'')+' '+(p.lastName||'')).trim())||p.id; return `<option value="${_esc(String(p.id))}">${_esc(name)}</option>`; }).join('');
-        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Nova Relação</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo de relação</label><select id="addRelType" style="width:100%;"><option value="ancestor">Pai / Mãe</option><option value="child">Filho(a)</option><option value="mate">Companheiro(a)</option><option value="siblin">Irmão / Irmã</option></select></div><div class="form-group" style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pessoa</label><select id="addRelTo" style="width:100%;">${opts||'<option disabled>Nenhuma pessoa disponível</option>'}</select></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection('${_esc(personId)}','relacoes')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewRelation('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
-      }
-
-      function _drawerSaveNewRelation(personId){
-        const toId=(document.getElementById('addRelTo')||{}).value||'';
-        const type=(document.getElementById('addRelType')||{}).value||'mate';
-        if(!toId){ alert('Seleciona uma pessoa.'); return; }
-        let relations=[];
-        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
-        const already=relations.some(r=>String(r.from)===String(personId)&&String(r.to)===String(toId)&&String(r.type)===String(type));
-        if(already){ alert('Esta relação já existe.'); return; }
-        relations.push({from:String(personId),to:String(toId),type});
-        // guardar também no sentido inverso
-        const revType=type==='ancestor'?'child':type==='child'?'ancestor':type;
-        const alreadyRev=relations.some(r=>String(r.from)===String(toId)&&String(r.to)===String(personId)&&String(r.type)===revType);
-        if(!alreadyRev) relations.push({from:String(toId),to:String(personId),type:revType});
-        localStorage.setItem('relations:myLineage',JSON.stringify(relations));
-        openDrawerSection(personId,'relacoes');
-      }
-
-      function _drawerDeleteRelation(fromId,toId,relType){
+      window._drawerDeleteRelation = function(personId,targetId,relType){
         if(!confirm('Apagar esta relação?')) return;
-        let relations=[];
-        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
-        // apagar no sentido direto
-        relations=relations.filter(r=>!(String(r.from)===String(fromId)&&String(r.to)===String(toId)&&String(r.type)===String(relType)));
-        // apagar no sentido inverso
-        const reverseType=relType==='ancestor'?'child':relType==='child'?'ancestor':relType;
-        relations=relations.filter(r=>!(String(r.from)===String(toId)&&String(r.to)===String(fromId)&&String(r.type)===reverseType));
-        localStorage.setItem('relations:myLineage',JSON.stringify(relations));
-        const body=document.getElementById('drawerBody');
-        if(body) body.innerHTML=_renderDrawerRelations(fromId,loadPeople());
+        if(relType==='ancestor'){
+          // Remove parent from famc family
+          const indi=DB.getIndividual(personId);
+          if(indi&&indi.famc){
+            const fam=DB.getFamily(indi.famc);
+            if(fam){
+              if(fam.husb===targetId) fam.husb=null;
+              if(fam.wife===targetId) fam.wife=null;
+              DB.saveFamily(fam);
+              // Remove fams link from the parent
+              const parent=DB.getIndividual(targetId);
+              if(parent&&parent.fams){ parent.fams=parent.fams.filter(f=>f!==fam.id); DB.saveIndividual(parent); }
+            }
+          }
+        } else if(relType==='child'){
+          // Remove child from this person's fams families
+          DB.getFamiliesAsSpouse(personId).forEach(fam=>{
+            if(fam.children&&fam.children.includes(targetId)){
+              fam.children=fam.children.filter(c=>c!==targetId);
+              DB.saveFamily(fam);
+              const child=DB.getIndividual(targetId);
+              if(child&&child.famc===fam.id){ child.famc=null; DB.saveIndividual(child); }
+            }
+          });
+        } else if(relType==='mate'){
+          // Find shared family and remove spouse link
+          DB.getFamiliesAsSpouse(personId).forEach(fam=>{
+            if(fam.husb===targetId||fam.wife===targetId){
+              if(fam.husb===targetId) fam.husb=null;
+              if(fam.wife===targetId) fam.wife=null;
+              DB.saveFamily(fam);
+              const sp=DB.getIndividual(targetId);
+              if(sp&&sp.fams){ sp.fams=sp.fams.filter(f=>f!==fam.id); DB.saveIndividual(sp); }
+            }
+          });
+        } else if(relType==='siblin'){
+          // Remove sibling from shared family
+          const indi=DB.getIndividual(personId);
+          if(indi&&indi.famc){
+            const fam=DB.getFamily(indi.famc);
+            if(fam&&fam.children&&fam.children.includes(targetId)){
+              fam.children=fam.children.filter(c=>c!==targetId);
+              DB.saveFamily(fam);
+              const sib=DB.getIndividual(targetId);
+              if(sib&&sib.famc===fam.id){ sib.famc=null; DB.saveIndividual(sib); }
+            }
+          }
+        }
+        document.getElementById('drawerBody').innerHTML=_renderRelations(personId);
+      };
+
+      window._drawerShowAddRelation = function(personId){
+        const others=DB.getIndividuals().filter(i=>i.id!==personId);
+        const parents=DB.getParents(personId);
+        let kinOpts='<option value="ancestor">Pai / Mãe</option><option value="child">Filho(a)</option><option value="mate">Companheiro(a)</option><option value="siblin">Irmão / Irmã</option>';
+        if(parents.length>=2) kinOpts='<option value="child">Filho(a)</option><option value="mate">Companheiro(a)</option><option value="siblin">Irmão / Irmã</option>';
+        const opts=others.map(i=>'<option value="'+i.id+'">'+_esc(DB.getDisplayName(i))+'</option>').join('');
+        document.getElementById('drawerBody').innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Nova Relação</h3><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="addRelType" style="width:100%;">'+kinOpts+'</select></div><div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pessoa</label><select id="addRelTarget" style="width:100%;">'+opts+'</select></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\''+_esc(personId)+'\',\'relacoes\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveLinkRelation(\''+_esc(personId)+'\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+      };
+
+      window._drawerSaveLinkRelation = function(personId){
+        const relType=(document.getElementById('addRelType')||{}).value;
+        const targetId=(document.getElementById('addRelTarget')||{}).value;
+        if(!relType||!targetId) return alert('Selecione tipo e pessoa.');
+        _linkRelation(personId,targetId,relType);
+        openDrawerSection(personId,'relacoes');
+      };
+
+      function _linkRelation(personId,targetId,relType){
+        const indi=DB.getIndividual(personId);
+        const target=DB.getIndividual(targetId);
+        if(!indi||!target) return;
+
+        if(relType==='mate'){
+          DB.ensureFamily(personId,targetId);
+        } else if(relType==='ancestor'){
+          // target is parent of indi
+          if(!indi.famc){
+            // Create family for parents
+            const fam=DB.saveFamily({husb:target.sex==='M'?targetId:null,wife:target.sex==='F'?targetId:null,children:[personId],events:[]});
+            indi.famc=fam.id; DB.saveIndividual(indi);
+            if(!target.fams) target.fams=[];
+            if(!target.fams.includes(fam.id)){ target.fams.push(fam.id); DB.saveIndividual(target); }
+          } else {
+            const fam=DB.getFamily(indi.famc);
+            if(fam){
+              if(!fam.husb&&target.sex!=='F'){ fam.husb=targetId; }
+              else if(!fam.wife){ fam.wife=targetId; }
+              else { fam.husb=targetId; } // overwrite
+              DB.saveFamily(fam);
+              if(!target.fams) target.fams=[];
+              if(!target.fams.includes(fam.id)){ target.fams.push(fam.id); DB.saveIndividual(target); }
+            }
+          }
+        } else if(relType==='child'){
+          // target is child of indi
+          const fams=DB.getFamiliesAsSpouse(personId);
+          let fam=fams.length?fams[0]:null;
+          if(!fam){
+            fam=DB.saveFamily({husb:indi.sex==='M'?personId:null,wife:indi.sex==='F'?personId:null,children:[],events:[]});
+            if(!indi.fams) indi.fams=[];
+            indi.fams.push(fam.id); DB.saveIndividual(indi);
+          }
+          if(!fam.children) fam.children=[];
+          if(!fam.children.includes(targetId)){ fam.children.push(targetId); DB.saveFamily(fam); }
+          target.famc=fam.id; DB.saveIndividual(target);
+        } else if(relType==='siblin'){
+          // target is sibling of indi — share famc family
+          if(indi.famc){
+            const fam=DB.getFamily(indi.famc);
+            if(fam){
+              if(!fam.children) fam.children=[];
+              if(!fam.children.includes(targetId)){ fam.children.push(targetId); DB.saveFamily(fam); }
+              target.famc=fam.id; DB.saveIndividual(target);
+            }
+          } else {
+            // Create family for both
+            const fam=DB.saveFamily({children:[personId,targetId],events:[]});
+            indi.famc=fam.id; DB.saveIndividual(indi);
+            target.famc=fam.id; DB.saveIndividual(target);
+          }
+        }
       }
 
-      // ── Adicionar nova pessoa relacionada ─────────────────────────────────
-      function _drawerShowAddPerson(personId){
-        const people=loadPeople();
-        const person=people.find(p=>String(p.id)===String(personId));
-        if(!person) return;
-        let relations=[];
-        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
-        const parentCount=relations.filter(r=>String(r.from)===String(personId)&&r.type==='ancestor').length;
-        const footer=document.querySelector('.drawer-footer');
-        if(footer) footer.style.display='none';
-        const phdr=document.getElementById('drawerPersonHeader');
-        if(phdr) phdr.style.display='none';
-        const backBtn=document.getElementById('drawerBackBtn');
-        if(backBtn){ backBtn.style.display=''; backBtn._personId=String(personId); }
-        const personName=(((person.firstName||'')+' '+(person.lastName||'')).trim())||'';
-        document.getElementById('drawerTitle').textContent='Adicionar \u2014 '+personName;
-        const body=document.getElementById('drawerBody');
-        if(!body) return;
-        let kinshipOpts=`<option value="sibling_male">Irm\u00e3o</option><option value="sibling_female">Irm\u00e3</option><option value="child_male">Filho</option><option value="child_female">Filha</option>`;
-        if(parentCount<2) kinshipOpts+=`<option value="ancestor_male">Pai</option><option value="ancestor_female">M\u00e3e</option>`;
-        kinshipOpts+=`<option value="mate_male">Companheiro</option><option value="mate_female">Companheira</option>`;
-        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Nova Pessoa</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Grau de parentesco</label><select id="addPersKinship" style="width:100%;" onchange="_drawerUpdateCoParentSection('${_esc(personId)}')">${kinshipOpts}</select></div><div id="addPersCoParentSection" class="form-group" style="margin-bottom:10px;display:none;"></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Primeiro nome</label><input id="addPersFirstName" type="text" placeholder="Nome" style="width:100%;" /></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Apelido</label><input id="addPersLastName" type="text" placeholder="Apelido" style="width:100%;" /></div><div class="form-group" style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="addPersNotes" rows="2" placeholder="Notas..." style="width:100%;resize:vertical;"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawer('edit','${_esc(personId)}')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewPerson('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
+      /* ── Add person workflow ───────────────────────────────────────────── */
+      window._drawerShowAddPerson = function(personId){
+        const indi=DB.getIndividual(personId); if(!indi) return;
+        const parents=DB.getParents(personId);
+        const footer=document.querySelector('.drawer-footer'); if(footer) footer.style.display='none';
+        const phdr=document.getElementById('drawerPersonHeader'); if(phdr) phdr.style.display='none';
+        const backBtn=document.getElementById('drawerBackBtn'); if(backBtn){ backBtn.style.display=''; backBtn._personId=personId; }
+        document.getElementById('drawerTitle').textContent='Adicionar — '+DB.getDisplayName(indi);
+        let kinOpts='<option value="sibling_male">Irmão</option><option value="sibling_female">Irmã</option><option value="child_male">Filho</option><option value="child_female">Filha</option>';
+        if(parents.length<2) kinOpts+='<option value="ancestor_male">Pai</option><option value="ancestor_female">Mãe</option>';
+        kinOpts+='<option value="mate_male">Companheiro</option><option value="mate_female">Companheira</option>';
+        document.getElementById('drawerBody').innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Nova Pessoa</h3><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Grau de parentesco</label><select id="addPersKinship" style="width:100%;">'+kinOpts+'</select></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Primeiro nome</label><input id="addPersFirstName" type="text" placeholder="Nome" style="width:100%;"/></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Apelido</label><input id="addPersLastName" type="text" placeholder="Apelido" style="width:100%;"/></div><div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="addPersNotes" rows="2" placeholder="Notas..." style="width:100%;resize:vertical;"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawer(\'edit\',\''+_esc(personId)+'\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewPerson(\''+_esc(personId)+'\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
         setTimeout(()=>{ const fi=document.getElementById('addPersFirstName'); if(fi) fi.focus(); },50);
-      }
+      };
 
-      function _drawerUpdateCoParentSection(personId){
+      window._drawerSaveNewPerson = function(personId){
         const kinship=(document.getElementById('addPersKinship')||{}).value||'';
-        const section=document.getElementById('addPersCoParentSection');
-        if(!section) return;
-        if(kinship!=='child_male'&&kinship!=='child_female'){ section.style.display='none'; section.innerHTML=''; return; }
-        let relations=[];
-        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
-        const mates=relations.filter(r=>String(r.from)===String(personId)&&r.type==='mate');
-        if(mates.length<=1){ section.style.display='none'; section.innerHTML=''; return; }
-        const people=loadPeople();
-        const opts=mates.map(r=>{ const p=people.find(x=>String(x.id)===String(r.to)); const name=p?(((p.firstName||'')+' '+(p.lastName||'')).trim())||p.id:r.to; return `<option value="${_esc(String(r.to))}">${_esc(name)}</option>`; }).join('');
-        section.innerHTML=`<label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Outro progenitor</label><select id="addPersCoParent" style="width:100%;">${opts}</select>`;
-        section.style.display='block';
-      }
-
-      function _drawerSaveNewPerson(personId){
-        const kinship=((document.getElementById('addPersKinship')||{}).value||'');
         const firstName=((document.getElementById('addPersFirstName')||{}).value||'').trim();
         const lastName=((document.getElementById('addPersLastName')||{}).value||'').trim();
         const notes=((document.getElementById('addPersNotes')||{}).value||'').trim();
         if(!firstName&&!lastName){ alert('Introduza pelo menos um nome.'); return; }
-        let gender='',relType='';
-        if(kinship==='sibling_male'){ gender='male'; relType='siblin'; }
-        else if(kinship==='sibling_female'){ gender='female'; relType='siblin'; }
-        else if(kinship==='child_male'){ gender='male'; relType='child'; }
-        else if(kinship==='child_female'){ gender='female'; relType='child'; }
-        else if(kinship==='ancestor_male'){ gender='male'; relType='ancestor'; }
-        else if(kinship==='ancestor_female'){ gender='female'; relType='ancestor'; }
-        else if(kinship==='mate_male'){ gender='male'; relType='mate'; }
-        else if(kinship==='mate_female'){ gender='female'; relType='mate'; }
-        let people=loadPeople();
-        const newId='p_'+Date.now();
-        people.push({id:newId,firstName,lastName,gender,notes,createdAt:new Date().toISOString()});
-        savePeople(people);
-        if(relType){
-          let relations=[];
-          try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
-          relations.push({from:String(personId),to:String(newId),type:relType});
-          if(relType==='siblin'){
-            // herdar os mesmos pais da pessoa base
-            relations.filter(r=>String(r.from)===String(personId)&&r.type==='ancestor')
-              .forEach(r=>{ relations.push({from:String(newId),to:String(r.to),type:'ancestor'}); });
-          }
-          if(relType==='ancestor'){
-            // relação inversa: novo pai/mãe tem a pessoa base como filho(a)
-            relations.push({from:String(newId),to:String(personId),type:'child'});
-            // pais já existentes da pessoa base (excluindo o que acabámos de adicionar)
-            const existingParents=relations.filter(r=>String(r.from)===String(personId)&&r.type==='ancestor'&&String(r.to)!==String(newId));
-            if(existingParents.length===0){
-              // sem nenhum progenitor: criar <desconhecido> com género oposto
-              const autoGender=(gender==='male'||gender==='masculino'||gender==='m')?'female':'male';
-              const autoId='p_auto_'+Date.now();
-              people.push({id:autoId,firstName:'<desconhecido>',lastName:'',gender:autoGender,notes:'',createdAt:new Date().toISOString()});
-              savePeople(people);
-              relations.push({from:String(personId),to:String(autoId),type:'ancestor'});
-              relations.push({from:String(autoId),to:String(personId),type:'child'});
-              relations.push({from:String(newId),to:String(autoId),type:'mate'});
-              relations.push({from:String(autoId),to:String(newId),type:'mate'});
-            } else {
-              // já tem um progenitor: ligar novo como companheiro do existente
-              const existingParentId=existingParents[0].to;
-              relations.push({from:String(newId),to:String(existingParentId),type:'mate'});
-              relations.push({from:String(existingParentId),to:String(newId),type:'mate'});
-            }
-          }
-          if(relType==='mate'){
-            // relação bidirecional: companheiro(a) também aponta para a pessoa base
-            relations.push({from:String(newId),to:String(personId),type:'mate'});
-          }
-          if(relType==='child'){
-            // child also needs ancestor entries pointing to its parents
-            relations.push({from:String(newId),to:String(personId),type:'ancestor'});
-            const mates=relations.filter(r=>String(r.from)===String(personId)&&r.type==='mate');
-            if(mates.length===0){
-              // sem companheiro: criar pessoa desconhecida com género oposto
-              const basePerson=people.find(p=>String(p.id)===String(personId));
-              const baseGender=((basePerson&&basePerson.gender)||'').toLowerCase();
-              const autoGender=(baseGender==='male'||baseGender==='masculino'||baseGender==='m')?'female':'male';
-              const autoId='p_auto_'+Date.now();
-              people.push({id:autoId,firstName:'<desconhecido>',lastName:'',gender:autoGender,notes:'',createdAt:new Date().toISOString()});
-              savePeople(people);
-              relations.push({from:String(personId),to:String(autoId),type:'mate'});
-              relations.push({from:String(autoId),to:String(personId),type:'mate'});
-              relations.push({from:String(autoId),to:String(newId),type:'child'});
-              relations.push({from:String(newId),to:String(autoId),type:'ancestor'});
-            } else if(mates.length===1){
-              relations.push({from:String(mates[0].to),to:String(newId),type:'child'});
-              relations.push({from:String(newId),to:String(mates[0].to),type:'ancestor'});
-            } else {
-              const coParentId=((document.getElementById('addPersCoParent')||{}).value||'');
-              if(coParentId){
-                relations.push({from:String(coParentId),to:String(newId),type:'child'});
-                relations.push({from:String(newId),to:String(coParentId),type:'ancestor'});
-              }
-            }
-          }
-          localStorage.setItem('relations:myLineage',JSON.stringify(relations));
-        }
+        const sexMap={sibling_male:'M',sibling_female:'F',child_male:'M',child_female:'F',ancestor_male:'M',ancestor_female:'F',mate_male:'M',mate_female:'F'};
+        const relMap={sibling_male:'siblin',sibling_female:'siblin',child_male:'child',child_female:'child',ancestor_male:'ancestor',ancestor_female:'ancestor',mate_male:'mate',mate_female:'mate'};
+        const sex=sexMap[kinship]||'U';
+        const relType=relMap[kinship]||'';
+        // Create the new individual
+        const newIndi=DB.saveIndividual({names:[{given:firstName,surname:lastName,type:'birth'}],sex,notes:notes||undefined,events:[]});
+        if(relType) _linkRelation(personId,newIndi.id,relType);
         openDrawer('edit',personId);
         renderTable();
-      }
+      };
 
-      // ── Ligar pessoa existente ────────────────────────────────────────────
-      function _drawerShowLinkPerson(personId){
-        const people=loadPeople();
-        const person=people.find(p=>String(p.id)===String(personId));
-        if(!person) return;
-        let relations=[];
-        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
-        const parentCount=relations.filter(r=>String(r.from)===String(personId)&&r.type==='ancestor').length;
-        const footer=document.querySelector('.drawer-footer');
-        if(footer) footer.style.display='none';
-        const phdr=document.getElementById('drawerPersonHeader');
-        if(phdr) phdr.style.display='none';
-        const backBtn=document.getElementById('drawerBackBtn');
-        if(backBtn){ backBtn.style.display=''; backBtn._personId=String(personId); }
-        const personName=(((person.firstName||'')+' '+(person.lastName||'')).trim())||'';
-        document.getElementById('drawerTitle').textContent='Ligar \u2014 '+personName;
-        const body=document.getElementById('drawerBody');
-        if(!body) return;
-        let kinshipOpts=`<option value="sibling_male">Irm\u00e3o</option><option value="sibling_female">Irm\u00e3</option><option value="child_male">Filho</option><option value="child_female">Filha</option>`;
-        if(parentCount<2) kinshipOpts+=`<option value="ancestor_male">Pai</option><option value="ancestor_female">M\u00e3e</option>`;
-        kinshipOpts+=`<option value="mate_male">Companheiro</option><option value="mate_female">Companheira</option>`;
-        const otherPeople=people.filter(p=>String(p.id)!==String(personId));
-        const peopleOpts=otherPeople.map(p=>{ const name=(((p.firstName||'')+' '+(p.lastName||'')).trim())||p.id; const _g=((p.gender||'')).toLowerCase(); const _pg=(_g==='male'||_g==='masculino'||_g==='m')?'male':(_g==='female'||_g==='feminino'||_g==='f')?'female':''; return `<option value="${_esc(String(p.id))}" data-gender="${_pg}">${_esc(name)}</option>`; }).join('');
-        body.innerHTML=`<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;color:var(--text-primary);">Ligar Pessoa Existente</h3><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Grau de parentesco</label><select id="linkPersKinship" style="width:100%;" onchange="_drawerUpdateLinkCoParentSection('${_esc(personId)}');_drawerFilterLinkPersons()">${kinshipOpts}</select></div><div id="linkPersCoParentSection" class="form-group" style="margin-bottom:10px;display:none;"></div><div class="form-group" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pesquisar pessoa</label><input id="linkPersSearch" type="text" placeholder="Pesquisar por nome..." style="width:100%;margin-bottom:6px;" oninput="_drawerFilterLinkPersons()" /><select id="linkPersTarget" size="6" style="width:100%;min-height:110px;">${peopleOpts}</select></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;"><button class="btn btn-ghost btn-sm" onclick="openDrawer('edit','${_esc(personId)}')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveLinkPerson('${_esc(personId)}')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>`;
+      /* ── Link existing person ──────────────────────────────────────────── */
+      window._drawerShowLinkPerson = function(personId){
+        const indi=DB.getIndividual(personId); if(!indi) return;
+        const parents=DB.getParents(personId);
+        const footer=document.querySelector('.drawer-footer'); if(footer) footer.style.display='none';
+        const phdr=document.getElementById('drawerPersonHeader'); if(phdr) phdr.style.display='none';
+        const backBtn=document.getElementById('drawerBackBtn'); if(backBtn){ backBtn.style.display=''; backBtn._personId=personId; }
+        document.getElementById('drawerTitle').textContent='Ligar — '+DB.getDisplayName(indi);
+        let kinOpts='<option value="siblin">Irmão / Irmã</option><option value="child">Filho(a)</option>';
+        if(parents.length<2) kinOpts='<option value="ancestor">Pai / Mãe</option>'+kinOpts;
+        kinOpts+='<option value="mate">Companheiro(a)</option>';
+        const others=DB.getIndividuals().filter(i=>i.id!==personId);
+        const opts=others.map(i=>'<option value="'+i.id+'">'+_esc(DB.getDisplayName(i))+'</option>').join('');
+        document.getElementById('drawerBody').innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Ligar Pessoa Existente</h3><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Grau de parentesco</label><select id="linkPersKinship" style="width:100%;">'+kinOpts+'</select></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pesquisar pessoa</label><input id="linkPersSearch" type="text" placeholder="Pesquisar por nome..." style="width:100%;margin-bottom:6px;" /><select id="linkPersTarget" size="6" style="width:100%;min-height:110px;">'+opts+'</select></div><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;"><button class="btn btn-ghost btn-sm" onclick="openDrawer(\'edit\',\''+_esc(personId)+'\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveLinkPerson(\''+_esc(personId)+'\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
         const sel=document.getElementById('linkPersTarget');
-        if(sel) sel._allOptions=Array.from(sel.options).map(o=>({value:o.value,text:o.text,gender:o.getAttribute('data-gender')||''}));
-        _drawerFilterLinkPersons();
+        if(sel) sel._allOpts=others.map(i=>({value:i.id,text:DB.getDisplayName(i)}));
         const si=document.getElementById('linkPersSearch');
-        if(si) si.focus();
-      }
+        if(si){ si.addEventListener('input',function(){ const q=this.value.toLowerCase(); const all=sel._allOpts||[]; sel.innerHTML=all.filter(o=>o.text.toLowerCase().includes(q)).map(o=>'<option value="'+o.value+'">'+_esc(o.text)+'</option>').join(''); }); si.focus(); }
+      };
 
-      function _drawerFilterLinkPersons(){
-        const search=((document.getElementById('linkPersSearch')||{}).value||'').toLowerCase();
-        const kinship=((document.getElementById('linkPersKinship')||{}).value||'');
-        const _kg={sibling_male:'male',child_male:'male',ancestor_male:'male',mate_male:'male',sibling_female:'female',child_female:'female',ancestor_female:'female',mate_female:'female'};
-        const expectedGender=_kg[kinship]||'';
-        const sel=document.getElementById('linkPersTarget');
-        if(!sel) return;
-        const all=sel._allOptions||[];
-        sel.innerHTML=all.filter(o=>{
-          if(search&&!o.text.toLowerCase().includes(search)) return false;
-          if(expectedGender&&o.gender&&o.gender!==expectedGender) return false;
-          return true;
-        }).map(o=>`<option value="${_esc(o.value)}">${_esc(o.text)}</option>`).join('');
-      }
-
-      function _drawerUpdateLinkCoParentSection(personId){
-        const kinship=((document.getElementById('linkPersKinship')||{}).value||'');
-        const section=document.getElementById('linkPersCoParentSection');
-        if(!section) return;
-        if(kinship!=='child_male'&&kinship!=='child_female'){ section.style.display='none'; section.innerHTML=''; return; }
-        let relations=[];
-        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
-        const mates=relations.filter(r=>String(r.from)===String(personId)&&r.type==='mate');
-        if(mates.length<=1){ section.style.display='none'; section.innerHTML=''; return; }
-        const people=loadPeople();
-        const opts=mates.map(r=>{ const p=people.find(x=>String(x.id)===String(r.to)); const name=p?(((p.firstName||'')+' '+(p.lastName||'')).trim())||p.id:r.to; return `<option value="${_esc(String(r.to))}">${_esc(name)}</option>`; }).join('');
-        section.innerHTML=`<label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Outro progenitor</label><select id="linkPersCoParent" style="width:100%;">${opts}</select>`;
-        section.style.display='block';
-      }
-
-      function _drawerSaveLinkPerson(personId){
-        const kinship=((document.getElementById('linkPersKinship')||{}).value||'');
-        const sel=document.getElementById('linkPersTarget');
-        const newId=sel&&sel.value?sel.value:'';
-        if(!newId){ alert('Selecione uma pessoa para ligar.'); return; }
-        if(String(newId)===String(personId)){ alert('N\u00e3o pode ligar uma pessoa a si pr\u00f3pria.'); return; }
-        let gender='',relType='';
-        if(kinship==='sibling_male'){ gender='male'; relType='siblin'; }
-        else if(kinship==='sibling_female'){ gender='female'; relType='siblin'; }
-        else if(kinship==='child_male'){ gender='male'; relType='child'; }
-        else if(kinship==='child_female'){ gender='female'; relType='child'; }
-        else if(kinship==='ancestor_male'){ gender='male'; relType='ancestor'; }
-        else if(kinship==='ancestor_female'){ gender='female'; relType='ancestor'; }
-        else if(kinship==='mate_male'){ gender='male'; relType='mate'; }
-        else if(kinship==='mate_female'){ gender='female'; relType='mate'; }
-        if(!relType){ openDrawer('edit',personId); return; }
-        let relations=[];
-        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
-        const alreadyExists=relations.some(r=>String(r.from)===String(personId)&&String(r.to)===String(newId)&&r.type===relType);
-        if(alreadyExists){ alert('Esta liga\u00e7\u00e3o j\u00e1 existe.'); return; }
-        if(relType==='siblin'){
-          relations.push({from:String(personId),to:String(newId),type:'siblin'});
-          relations.push({from:String(newId),to:String(personId),type:'siblin'});
-          relations.filter(r=>String(r.from)===String(personId)&&r.type==='ancestor')
-            .forEach(r=>{ if(!relations.some(x=>String(x.from)===String(newId)&&String(x.to)===String(r.to)&&x.type==='ancestor')) relations.push({from:String(newId),to:String(r.to),type:'ancestor'}); });
-          relations.filter(r=>String(r.from)===String(newId)&&r.type==='ancestor')
-            .forEach(r=>{ if(!relations.some(x=>String(x.from)===String(personId)&&String(x.to)===String(r.to)&&x.type==='ancestor')) relations.push({from:String(personId),to:String(r.to),type:'ancestor'}); });
-        }
-        if(relType==='ancestor'){
-          relations.push({from:String(personId),to:String(newId),type:'ancestor'});
-          if(!relations.some(r=>String(r.from)===String(newId)&&String(r.to)===String(personId)&&r.type==='child'))
-            relations.push({from:String(newId),to:String(personId),type:'child'});
-          const existingParents=relations.filter(r=>String(r.from)===String(personId)&&r.type==='ancestor'&&String(r.to)!==String(newId));
-          if(existingParents.length>0){
-            const otherParentId=existingParents[0].to;
-            if(!relations.some(r=>String(r.from)===String(newId)&&String(r.to)===String(otherParentId)&&r.type==='mate')){
-              relations.push({from:String(newId),to:String(otherParentId),type:'mate'});
-              relations.push({from:String(otherParentId),to:String(newId),type:'mate'});
-            }
-          }
-        }
-        if(relType==='mate'){
-          relations.push({from:String(personId),to:String(newId),type:'mate'});
-          if(!relations.some(r=>String(r.from)===String(newId)&&String(r.to)===String(personId)&&r.type==='mate'))
-            relations.push({from:String(newId),to:String(personId),type:'mate'});
-        }
-        if(relType==='child'){
-          relations.push({from:String(personId),to:String(newId),type:'child'});
-          if(!relations.some(r=>String(r.from)===String(newId)&&String(r.to)===String(personId)&&r.type==='ancestor'))
-            relations.push({from:String(newId),to:String(personId),type:'ancestor'});
-          const mates=relations.filter(r=>String(r.from)===String(personId)&&r.type==='mate');
-          if(mates.length===1){
-            if(!relations.some(r=>String(r.from)===String(mates[0].to)&&String(r.to)===String(newId)&&r.type==='child'))
-              relations.push({from:String(mates[0].to),to:String(newId),type:'child'});
-            if(!relations.some(r=>String(r.from)===String(newId)&&String(r.to)===String(mates[0].to)&&r.type==='ancestor'))
-              relations.push({from:String(newId),to:String(mates[0].to),type:'ancestor'});
-          } else if(mates.length>1){
-            const coParentId=((document.getElementById('linkPersCoParent')||{}).value||'');
-            if(coParentId){
-              if(!relations.some(r=>String(r.from)===String(coParentId)&&String(r.to)===String(newId)&&r.type==='child'))
-                relations.push({from:String(coParentId),to:String(newId),type:'child'});
-              if(!relations.some(r=>String(r.from)===String(newId)&&String(r.to)===String(coParentId)&&r.type==='ancestor'))
-                relations.push({from:String(newId),to:String(coParentId),type:'ancestor'});
-            }
-          }
-        }
-        localStorage.setItem('relations:myLineage',JSON.stringify(relations));
+      window._drawerSaveLinkPerson = function(personId){
+        const relType=(document.getElementById('linkPersKinship')||{}).value;
+        const targetId=(document.getElementById('linkPersTarget')||{}).value;
+        if(!relType||!targetId){ alert('Selecione tipo e pessoa.'); return; }
+        if(targetId===personId){ alert('Não pode ligar uma pessoa a si própria.'); return; }
+        _linkRelation(personId,targetId,relType);
         openDrawer('edit',personId);
         renderTable();
-      }
+      };
 
-      // ── Fotos section ─────────────────────────────────────────────────────
-      function _renderDrawerPhotos(personId){
-        const photos = getPhotos();
-        const rels = getPhotoRelations();
-        const linked = (rels[personId] || []).map(id => photos.find(p => String(p.id) === String(id))).filter(Boolean);
-        let html = `<div style="margin-bottom:14px;">`
-          + `<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;">`
-          + `<label for="drawerPhotoInput" class="btn btn-sm" style="cursor:pointer;font-size:0.83rem;"><i class="mdi mdi-image-plus"></i> Escolher Ficheiro</label>`
-          + `<span id="drawerPhotoName" style="color:#aaa;font-size:0.82rem;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Nenhum ficheiro</span>`
-          + `<button class="btn btn-sm" onclick="_drawerUploadPhoto('${_esc(personId)}')" style="font-size:0.83rem;"><i class="mdi mdi-upload"></i> Upload</button>`
-          + `</div>`
-          + `<input type="file" id="drawerPhotoInput" accept="image/*" style="display:none;" onchange="document.getElementById('drawerPhotoName').textContent=this.files&&this.files.length?this.files[0].name:'Nenhum ficheiro'" />`
-          + `</div>`;
-        if(!linked.length){ html += '<div style="color:#888;padding:4px 0 12px;">Nenhuma foto associada.</div>'; return html; }
-        html += '<div style="display:flex;flex-wrap:wrap;gap:10px;">';
-        linked.forEach(ph => {
-          const src = ph.originalDataUrl || ph.dataUrl || '';
-          html += `<div style="position:relative;display:inline-block;">`
-            + `<img src="${src}" style="width:72px;height:72px;object-fit:cover;border-radius:6px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);" onclick="_drawerViewPhoto('${_esc(ph.id)}')" title="${_esc(ph.name||'')}" />`
-            + `<button onclick="_drawerUnlinkPhoto('${_esc(ph.id)}','${_esc(personId)}')" title="Remover vínculo" style="position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;"><i class="mdi mdi-close"></i></button>`
-            + `</div>`;
+      /* ── Photos section ────────────────────────────────────────────────── */
+      function _renderPhotos(personId){
+        const media=DB.getMultimediaForIndividual(personId);
+        let html='<div style="margin-bottom:14px;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px;"><label for="drawerPhotoInput" class="btn btn-sm" style="cursor:pointer;font-size:0.83rem;"><i class="mdi mdi-image-plus"></i> Escolher Ficheiro</label><span id="drawerPhotoName" style="color:#aaa;font-size:0.82rem;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Nenhum ficheiro</span><button class="btn btn-sm" onclick="_drawerUploadPhoto(\''+_esc(personId)+'\')" style="font-size:0.83rem;"><i class="mdi mdi-upload"></i> Upload</button></div><input type="file" id="drawerPhotoInput" accept="image/*" style="display:none;" onchange="document.getElementById(\'drawerPhotoName\').textContent=this.files&&this.files.length?this.files[0].name:\'Nenhum ficheiro\'" /></div>';
+        if(!media.length){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhuma foto associada.</div>'; return html; }
+        html+='<div style="display:flex;flex-wrap:wrap;gap:10px;">';
+        media.forEach(m=>{
+          const src=m.dataUrl||(m.files&&m.files[0]?m.files[0].file:'')||'';
+          html+='<div style="position:relative;display:inline-block;"><img src="'+src+'" style="width:72px;height:72px;object-fit:cover;border-radius:6px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);" onclick="_drawerViewPhoto(\''+_esc(m.id)+'\')" title="'+_esc(m.title||'')+'" /><button onclick="_drawerUnlinkPhoto(\''+_esc(m.id)+'\',\''+_esc(personId)+'\')" title="Remover vínculo" style="position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;"><i class="mdi mdi-close"></i></button></div>';
         });
-        html += '</div>';
+        html+='</div>';
         return html;
       }
 
-      async function _drawerUploadPhoto(personId){
-        const input = document.getElementById('drawerPhotoInput');
-        if(!input || !input.files || !input.files.length) return alert('Selecione uma imagem para upload.');
-        const photos = getPhotos();
-        const rels = getPhotoRelations();
-        const f = input.files[0];
+      window._drawerUploadPhoto = async function(personId){
+        const input=document.getElementById('drawerPhotoInput');
+        if(!input||!input.files||!input.files.length) return alert('Selecione uma imagem.');
+        const f=input.files[0];
         try{
-          const dataUrl = await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=()=>rej(); r.readAsDataURL(f); });
-          const id = 'ph_' + Date.now();
-          photos.push({ id, name: f.name, originalDataUrl: dataUrl, baseCopyName: null, createdAt: new Date().toISOString() });
-          rels[personId] = rels[personId] || [];
-          rels[personId].push(id);
-          localStorage.setItem('photos:myLineage', JSON.stringify(photos));
-          localStorage.setItem('photoRelations:myLineage', JSON.stringify(rels));
-          input.value = '';
-          openDrawerSection(personId, 'fotos');
-        }catch(err){ alert('Erro no upload: ' + err); }
-      }
+          const dataUrl=await new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); });
+          const media=DB.saveMultimedia({title:f.name,dataUrl,files:[{file:dataUrl,format:f.type}]});
+          const indi=DB.getIndividual(personId);
+          if(indi){ if(!indi.multimediaRefs) indi.multimediaRefs=[]; indi.multimediaRefs.push(media.id); DB.saveIndividual(indi); }
+          input.value=''; openDrawerSection(personId,'fotos');
+        }catch(err){ alert('Erro: '+err); }
+      };
 
-      function _drawerUnlinkPhoto(photoId, personId){
+      window._drawerUnlinkPhoto = function(mediaId,personId){
         if(!confirm('Remover vínculo desta foto?')) return;
-        const rels = getPhotoRelations();
-        if(rels[personId]) rels[personId] = rels[personId].filter(id => String(id) !== String(photoId));
-        localStorage.setItem('photoRelations:myLineage', JSON.stringify(rels));
-        openDrawerSection(personId, 'fotos');
-      }
+        const indi=DB.getIndividual(personId);
+        if(indi&&indi.multimediaRefs){ indi.multimediaRefs=indi.multimediaRefs.filter(id=>id!==mediaId); DB.saveIndividual(indi); }
+        openDrawerSection(personId,'fotos');
+      };
 
-      // ── Drawer photo modal functions ──────────────────────────────────
-      let _drawerCurrentPhotoId = null;
-      let _drawerIsDrawing = false;
-      let _drawerDrawStart = null;
-      let _drawerCurrentDrawEl = null;
+      /* ── Photo modal ───────────────────────────────────────────────────── */
+      let _drawerCurrentPhotoId=null, _drawerIsDrawing=false, _drawerDrawStart=null, _drawerCurrentDrawEl=null;
 
-      function _drawerGetPeople(){ return typeof getPeople==='function'?getPeople():loadPeople(); }
+      window._drawerViewPhoto = function(mediaId){
+        const m=DB.getMultimediaItem(mediaId); if(!m) return;
+        _drawerCurrentPhotoId=mediaId;
+        const area=document.getElementById('drawerModalImageArea');
+        area.innerHTML='';
+        const src=m.dataUrl||(m.files&&m.files[0]?m.files[0].file:'')||'';
+        const container=document.createElement('div'); container.style.position='relative';
+        const img=document.createElement('img'); img.id='drawerModalImage';
+        img.style.cssText='display:block;max-width:100%;max-height:70vh;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.5);';
+        img.src=src;
+        const overlay=document.createElement('div'); overlay.className='tag-overlay';
+        overlay.style.cssText='position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:auto;';
+        container.appendChild(img); container.appendChild(overlay); area.appendChild(container);
+        const notesEl=document.getElementById('drawerPhotoNotesArea'); if(notesEl) notesEl.value=m.notes||'';
+        _drawerRenderPhotoTags(m);
+        overlay.addEventListener('pointerdown',function(ev){ ev.preventDefault(); _startDraw(ev,img,overlay); });
+        overlay.addEventListener('pointermove',function(ev){ if(_drawerIsDrawing) _updateDraw(ev,img); });
+        overlay.addEventListener('pointerup',function(ev){ if(_drawerIsDrawing) _finishDraw(ev,img,overlay); });
+        document.getElementById('drawerPhotoModal').style.display='flex';
+      };
 
-      function _drawerViewPhoto(photoId){
-        const ph = getPhotos().find(p => String(p.id) === String(photoId));
-        if(!ph) return;
-        _drawerCurrentPhotoId = photoId;
-        const area = document.getElementById('drawerModalImageArea');
-        area.innerHTML = '';
-        area.style.display = 'flex'; area.style.alignItems = 'center'; area.style.justifyContent = 'center';
-        const photoArea = document.createElement('div'); photoArea.className = 'photo-area'; photoArea.style.maxWidth = '100%';
-        const img = document.createElement('img'); img.id = 'drawerModalImage';
-        img.style.cssText = 'display:block;max-width:100%;max-height:70vh;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.5);';
-        img.src = ph.originalDataUrl || ph.dataUrl || '';
-        const overlay = document.createElement('div'); overlay.className = 'tag-overlay';
-        overlay.style.cssText = 'position:absolute;left:0;top:0;right:0;bottom:0;pointer-events:auto;';
-        const container = document.createElement('div'); container.style.position = 'relative';
-        container.appendChild(img); container.appendChild(overlay);
-        photoArea.appendChild(container); area.appendChild(photoArea);
-        const notesEl = document.getElementById('drawerPhotoNotesArea');
-        if(notesEl) notesEl.value = ph.notes || '';
-        _drawerRenderPhotoTags(ph);
-        overlay.addEventListener('pointerdown', function(ev){ ev.preventDefault(); _drawerStartDraw(ev, img, overlay); });
-        overlay.addEventListener('pointermove', function(ev){ if(_drawerIsDrawing) _drawerUpdateDraw(ev, img, overlay); });
-        overlay.addEventListener('pointerup',   function(ev){ if(_drawerIsDrawing) _drawerFinishDraw(ev, img, overlay); });
-        document.getElementById('drawerPhotoModal').style.display = 'flex';
-      }
-
-      function _drawerClosePhotoModal(){
-        _drawerCurrentPhotoId=null; _drawerIsDrawing=false; _drawerDrawStart=null; _drawerCurrentDrawEl=null;
+      window._drawerClosePhotoModal = function(){
+        _drawerCurrentPhotoId=null; _drawerIsDrawing=false;
         document.getElementById('drawerPhotoModal').style.display='none';
-        const a=document.getElementById('drawerModalImageArea'); if(a) a.innerHTML='';
-      }
+        document.getElementById('drawerModalImageArea').innerHTML='';
+      };
 
-      function _drawerSavePhotoNotes(){
+      window._drawerSavePhotoNotes = function(){
         if(!_drawerCurrentPhotoId) return;
-        const notes=((document.getElementById('drawerPhotoNotesArea')||{}).value||'');
-        const photos=getPhotos(); const idx=photos.findIndex(p=>p.id===_drawerCurrentPhotoId); if(idx<0) return alert('Foto não encontrada');
-        photos[idx].notes=notes; photos[idx].updatedAt=new Date().toISOString();
-        localStorage.setItem('photos:myLineage',JSON.stringify(photos)); alert('Notas guardadas.');
+        const m=DB.getMultimediaItem(_drawerCurrentPhotoId); if(!m) return;
+        m.notes=((document.getElementById('drawerPhotoNotesArea')||{}).value||'');
+        DB.saveMultimedia(m); alert('Notas guardadas.');
+      };
+
+      function _drawerRenderPhotoTags(media){
+        const overlay=document.querySelector('#drawerModalImageArea .tag-overlay'); if(!overlay) return;
+        overlay.querySelectorAll('.tag-rect,.tag-form').forEach(e=>e.remove());
+        const tags=media.tags||[];
+        tags.forEach(t=>{
+          const el=document.createElement('div'); el.className='tag-rect';
+          el.style.left=(t.bbox.x*100)+'%'; el.style.top=(t.bbox.y*100)+'%';
+          el.style.width=(t.bbox.w*100)+'%'; el.style.height=(t.bbox.h*100)+'%';
+          el.title=t.personName||'';
+          el.addEventListener('click',function(ev){ ev.stopPropagation(); });
+          const lbl=document.createElement('div'); lbl.className='tag-label'; lbl.textContent=t.personName||'Pessoa'; el.appendChild(lbl);
+          overlay.appendChild(el);
+        });
+        const ppl=document.getElementById('drawerPhotoTaggedPeople'); if(!ppl) return;
+        const unique=Array.from(new Map(tags.map(t=>[t.personId||t.personName,t])).values());
+        ppl.innerHTML=unique.length===0?'<span style="color:#888">Nenhuma pessoa identificada.</span>':'<strong>Pessoas identificadas:</strong> '+unique.map(t=>_esc(t.personName||'')).join(', ');
       }
 
-      function _drawerRenderPhotoTags(photo){
-        try{
-          const overlay=document.querySelector('#drawerModalImageArea .tag-overlay'); if(!overlay) return;
-          overlay.innerHTML='';
-          const tags=photo.tags||[]; const img=document.getElementById('drawerModalImage');
-          tags.forEach(t=>{
-            const el=document.createElement('div'); el.className='tag-rect';
-            el.style.left=(t.bbox.x*100)+'%'; el.style.top=(t.bbox.y*100)+'%';
-            el.style.width=(t.bbox.w*100)+'%'; el.style.height=(t.bbox.h*100)+'%';
-            el.title=t.personName||t.name||'Identificado';
-            el.addEventListener('click',function(ev){ ev.stopPropagation(); _drawerOpenEditTagForm(t,img,overlay); });
-            const lbl=document.createElement('div'); lbl.className='tag-label'; lbl.textContent=t.personName||t.name||'Pessoa'; el.appendChild(lbl);
-            overlay.appendChild(el);
-          });
-          const ppl=document.getElementById('drawerPhotoTaggedPeople'); if(!ppl) return;
-          const unique=Array.from(new Map((tags||[]).map(t=>[t.personId||t.personName,t])).values());
-          ppl.innerHTML=unique.length===0?'<span style="color:#888">Nenhuma pessoa identificada.</span>':'<strong>Pessoas identificadas:</strong> '+unique.map(t=>_esc(t.personName||t.name||'')).join(', ');
-        }catch(e){ console.error(e); }
-      }
+      function _startDraw(ev,img,overlay){ _drawerIsDrawing=true; _drawerDrawStart={x:ev.clientX,y:ev.clientY}; _drawerCurrentDrawEl=document.createElement('div'); _drawerCurrentDrawEl.className='tag-rect'; _drawerCurrentDrawEl.style.cssText='left:0;top:0;width:0;height:0;'; overlay.appendChild(_drawerCurrentDrawEl); }
+      function _updateDraw(ev,img){ if(!_drawerCurrentDrawEl||!_drawerDrawStart) return; const r=img.getBoundingClientRect(); _drawerCurrentDrawEl.style.left=(Math.min(_drawerDrawStart.x,ev.clientX)-r.left)/r.width*100+'%'; _drawerCurrentDrawEl.style.top=(Math.min(_drawerDrawStart.y,ev.clientY)-r.top)/r.height*100+'%'; _drawerCurrentDrawEl.style.width=Math.abs(ev.clientX-_drawerDrawStart.x)/r.width*100+'%'; _drawerCurrentDrawEl.style.height=Math.abs(ev.clientY-_drawerDrawStart.y)/r.height*100+'%'; }
+      function _finishDraw(ev,img,overlay){ _drawerIsDrawing=false; const r=img.getBoundingClientRect(); const bbox={x:Math.max(0,(Math.min(_drawerDrawStart.x,ev.clientX)-r.left)/r.width),y:Math.max(0,(Math.min(_drawerDrawStart.y,ev.clientY)-r.top)/r.height),w:Math.abs(ev.clientX-_drawerDrawStart.x)/r.width,h:Math.abs(ev.clientY-_drawerDrawStart.y)/r.height}; if(_drawerCurrentDrawEl&&_drawerCurrentDrawEl.parentElement) _drawerCurrentDrawEl.remove(); _drawerCurrentDrawEl=null; _drawerDrawStart=null; if(bbox.w>0.01&&bbox.h>0.01) _showTagForm(bbox,img,overlay); }
 
-      function _drawerStartDraw(ev,img,overlay){ _drawerIsDrawing=true; _drawerDrawStart={x:ev.clientX,y:ev.clientY}; _drawerCurrentDrawEl=document.createElement('div'); _drawerCurrentDrawEl.className='tag-rect'; _drawerCurrentDrawEl.style.left='0'; _drawerCurrentDrawEl.style.top='0'; _drawerCurrentDrawEl.style.width='0'; _drawerCurrentDrawEl.style.height='0'; overlay.appendChild(_drawerCurrentDrawEl); }
-      function _drawerUpdateDraw(ev,img,overlay){ if(!_drawerIsDrawing||!_drawerCurrentDrawEl||!_drawerDrawStart) return; const r=img.getBoundingClientRect(); const l=Math.min(_drawerDrawStart.x,ev.clientX)-r.left; const t=Math.min(_drawerDrawStart.y,ev.clientY)-r.top; const w=Math.abs(ev.clientX-_drawerDrawStart.x); const h=Math.abs(ev.clientY-_drawerDrawStart.y); _drawerCurrentDrawEl.style.left=(l/r.width*100)+'%'; _drawerCurrentDrawEl.style.top=(t/r.height*100)+'%'; _drawerCurrentDrawEl.style.width=(w/r.width*100)+'%'; _drawerCurrentDrawEl.style.height=(h/r.height*100)+'%'; }
-      function _drawerFinishDraw(ev,img,overlay){ if(!_drawerIsDrawing) return; _drawerIsDrawing=false; const r=img.getBoundingClientRect(); const bbox={x:Math.max(0,Math.min(1,(Math.min(_drawerDrawStart.x,ev.clientX)-r.left)/r.width)),y:Math.max(0,Math.min(1,(Math.min(_drawerDrawStart.y,ev.clientY)-r.top)/r.height)),w:Math.max(0,Math.min(1,Math.abs(ev.clientX-_drawerDrawStart.x)/r.width)),h:Math.max(0,Math.min(1,Math.abs(ev.clientY-_drawerDrawStart.y)/r.height))}; if(_drawerCurrentDrawEl&&_drawerCurrentDrawEl.parentElement) _drawerCurrentDrawEl.parentElement.removeChild(_drawerCurrentDrawEl); _drawerCurrentDrawEl=null; _drawerDrawStart=null; if(bbox.w>0.01&&bbox.h>0.01) _drawerShowTagForm(bbox,img,overlay); }
-
-      function _drawerShowTagForm(bbox,img,overlay){
+      function _showTagForm(bbox,img,overlay){
         const form=document.createElement('div'); form.className='tag-form'; form.style.left=(bbox.x*100)+'%'; form.style.top=(bbox.y*100)+'%';
         form.innerHTML='<div style="font-weight:600;margin-bottom:6px;">Identificar pessoa</div>';
-        const people=_drawerGetPeople();
-        const input=document.createElement('input'); input.placeholder='Pesquisar pessoa (nome)'; input.style.width='220px';
+        const indis=DB.getIndividuals();
+        const input=document.createElement('input'); input.placeholder='Nome'; input.style.width='220px';
         const sugg=document.createElement('div'); sugg.style.cssText='position:absolute;left:8px;top:38px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.1);max-height:160px;overflow:auto;width:220px;z-index:630;display:none;border-radius:6px;';
         const saveBtn=document.createElement('button'); saveBtn.textContent='Salvar'; saveBtn.className='btn';
         const cancelBtn=document.createElement('button'); cancelBtn.textContent='Cancelar'; cancelBtn.className='btn';
-        const br=document.createElement('div'); br.style.marginTop='6px';
-        form.appendChild(input); form.appendChild(sugg); form.appendChild(br); form.appendChild(saveBtn); form.appendChild(cancelBtn);
+        form.appendChild(input); form.appendChild(sugg); form.appendChild(document.createElement('div')); form.lastChild.style.marginTop='6px'; form.appendChild(saveBtn); form.appendChild(cancelBtn);
         form.addEventListener('pointerdown',ev=>ev.stopPropagation());
-        let selectedPersonId=null;
-        function renderSugg(q){ const list=people.filter(p=>!p.deletedAt&&((p.firstName||'')+' '+(p.lastName||'')).toLowerCase().includes((q||'').toLowerCase())).slice(0,30); sugg.innerHTML=''; if(!list.length){sugg.style.display='none';return;} list.forEach(p=>{ const row=document.createElement('div'); row.style.cssText='padding:6px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);'; row.textContent=((p.firstName||'')+' '+(p.lastName||'')).trim(); row.addEventListener('click',()=>{input.value=row.textContent;selectedPersonId=p.id;sugg.style.display='none';input.focus();}); sugg.appendChild(row); }); sugg.style.display='block'; }
-        input.addEventListener('input',function(){selectedPersonId=null;renderSugg(this.value);});
-        input.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();saveBtn.click();}});
-        cancelBtn.addEventListener('click',()=>{if(form.parentElement)form.parentElement.removeChild(form);});
-        saveBtn.addEventListener('click',()=>{const name=input.value.trim();if(!name)return alert('Insira um nome ou selecione uma pessoa.');_drawerSaveTag({personId:selectedPersonId||null,personName:name,bbox});if(form.parentElement)form.parentElement.removeChild(form);});
-        setTimeout(()=>{try{input.focus();}catch(e){}},50);
+        let selectedId=null;
+        input.addEventListener('input',function(){ selectedId=null; const q=this.value.toLowerCase(); const list=indis.filter(i=>DB.getDisplayName(i).toLowerCase().includes(q)).slice(0,30); sugg.innerHTML=''; if(!list.length){sugg.style.display='none';return;} list.forEach(i=>{ const row=document.createElement('div'); row.style.cssText='padding:6px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);'; row.textContent=DB.getDisplayName(i); row.addEventListener('click',()=>{input.value=row.textContent;selectedId=i.id;sugg.style.display='none';}); sugg.appendChild(row); }); sugg.style.display='block'; });
+        cancelBtn.addEventListener('click',()=>form.remove());
+        saveBtn.addEventListener('click',()=>{ const name=input.value.trim(); if(!name)return alert('Nome obrigatório.'); const m=DB.getMultimediaItem(_drawerCurrentPhotoId); if(!m) return; if(!m.tags) m.tags=[]; m.tags.push({id:'tag_'+Date.now(),personId:selectedId,personName:name,bbox}); DB.saveMultimedia(m); if(selectedId){ const indi=DB.getIndividual(selectedId); if(indi){ if(!indi.multimediaRefs) indi.multimediaRefs=[]; if(!indi.multimediaRefs.includes(m.id)) indi.multimediaRefs.push(m.id); DB.saveIndividual(indi); }} _drawerRenderPhotoTags(m); form.remove(); });
+        setTimeout(()=>input.focus(),50);
         overlay.appendChild(form);
       }
 
-      function _drawerOpenEditTagForm(tag,img,overlay){
-        const form=document.createElement('div'); form.className='tag-form'; form.style.left=(tag.bbox.x*100)+'%'; form.style.top=(tag.bbox.y*100)+'%';
-        form.innerHTML='<div style="font-weight:600;margin-bottom:6px;">Editar identificação</div>';
-        const people=_drawerGetPeople();
-        const input=document.createElement('input'); input.value=tag.personName||tag.name||''; input.style.width='220px';
-        const sugg=document.createElement('div'); sugg.style.cssText='position:absolute;left:8px;top:38px;background:var(--bg-card);border:1px solid rgba(255,255,255,0.1);max-height:160px;overflow:auto;width:220px;z-index:630;display:none;border-radius:6px;';
-        const saveBtn=document.createElement('button'); saveBtn.textContent='Salvar'; saveBtn.className='btn';
-        const deleteBtn=document.createElement('button'); deleteBtn.textContent='Remover'; deleteBtn.className='btn';
-        const cancelBtn=document.createElement('button'); cancelBtn.textContent='Cancelar'; cancelBtn.className='btn';
-        const br=document.createElement('div'); br.style.marginTop='6px';
-        form.appendChild(input); form.appendChild(sugg); form.appendChild(br); form.appendChild(saveBtn); form.appendChild(deleteBtn); form.appendChild(cancelBtn);
-        form.addEventListener('pointerdown',ev=>ev.stopPropagation());
-        let selectedPersonId=tag.personId||null;
-        function renderSugg(q){ const list=people.filter(p=>!p.deletedAt&&((p.firstName||'')+' '+(p.lastName||'')).toLowerCase().includes((q||'').toLowerCase())).slice(0,30); sugg.innerHTML=''; if(!list.length){sugg.style.display='none';return;} list.forEach(p=>{ const row=document.createElement('div'); row.style.cssText='padding:6px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.04);'; row.textContent=((p.firstName||'')+' '+(p.lastName||'')).trim(); row.addEventListener('click',()=>{input.value=row.textContent;selectedPersonId=p.id;sugg.style.display='none';input.focus();}); sugg.appendChild(row); }); sugg.style.display='block'; }
-        input.addEventListener('input',function(){selectedPersonId=null;renderSugg(this.value);});
-        input.addEventListener('keydown',ev=>{if(ev.key==='Enter'){ev.preventDefault();saveBtn.click();}});
-        saveBtn.addEventListener('click',()=>{ const name=input.value.trim(); const pid=selectedPersonId||tag.personId||null; if(!name)return alert('Nome obrigatório'); const photos=getPhotos(); const idx=photos.findIndex(p=>p.id===_drawerCurrentPhotoId); if(idx<0)return; const tIdx=(photos[idx].tags||[]).findIndex(x=>x.id===tag.id); if(tIdx<0)return; photos[idx].tags[tIdx].personName=name; photos[idx].tags[tIdx].personId=pid; photos[idx].tags[tIdx].updatedAt=new Date().toISOString(); localStorage.setItem('photos:myLineage',JSON.stringify(photos)); if(pid){const rels=getPhotoRelations();rels[pid]=rels[pid]||[];if(!rels[pid].includes(_drawerCurrentPhotoId))rels[pid].push(_drawerCurrentPhotoId);localStorage.setItem('photoRelations:myLineage',JSON.stringify(rels));} _drawerRenderPhotoTags(photos[idx]); if(form.parentElement)form.parentElement.removeChild(form); });
-        deleteBtn.addEventListener('click',()=>{ if(!confirm('Remover esta identificação?'))return; const photos=getPhotos(); const idx=photos.findIndex(p=>p.id===_drawerCurrentPhotoId); if(idx<0)return; photos[idx].tags=(photos[idx].tags||[]).filter(x=>x.id!==tag.id); localStorage.setItem('photos:myLineage',JSON.stringify(photos)); _drawerRenderPhotoTags(photos[idx]); if(form.parentElement)form.parentElement.removeChild(form); });
-        cancelBtn.addEventListener('click',()=>{if(form.parentElement)form.parentElement.removeChild(form);});
-        setTimeout(()=>{try{input.focus();}catch(e){}},50);
-        overlay.appendChild(form);
-      }
-
-      function _drawerSaveTag({ personId, personName, bbox }){
-        try{
-          const photos=getPhotos(); const idx=photos.findIndex(p=>p.id===_drawerCurrentPhotoId); if(idx<0)return;
-          const tag={id:'tag_'+Date.now()+Math.random().toString(36).slice(2,6),personId:personId||null,personName:personName||'',bbox,createdAt:new Date().toISOString()};
-          photos[idx].tags=photos[idx].tags||[]; photos[idx].tags.push(tag); photos[idx].updatedAt=new Date().toISOString();
-          localStorage.setItem('photos:myLineage',JSON.stringify(photos));
-          if(personId){const rels=getPhotoRelations();rels[personId]=rels[personId]||[];if(!rels[personId].includes(photos[idx].id))rels[personId].push(photos[idx].id);localStorage.setItem('photoRelations:myLineage',JSON.stringify(rels));}
-          _drawerRenderPhotoTags(photos[idx]);
-        }catch(e){ console.error(e); }
-      }
-
+      /* ── Drawer save / delete / close ──────────────────────────────────── */
       function drawerSave(){
-        const firstName=(document.getElementById('df_firstName')||{}).value||'';
-        const lastName=(document.getElementById('df_lastName')||{}).value||'';
-        const gender=(document.getElementById('df_gender')||{}).value||'';
+        const given=(document.getElementById('df_firstName')||{}).value||'';
+        const surname=(document.getElementById('df_lastName')||{}).value||'';
+        const sex=(document.getElementById('df_gender')||{}).value||'U';
         const notes=(document.getElementById('df_notes')||{}).value||'';
-        let people=loadPeople();
         if(_drawerMode==='create'){
-          const newId='p_'+Date.now();
-          people.push({id:newId,firstName:firstName.trim(),lastName:lastName.trim(),gender,notes,createdAt:new Date().toISOString()});
-          savePeople(people);
-        } else {
-          const idx=people.findIndex(p=>String(p.id)===String(_drawerPersonId));
-          if(idx!==-1){ people[idx]=Object.assign({},people[idx],{firstName:firstName.trim(),lastName:lastName.trim(),gender,notes,updatedAt:new Date().toISOString()}); savePeople(people); }
+          DB.saveIndividual({names:[{given:given.trim(),surname:surname.trim(),type:'birth'}],sex,notes,events:[]});
+        } else if(_drawerPersonId){
+          const indi=DB.getIndividual(_drawerPersonId);
+          if(indi){ indi.names=[{given:given.trim(),surname:surname.trim(),type:'birth'}]; indi.sex=sex; indi.notes=notes; DB.saveIndividual(indi); }
         }
-        closeDrawer();
-        renderTable();
+        closeDrawer(); renderTable();
       }
 
       function drawerDeletePerson(){
-        if(!_drawerPersonId) return;
-        if(!confirm('Apagar esta pessoa?')) return;
-        const pid=String(_drawerPersonId);
-        let people=loadPeople();
-        const idx=people.findIndex(p=>String(p.id)===pid);
-        if(idx!==-1){ people[idx]=Object.assign({},people[idx],{deletedAt:new Date().toISOString()}); savePeople(people); }
-        let relations=[];
-        try{ relations=JSON.parse(localStorage.getItem('relations:myLineage')||'[]'); }catch(e){}
-        relations=relations.filter(r=>String(r.from)!==pid&&String(r.to)!==pid);
-        localStorage.setItem('relations:myLineage',JSON.stringify(relations));
-        closeDrawer();
-        renderTable();
+        if(!_drawerPersonId||!confirm('Apagar esta pessoa?')) return;
+        DB.deleteIndividual(_drawerPersonId);
+        closeDrawer(); renderTable();
       }
 
       document.getElementById('drawerCloseBtn').addEventListener('click', closeDrawer);
@@ -1482,12 +824,17 @@
       document.getElementById('drawerDeleteBtn').addEventListener('click', drawerDeletePerson);
       document.getElementById('drawerBackBtn').addEventListener('click', function(){ const pid=this._personId; if(pid) openDrawer('edit',pid); });
 
-      // Abre automaticamente a aba de Editar Pessoa quando vindo da validação (?edit=<id>)
+      /* ── Init ──────────────────────────────────────────────────────────── */
+      renderTable();
+
+      // Auto-open from URL param (?edit=id)
       (function(){
-        const params = new URLSearchParams(window.location.search);
-        const editId = params.get('edit');
-        if (editId) openDrawer('edit', editId);
+        const p=new URLSearchParams(window.location.search);
+        const editId=p.get('edit');
+        if(editId) openDrawer('edit',editId);
       })();
+
+    })();
     </script>
     <script src="history-logger.js"></script>
   </body>

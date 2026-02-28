@@ -1,0 +1,18 @@
+{
+  "S1": {
+    "id": "S1",
+    "type": "SOUR",
+    "title": "Registo Paroquial",
+    "author": "Paróquia de São Pedro",
+    "publication": "",
+    "abbreviation": "",
+    "text": "",
+    "repositoryRef": null,
+    "callNumber": "",
+    "notes": [],
+    "multimediaRefs": [],
+    "createdAt": "2026-02-28T01:47:03.431Z",
+    "updatedAt": "2026-02-28T01:47:03.431Z",
+    "deletedAt": null
+  }
+}

@@ -535,16 +535,21 @@
     <script>
       'use strict';
 
-      const PHOTO_BASE_KEY  = 'photoBase:myLineage';
-      const PHOTOS_KEY      = 'photos:myLineage';
-      const PHOTO_REL_KEY   = 'photoRelations:myLineage';
+      const DB = window.GedcomDB;
 
-      // ── Storage helpers ──────────────────────────────────────────────
-      function getPhotos()   { try{ return JSON.parse(localStorage.getItem(PHOTOS_KEY) || '[]'); }catch(e){ return []; } }
-      function getRelations(){ try{ return JSON.parse(localStorage.getItem(PHOTO_REL_KEY) || '{}'); }catch(e){ return {}; } }
-      function readPhotoBase(){ try{ return JSON.parse(localStorage.getItem(PHOTO_BASE_KEY) || 'null'); }catch(e){ return null; } }
+      // ── Helpers ──────────────────────────────────────────────────────
+      function readPhotoBase(){ return DB.getSetting('photoBase') || null; }
       function escapeHtml(s){ return String(s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
       function fmtDate(iso){ if(!iso) return ''; try{ return new Date(iso).toLocaleDateString('pt-PT',{day:'2-digit',month:'2-digit',year:'numeric'}); }catch(e){ return iso; } }
+
+      /** Extract a single string from multimedia notes (which may be array or string). */
+      function mmNotes(m){ const n = m.notes; if(!n) return ''; if(typeof n === 'string') return n; if(Array.isArray(n)) return n.join('\n'); return ''; }
+
+      /** Derive display-name from a multimedia file list entry or id. */
+      function mmFileName(m){
+        if(m.files && m.files.length && m.files[0].file) return m.files[0].file;
+        return m.title || m.id || '';
+      }
 
       // ── IndexedDB: retrieve saved directory handle ───────────────────
       function getDirHandleFromDB(){
@@ -598,29 +603,19 @@
         return results;
       }
 
-      // ── Build photo objects from FS entries (no localStorage record) ─
-      async function buildFsPhotoUrl(fileHandle){
-        try{
-          const file = await fileHandle.getFile();
-          return URL.createObjectURL(file);
-        }catch(e){ return null; }
-      }
-
-      // ── Build photo "persons" label from relations map ───────────────
-      function personNamesForPhoto(photoId, relMap, people){
-        const personIds = Object.entries(relMap)
-          .filter(([, ids]) => ids.includes(photoId))
-          .map(([pid]) => pid);
-        if(!personIds.length) return [];
-        return personIds.map(pid => {
-          const p = people.find(x => x.id === pid);
-          if(!p) return null;
-          return ((p.firstName||'') + ' ' + (p.lastName||'')).trim();
-        }).filter(Boolean);
-      }
-
-      function getStoredPeople(){
-        try{ return JSON.parse(localStorage.getItem('people:myLineage') || '[]'); }catch(e){ return []; }
+      // ── Build reverse map: multimediaId → [personDisplayName, …] ────
+      function buildMediaPersonMap(){
+        const map = {};
+        const indis = DB.getIndividuals();
+        for(const indi of indis){
+          if(!indi.multimediaRefs || !indi.multimediaRefs.length) continue;
+          const name = DB.getDisplayName(indi);
+          for(const mid of indi.multimediaRefs){
+            if(!map[mid]) map[mid] = [];
+            if(!map[mid].includes(name)) map[mid].push(name);
+          }
+        }
+        return map;
       }
 
       // ── State ────────────────────────────────────────────────────────
@@ -722,7 +717,7 @@
         overlay.innerHTML = '';
         const tags = (item.tags || []).filter(t => t.bbox && t.bbox.w > 0 && t.bbox.h > 0);
         if(!tags.length) return;
-        const showAlways = tags.length <= 6; // show labels always when few tags
+        const showAlways = tags.length <= 6;
         tags.forEach(t => {
           const zone = document.createElement('div');
           zone.className = 'album-tag-zone';
@@ -744,13 +739,10 @@
         _currentModalItem = item;
         document.getElementById('modalPhotoName').textContent = item.name;
         const img = document.getElementById('modalImg');
-        // Reset overlay before loading new image
         document.getElementById('modalTagOverlay').innerHTML = '';
         img.src = item.src || '';
         img.alt = item.name;
-        // Render zones once the image is sized
         img.onload = () => renderTagZones(item);
-        // If image already cached / same src, onload may not fire
         if(img.complete && img.naturalWidth > 0) renderTagZones(item);
 
         const sidebar = document.getElementById('modalSidebar');
@@ -829,7 +821,6 @@
         document.getElementById('albumModal').classList.remove('open');
         const img = document.getElementById('modalImg');
         img.onload = null;
-        // revoke if blob URL created for FS items
         if(img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
         img.src = '';
         document.getElementById('modalTagOverlay').innerHTML = '';
@@ -840,23 +831,23 @@
       function deletePhoto(item){
         if(!item) return;
         if(item.fromFs){
-          // FS-only photos are not stored in localStorage; user must delete from filesystem
           alert('Esta foto é lida diretamente da pasta do sistema de ficheiros e não pode ser apagada pelo álbum. Por favor elimine o ficheiro diretamente na pasta.');
           return;
         }
 
-        // Remove from photos list
-        const photos  = getPhotos();
-        const updated = photos.filter(p => p.id !== item.id);
-        localStorage.setItem(PHOTOS_KEY, JSON.stringify(updated));
+        // Soft-delete the multimedia record on the server
+        DB.deleteMultimedia(item.id);
 
-        // Remove photo from all person relations
-        const rels = getRelations();
-        for(const personId of Object.keys(rels)){
-          rels[personId] = (rels[personId] || []).filter(pid => pid !== item.id);
-          if(rels[personId].length === 0) delete rels[personId];
+        // Remove the multimedia reference from every individual that had it
+        const indis = DB.getIndividuals();
+        for(const indi of indis){
+          if(!indi.multimediaRefs || !indi.multimediaRefs.length) continue;
+          const idx = indi.multimediaRefs.indexOf(item.id);
+          if(idx !== -1){
+            indi.multimediaRefs.splice(idx, 1);
+            DB.saveIndividual(indi);
+          }
         }
-        localStorage.setItem(PHOTO_REL_KEY, JSON.stringify(rels));
 
         // Update in-memory state
         _allItems      = _allItems.filter(i => i.id !== item.id);
@@ -920,52 +911,51 @@
         if(loaderEl) loaderEl.style.display = 'flex';
 
         try{
-          const storedPhotos = getPhotos();         // photos registered in localStorage
-          const relMap       = getRelations();      // personId → [photoId, ...]
-          const people       = getStoredPeople();
+          const multimedia   = DB.getMultimedia();   // OBJE records from server
+          const mediaPersons = buildMediaPersonMap(); // multimediaId → [name, …]
           const items        = [];
 
-          // 1. Photos stored in localStorage (uploaded via the app)
+          // 1. Multimedia records stored on the server
           _dirHandle  = await getDirHandleFromDB();
           _dirGranted = _dirHandle ? await ensureReadPermission(_dirHandle) : false;
 
-          for(const ph of storedPhotos){
+          for(const m of multimedia){
             let src = null;
+            const fileName = mmFileName(m);
 
-            // Prefer reading from directory handle (stored copy)
-            if(ph.baseCopyName && _dirHandle && _dirGranted){
+            // Prefer reading from directory handle (file on disk)
+            if(fileName && _dirHandle && _dirGranted){
               try{
-                const fh   = await _dirHandle.getFileHandle(ph.baseCopyName);
+                const fh   = await _dirHandle.getFileHandle(fileName);
                 const file = await fh.getFile();
                 src = URL.createObjectURL(file);
               }catch(e){
-                src = ph.originalDataUrl || ph.dataUrl || null;
+                src = m.dataUrl || null;
               }
             } else {
-              src = ph.originalDataUrl || ph.dataUrl || null;
+              src = m.dataUrl || null;
             }
 
             items.push({
-              id:        ph.id,
-              name:      ph.name || ph.baseCopyName || ph.id,
-              fullPath:  ph.folder ? ph.folder + '/' + (ph.baseCopyName || ph.name) : (ph.baseCopyName || ph.name || ph.id),
+              id:        m.id,
+              name:      fileName || m.id,
+              fullPath:  fileName || m.id,
               src,
-              notes:     ph.notes || '',
-              tags:      ph.tags  || [],
-              persons:   personNamesForPhoto(ph.id, relMap, people),
-              createdAt: ph.createdAt || null,
+              notes:     mmNotes(m),
+              tags:      m.tags  || [],
+              persons:   mediaPersons[m.id] || [],
+              createdAt: m.createdAt || null,
               fromFs:    false
             });
           }
 
           // 2. If we have FS access, also list images directly from the directory
-          //    (files that exist in the folder but were not uploaded through the app)
+          //    (files that exist in the folder but were not registered as multimedia)
           if(_dirHandle && _dirGranted){
+            const registeredNames = new Set(multimedia.map(m => mmFileName(m)).filter(Boolean));
             const fsImages = await collectImagesFromDir(_dirHandle, '');
             for(const entry of fsImages){
-              // Skip files already registered in localStorage
-              const alreadyRegistered = storedPhotos.some(p => p.baseCopyName === entry.name || p.name === entry.name);
-              if(alreadyRegistered) continue;
+              if(registeredNames.has(entry.name)) continue;
 
               let src = null;
               try{
@@ -996,7 +986,6 @@
         }
       }
       // ── Export to PDF ──────────────────────────────────────────────────
-      // Returns { dataUrl, natW, natH } — always preserves aspect ratio
       async function blobSrcToDataUrl(src){
         if(!src) return { dataUrl: null, natW: 0, natH: 0 };
         return new Promise(resolve => {
@@ -1035,23 +1024,20 @@
           const { jsPDF } = window.jspdf;
           const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
 
-          // ── Page geometry ──────────────────────────────────────────────
           const PW = 210, PH = 297;
-          const MT      = 14;           // top/bottom page margin
-          const GAP     = 10;           // vertical gap between the two cards
-          const CARD_W  = 174;          // card width — centred → 18 mm side margins
+          const MT      = 14;
+          const GAP     = 10;
+          const CARD_W  = 174;
           const CARD_X  = (PW - CARD_W) / 2;
-          const CARD_H  = (PH - MT * 2 - GAP) / 2;  // ≈ 129.5 mm
+          const CARD_H  = (PH - MT * 2 - GAP) / 2;
 
-          // Frame: white padding around photo and caption strip at the bottom
-          const F_PAD       = 6;        // white border: top / left / right
-          const CAP_H       = 26;       // caption strip height at bottom
-          const PHOTO_MAX_W = CARD_W - F_PAD * 2;           // 162 mm
-          const PHOTO_MAX_H = CARD_H - F_PAD - CAP_H - 2;  // ≈ 95.5 mm
+          const F_PAD       = 6;
+          const CAP_H       = 26;
+          const PHOTO_MAX_W = CARD_W - F_PAD * 2;
+          const PHOTO_MAX_H = CARD_H - F_PAD - CAP_H - 2;
 
           function cardTop(slotIdx){ return MT + slotIdx * (CARD_H + GAP); }
 
-          // Scale to fit within maxW × maxH, preserving aspect ratio
           function fitSize(natW, natH, maxW, maxH){
             if(!natW || !natH) return { w: maxW, h: maxH };
             const scale = Math.min(maxW / natW, maxH / natH);
@@ -1062,20 +1048,16 @@
             const cy = cardTop(slotIdx);
             const cx = CARD_X;
 
-            // ── Drop shadow (offset grey rect drawn first so it sits behind) ──
             doc.setFillColor(182, 185, 196);
             doc.setDrawColor(182, 185, 196);
             doc.roundedRect(cx + 2.5, cy + 3, CARD_W, CARD_H, 2.5, 2.5, 'F');
 
-            // ── White card frame ──
             doc.setFillColor(255, 255, 255);
             doc.setDrawColor(208, 210, 218);
             doc.setLineWidth(0.2);
             doc.roundedRect(cx, cy, CARD_W, CARD_H, 2.5, 2.5, 'FD');
 
-            // ── Photo — aspect-ratio preserved, centred in photo zone ──
             const { w: iw, h: ih } = fitSize(natW, natH, PHOTO_MAX_W, PHOTO_MAX_H);
-            // centre horizontally and vertically within the photo zone
             const ix = cx + (CARD_W - iw) / 2;
             const iy = cy + F_PAD + (PHOTO_MAX_H - ih) / 2;
 
@@ -1088,19 +1070,16 @@
               _drawImgPlaceholder(doc, cx + F_PAD, cy + F_PAD, PHOTO_MAX_W, PHOTO_MAX_H);
             }
 
-            // ── Caption separator ──
             const capLineY = cy + CARD_H - CAP_H;
             doc.setDrawColor(220, 222, 230);
             doc.setLineWidth(0.2);
             doc.line(cx + 8, capLineY, cx + CARD_W - 8, capLineY);
 
-            // ── Caption text ──
             const capX   = cx + F_PAD + 1;
             const capW   = CARD_W - (F_PAD + 1) * 2;
             const maxCapY = cy + CARD_H - 2;
             let ty = capLineY + 5;
 
-            // Name
             doc.setFontSize(7.5);
             doc.setFont('helvetica', 'bold');
             doc.setTextColor(28, 32, 50);
@@ -1108,7 +1087,6 @@
             doc.text(nameL.slice(0, 1), capX, ty);
             ty += 4.2;
 
-            // People identified
             const allPersons = [];
             if(item.persons && item.persons.length) allPersons.push(...item.persons);
             if(item.tags && item.tags.length){
@@ -1125,7 +1103,6 @@
               ty += maxP * 3.6 + 1;
             }
 
-            // Notes
             if(item.notes && item.notes.trim() && ty + 3 < maxCapY){
               doc.setFontSize(6);
               doc.setFont('helvetica', 'italic');
@@ -1158,11 +1135,9 @@
             const { dataUrl, natW, natH } = await blobSrcToDataUrl(item.src);
             drawCard(item, dataUrl, natW, natH, slotIdx);
 
-            // yield to browser every few photos to keep UI responsive
             if(i % 3 === 2) await new Promise(r => setTimeout(r, 0));
           }
 
-          // ── Footer on every page ──
           const totalPages = doc.getNumberOfPages();
           for(let p = 1; p <= totalPages; p++){
             doc.setPage(p);

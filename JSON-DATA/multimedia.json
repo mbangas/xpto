@@ -1,0 +1,19 @@
+{
+  "M1": {
+    "id": "M1",
+    "type": "OBJE",
+    "files": [
+      {
+        "file": "foto1.jpg",
+        "form": "image/jpeg"
+      }
+    ],
+    "notes": [],
+    "sourceRefs": [],
+    "dataUrl": null,
+    "tags": [],
+    "createdAt": "2026-02-28T01:47:03.445Z",
+    "updatedAt": "2026-02-28T01:47:03.445Z",
+    "deletedAt": null
+  }
+}

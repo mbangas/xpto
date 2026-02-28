@@ -404,10 +404,10 @@
     <script>
       'use strict';
 
-      const DOC_BASE_KEY = 'docBase:myLineage';
+      const DB = window.GedcomDB;
 
       // ── Helpers ──────────────────────────────────────────────────────
-      function readDocBase(){ try{ return JSON.parse(localStorage.getItem(DOC_BASE_KEY)||'null'); }catch(e){ return null; } }
+      function readDocBase(){ return DB.getSetting('docBase') || null; }
       function escapeHtml(s){ return String(s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
       function fmtSize(bytes){
         if(bytes == null) return '';

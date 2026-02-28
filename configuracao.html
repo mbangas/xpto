@@ -94,16 +94,10 @@
     </div>
 
     <script>
+      const DB = window.GedcomDB;
       function nowISO(){ return new Date().toISOString(); }
-      const KEY = 'photoBase:myLineage';
-      const DOC_KEY = 'docBase:myLineage';
 
-      // Persist directory handle in IndexedDB so other pages can write into it
-      // --- Document base helpers ---
-      function saveDocBase(obj){ localStorage.setItem(DOC_KEY, JSON.stringify(obj)); }
-      function clearDocBase(){ localStorage.removeItem(DOC_KEY); }
-      function readDocSaved(){ try{ return JSON.parse(localStorage.getItem(DOC_KEY)||'null'); }catch(e){ return null; } }
-
+      // ── IndexedDB helpers for directory handles (unchanged) ──
       function saveDocDirHandleToDB(handle){
         try{
           const req = indexedDB.open('myLineage-db', 1);
@@ -151,15 +145,21 @@
         }catch(e){ return Promise.resolve(null); }
       }
 
-      function readSaved(){ try{ return JSON.parse(localStorage.getItem(KEY)||'null'); }catch(e){ return null; } }
-      function saveBase(obj){ localStorage.setItem(KEY, JSON.stringify(obj)); }
-      function clearBase(){ localStorage.removeItem(KEY); }
+      // ── Settings helpers via GedcomDB ──
+      function readSaved(){ return DB.getSetting('photoBase') || null; }
+      function saveBase(obj){ DB.setSetting('photoBase', obj); }
+      function clearBase(){ DB.setSetting('photoBase', null); }
+
+      function readDocSaved(){ return DB.getSetting('docBase') || null; }
+      function saveDocBase(obj){ DB.setSetting('docBase', obj); }
+      function clearDocBase(){ DB.setSetting('docBase', null); }
+
+      function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+      function commonPrefix(paths){ if(!paths || paths.length===0) return ''; const split = paths.map(p => (p || '').split('/')); const first = split[0] || []; let prefix = []; for(let i=0;i<first.length;i++){ const seg = first[i]; if(split.every(s => s[i] === seg)) prefix.push(seg); else break; } return prefix.join('/'); }
 
       function showCurrent(){ const cur = readSaved(); const el = document.getElementById('currentBase'); if(!cur){ el.innerHTML = '<div style="font-style:italic;color:var(--text-secondary);">Nenhuma pasta base configurada.</div>'; return; } el.innerHTML = `<div>Base configurada: <b>${escapeHtml(cur.folder)}</b> — ${cur.files || 0} ficheiros<br><small style="color:var(--text-secondary);">Salvo em: ${cur.when || ''}</small></div>`; }
 
-      function escapeHtml(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
-
-      function commonPrefix(paths){ if(!paths || paths.length===0) return ''; const split = paths.map(p => (p || '').split('/')); const first = split[0] || []; let prefix = []; for(let i=0;i<first.length;i++){ const seg = first[i]; if(split.every(s => s[i] === seg)) prefix.push(seg); else break; } return prefix.join('/'); }
+      function showCurrentDoc(){ const cur = readDocSaved(); const el = document.getElementById('currentDocBase'); if(!cur){ el.innerHTML = '<div style="font-style:italic;color:var(--text-secondary);">Nenhuma pasta base configurada.</div>'; return; } el.innerHTML = `<div>Base configurada: <b>${escapeHtml(cur.folder)}</b> — ${cur.files || 0} ficheiros<br><small style="color:var(--text-secondary);">Salvo em: ${cur.when || ''}</small></div>`; }
 
       document.addEventListener('DOMContentLoaded', function(){
         const fileInput = document.getElementById('dirPicker');
@@ -169,16 +169,9 @@
         let lastFolder = null; let lastCount = 0;
 
         showCurrent();
-
-        // --- Biblioteca de Documentos ---
-        function showCurrentDoc(){
-          const cur = readDocSaved();
-          const el = document.getElementById('currentDocBase');
-          if(!cur){ el.innerHTML = '<div style="font-style:italic;color:var(--text-secondary);">Nenhuma pasta base configurada.</div>'; return; }
-          el.innerHTML = `<div>Base configurada: <b>${escapeHtml(cur.folder)}</b> — ${cur.files || 0} ficheiros<br><small style="color:var(--text-secondary);">Salvo em: ${cur.when || ''}</small></div>`;
-        }
         showCurrentDoc();
 
+        // --- Biblioteca de Documentos ---
         const docFileInput = document.getElementById('docDirPicker');
         const openDocBtn = document.getElementById('openDocDirBtn');
         const docInfo = document.getElementById('docSelectionInfo');
@@ -192,6 +185,15 @@
           saveDocBase({ folder: root, files: files.length, when: nowISO() });
           showCurrentDoc();
           alert('Pasta base de documentos salva.');
+        }
+
+        async function countFilesInDir(dirHandle){
+          let count = 0;
+          for await (const [name, handle] of dirHandle.entries()){
+            if(handle.kind === 'file') count++;
+            else if(handle.kind === 'directory') count += await countFilesInDir(handle);
+          }
+          return count;
         }
 
         if(window.showDirectoryPicker){
@@ -218,25 +220,14 @@
         }
 
         clearDocBtn.addEventListener('click', function(){ if(!confirm('Remover a configuração da pasta base de documentos?')) return; clearDocBase(); showCurrentDoc(); alert('Configuração removida.'); });
-        // --- fim Biblioteca de Documentos ---
 
-        async function countFilesInDir(dirHandle){
-          let count = 0;
-          for await (const [name, handle] of dirHandle.entries()){
-            if(handle.kind === 'file') count++;
-            else if(handle.kind === 'directory') count += await countFilesInDir(handle);
-          }
-          return count;
-        }
-
+        // --- Biblioteca de Fotos ---
         function handleFilesArray(files){
           if(!files || files.length===0){ info.textContent = 'Nenhum ficheiro selecionado.'; return; }
           const paths = files.map(f => f.webkitRelativePath || f.name);
           const root = commonPrefix(paths) || (paths[0] ? paths[0].split('/')[0] : '');
-          lastFolder = root;
-          lastCount = files.length;
+          lastFolder = root; lastCount = files.length;
           info.innerHTML = `<div>Detectado: <b>${escapeHtml(root)}</b> — ${files.length} ficheiros</div>`;
-          // salvar automaticamente
           saveBase({ folder: lastFolder, files: lastCount, when: nowISO() });
           showCurrent();
           alert('Pasta base salva.');
@@ -248,12 +239,9 @@
             try{
               const dir = await window.showDirectoryPicker();
               const count = await countFilesInDir(dir);
-              lastFolder = dir.name;
-              lastCount = count;
+              lastFolder = dir.name; lastCount = count;
               info.innerHTML = `<div>Detectado: <b>${escapeHtml(dir.name)}</b> — ${count} ficheiros</div>`;
-              // salvar automaticamente
               saveBase({ folder: lastFolder, files: lastCount, when: nowISO() });
-              // persist directory handle so other pages can write into it
               try{ await saveDirHandleToDB(dir); }catch(err){ console.warn('Não foi possível salvar handle do diretório:', err); }
               showCurrent();
               alert('Pasta base salva.');
@@ -265,81 +253,61 @@
         } else {
           openBtn.style.display = 'none';
           fileInput.addEventListener('change', function(e){
-            const files = Array.from(this.files || []);
-            handleFilesArray(files);
+            handleFilesArray(Array.from(this.files || []));
           });
         }
 
-        // Note: there is no explicit "save" button in the markup; directory is saved automatically
         clearBtn.addEventListener('click', function(){ if(!confirm('Remover a configuração da pasta base?')) return; clearBase(); showCurrent(); alert('Configuração removida.'); });
 
-        // --- Pessoa em Foco: pesquisa e foco principal (combobox/datalist) ---
-        const PERSON_KEY = 'people:myLineage';
-        const FOCUS_KEY = 'focusedPerson:myLineage';
+        // --- Pessoa em Foco ---
         const search = document.getElementById('personSearch');
         const setFocusBtn = document.getElementById('setFocusBtn');
         const currentFocusEl = document.getElementById('currentFocus');
         const clearFocusBtn = document.getElementById('clearFocusBtn');
-
-        function loadPeople(){ try{ return JSON.parse(localStorage.getItem(PERSON_KEY)||'[]'); }catch(e){ return []; } }
-        function personName(p){ if(!p) return ''; if(typeof p === 'string') return p; // prefer explicit first/last name fields as "nome completo"
-          if((p.firstName || p.lastName)) return ((p.firstName||'') + ' ' + (p.lastName||'')).replace(/\s+/g,' ').trim();
-          if(p.fullName) return p.fullName;
-          if(p.name) return p.name;
-          if(p.nome) return p.nome;
-          if(p.displayName) return p.displayName;
-          // fallback: find first string prop
-          for(const k in p){ if(typeof p[k] === 'string' && p[k].trim()) return p[k]; } return JSON.stringify(p); }
-        function saveFocus(name, id){ const obj = { name: name, when: nowISO() }; if(id) obj.id = id; localStorage.setItem(FOCUS_KEY, JSON.stringify(obj)); showCurrentFocus(); }
-        function clearFocus(){ localStorage.removeItem(FOCUS_KEY); showCurrentFocus(); }
-        function showCurrentFocus(){ const v = JSON.parse(localStorage.getItem(FOCUS_KEY)||'null'); currentFocusEl.textContent = v ? v.name : '—'; }
-
         const suggestions = document.getElementById('peopleSuggestions');
         let selectedPersonId = null;
 
-        function renderSuggestions(filter){ const q = (filter||'').toLowerCase().trim(); // do not show full list when empty — only show on user input
+        function saveFocus(name, id){ const obj = { name, when: nowISO() }; if(id) obj.id = id; DB.setSetting('focusedPerson', obj); showCurrentFocus(); }
+        function clearFocus(){ DB.setSetting('focusedPerson', null); showCurrentFocus(); }
+        function showCurrentFocus(){ const v = DB.getSetting('focusedPerson'); currentFocusEl.textContent = v ? v.name : '—'; }
+
+        function renderSuggestions(filter){
+          const q = (filter||'').toLowerCase().trim();
           if(!q){ suggestions.innerHTML = ''; suggestions.style.display = 'none'; return; }
-          const people = loadPeople(); const list = people.filter(p=>{ const full = personName(p).toLowerCase(); return full.includes(q); }).slice(0,30);
+          const people = DB.getIndividuals();
+          const list = people.filter(p => DB.getDisplayName(p).toLowerCase().includes(q)).slice(0, 30);
           suggestions.innerHTML = '';
           if(list.length===0){ suggestions.style.display='none'; return; }
-          list.forEach(p=>{ const row = document.createElement('div'); row.style.padding='6px'; row.style.cursor='pointer'; row.style.borderBottom='1px solid rgba(255,255,255,0.03)'; const label = personName(p); row.textContent = label; row.addEventListener('click', function(){ search.value = label; selectedPersonId = p.id; suggestions.style.display='none'; search.focus(); }); suggestions.appendChild(row); }); suggestions.style.display='block'; }
+          list.forEach(p => {
+            const label = DB.getDisplayName(p);
+            const row = document.createElement('div');
+            row.style.padding='6px'; row.style.cursor='pointer'; row.style.borderBottom='1px solid rgba(255,255,255,0.03)';
+            row.textContent = label;
+            row.addEventListener('click', function(){ search.value = label; selectedPersonId = p.id; suggestions.style.display='none'; search.focus(); });
+            suggestions.appendChild(row);
+          });
+          suggestions.style.display='block';
+        }
 
-        function setFromInput(){ const val = (search.value||'').trim(); if(!val){ return alert('Escreva ou selecione uma pessoa.'); } const people = loadPeople(); let found = null; if(selectedPersonId){ found = people.find(p => p.id === selectedPersonId); }
-          if(!found){ found = people.find(p => personName(p).toLowerCase() === val.toLowerCase()); }
-          if(!found){ return alert('Pessoa não encontrada. Verifique se o nome corresponde a uma pessoa existente.'); }
-          // save id and name for robustness
-          saveFocus(personName(found), found.id || null); alert('Pessoa definida como foco principal.'); }
+        function setFromInput(){
+          const val = (search.value||'').trim();
+          if(!val) return alert('Escreva ou selecione uma pessoa.');
+          const people = DB.getIndividuals();
+          let found = null;
+          if(selectedPersonId) found = people.find(p => p.id === selectedPersonId);
+          if(!found) found = people.find(p => DB.getDisplayName(p).toLowerCase() === val.toLowerCase());
+          if(!found) return alert('Pessoa não encontrada. Verifique se o nome corresponde a uma pessoa existente.');
+          saveFocus(DB.getDisplayName(found), found.id || null);
+          alert('Pessoa definida como foco principal.');
+        }
 
         search.addEventListener('input', function(){ selectedPersonId = null; renderSuggestions(this.value); });
         search.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); setFocusBtn.click(); } });
-        // clicking the button will save the person entered/selected
         setFocusBtn.addEventListener('click', setFromInput);
         clearFocusBtn.addEventListener('click', function(){ if(!confirm('Remover pessoa em foco?')) return; clearFocus(); alert('Foco removido.'); });
 
         showCurrentFocus();
       });
-
-      function openPersonModal(){
-        const people = loadPeople();
-        const overlay = document.createElement('div'); overlay.style.position='fixed'; overlay.style.left='0'; overlay.style.top='0'; overlay.style.width='100%'; overlay.style.height='100%'; overlay.style.background='rgba(0,0,0,0.15)'; overlay.style.zIndex='220';
-        const form = document.createElement('div'); form.className='tag-form'; form.style.position='fixed'; form.style.left='50%'; form.style.top='50%'; form.style.transform='translate(-50%,-50%)'; form.style.zIndex='230'; form.innerHTML = `<div style="font-weight:600;margin-bottom:6px;">Selecionar pessoa</div>`;
-        const input = document.createElement('input'); input.placeholder = 'Pesquisar pessoa (nome)'; input.style.width = '220px';
-        const suggestions = document.createElement('div'); suggestions.style.position='absolute'; suggestions.style.left='8px'; suggestions.style.top='38px'; suggestions.style.background='var(--bg-card)'; suggestions.style.border='1px solid rgba(0,0,0,0.06)'; suggestions.style.maxHeight='160px'; suggestions.style.overflow='auto'; suggestions.style.width='220px'; suggestions.style.zIndex='230'; suggestions.style.display='none';
-        const saveBtn = document.createElement('button'); saveBtn.textContent='Salvar'; saveBtn.className='btn';
-        const cancelBtn = document.createElement('button'); cancelBtn.textContent='Cancelar'; cancelBtn.className='btn';
-        form.appendChild(input); form.appendChild(suggestions); const br = document.createElement('div'); br.style.marginTop='6px'; form.appendChild(br); form.appendChild(saveBtn); form.appendChild(cancelBtn);
-        overlay.appendChild(form); document.body.appendChild(overlay);
-
-        form.addEventListener('pointerdown', function(ev){ ev.stopPropagation(); });
-        let selectedPersonIdModal = null;
-        function renderSuggestions(filter){ const q = (filter||'').toLowerCase().trim(); const list = people.filter(p=>{ const full = ((p.firstName||'') + ' ' + (p.lastName||'')).toLowerCase(); return full.includes(q); }).slice(0,30); suggestions.innerHTML = ''; if(list.length===0){ suggestions.style.display='none'; return; } list.forEach(p=>{ const row = document.createElement('div'); row.style.padding='6px'; row.style.cursor='pointer'; row.style.borderBottom='1px solid rgba(255,255,255,0.03)'; row.textContent = p.firstName + ' ' + p.lastName; row.addEventListener('click', function(){ input.value = row.textContent; selectedPersonIdModal = p.id; suggestions.style.display='none'; input.focus(); }); suggestions.appendChild(row); }); suggestions.style.display='block'; }
-        input.addEventListener('input', function(){ selectedPersonIdModal = null; renderSuggestions(this.value); });
-        input.addEventListener('keydown', function(ev){ if(ev.key==='Enter'){ ev.preventDefault(); saveBtn.click(); } });
-        cancelBtn.addEventListener('click', function(){ if(overlay && overlay.parentElement) overlay.parentElement.removeChild(overlay); });
-        saveBtn.addEventListener('click', function(){ const name = input.value.trim(); if(!name) return alert('Insira ou selecione uma pessoa.'); let found = null; if(selectedPersonIdModal){ found = people.find(p=>p.id===selectedPersonIdModal); } if(!found){ found = people.find(p => ((p.firstName||'') + ' ' + (p.lastName||'')).toLowerCase() === name.toLowerCase()); } if(!found) return alert('Pessoa não encontrada. Selecione na lista.'); saveFocus(((found.firstName||'') + ' ' + (found.lastName||'')).trim(), found.id); if(overlay && overlay.parentElement) overlay.parentElement.removeChild(overlay); alert('Pessoa definida como foco principal.'); });
-        setTimeout(()=>{ try{ input.focus(); }catch(e){} },50);
-        renderSuggestions('');
-      }
     </script>
     <script src="history-logger.js"></script>
   </body>

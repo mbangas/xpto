@@ -34,6 +34,41 @@
       .tab-btn.active { color: var(--text-main); border-bottom-color: var(--accent); font-weight: 600; }
       .tab-panel { display: none; }
       .tab-panel.active { display: block; }
+
+      /* ── Custom file picker ────────────────────── */
+      .file-picker { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+      .file-picker input[type="file"] { display:none; }
+      .file-picker .pick-btn {
+        display:inline-flex; align-items:center; gap:6px;
+        background:var(--bg-surface-2); color:var(--text-main);
+        border:1px solid var(--border); border-radius:var(--radius-sm);
+        padding:7px 16px; font-size:0.875rem; font-weight:500;
+        cursor:pointer; transition:background .15s, border-color .15s;
+      }
+      .file-picker .pick-btn:hover { background:var(--accent-soft); border-color:var(--accent); }
+      .file-picker .file-name {
+        color:var(--text-secondary); font-size:0.875rem;
+        max-width:220px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      }
+      .file-picker .file-name.has-file { color:var(--green); }
+
+      /* ── Import log styling ─────────────────────── */
+      .import-log { margin-top:16px; padding:12px 16px; border-radius:var(--radius-sm);
+        font-size:0.9rem; white-space:pre-wrap; line-height:1.6; display:none; }
+      .import-log.visible { display:block; }
+      .import-log.info    { background:var(--accent-soft); color:var(--accent); border:1px solid rgba(68,147,248,.2); }
+      .import-log.success { background:var(--green-soft);  color:var(--green);  border:1px solid rgba(63,185,80,.2); }
+      .import-log.error   { background:var(--red-soft);    color:var(--red);    border:1px solid rgba(248,81,73,.2); }
+
+      /* ── Inline confirm bar ─────────────────────── */
+      .confirm-bar {
+        display:none; gap:10px; align-items:center; margin-top:14px; padding:12px 16px;
+        background:var(--amber-soft); border:1px solid rgba(210,153,34,.25);
+        border-radius:var(--radius-sm); font-size:0.875rem; color:var(--amber);
+      }
+      .confirm-bar.visible { display:flex; }
+      .confirm-bar .btn { font-size:.8rem; padding:5px 14px; }
+      .confirm-bar .btn-cancel { background:transparent; color:var(--text-secondary); border:1px solid var(--border); }
     </style>
   </head>
   <body>
@@ -77,15 +112,26 @@
           <!-- ── Import panel ────────────────────────────────────────── -->
           <div id="tab-import" class="tab-panel active">
             <p style="color:var(--text-secondary);margin:0 0 16px 0;">
-              Carregue um ficheiro GEDCOM (.ged). A importação irá substituir todos os dados atuais (Pessoas, Eventos e Relações) no armazenamento local. Faça um export antes se quiser preservar os dados atuais.
+              Carregue um ficheiro GEDCOM (.ged). A importação irá substituir todos os dados atuais (Pessoas, Eventos e Relações). Faça um export antes se quiser preservar os dados atuais.
             </p>
 
-            <div style="display:flex;gap:12px;align-items:center;">
-              <input type="file" id="gedcomFile" accept=".ged,text/plain" />
-              <button class="btn" id="importBtn">Importar GEDCOM</button>
+            <div class="file-picker">
+              <input type="file" id="gedcomFile" accept=".ged,.gedcom,text/plain" />
+              <button type="button" class="pick-btn" id="pickFileBtn">
+                <i class="mdi mdi-file-upload-outline"></i> Escolher ficheiro
+              </button>
+              <span class="file-name" id="fileName">Nenhum ficheiro selecionado</span>
+              <button class="btn" id="importBtn" disabled>Importar GEDCOM</button>
             </div>
 
-            <div id="importLog" style="margin-top:16px;color:var(--text-secondary);font-size:0.95rem;white-space:pre-wrap;"></div>
+            <div class="confirm-bar" id="confirmBar">
+              <i class="mdi mdi-alert-circle-outline"></i>
+              <span style="flex:1">Todos os dados existentes serão substituídos. Continuar?</span>
+              <button class="btn" id="confirmYes">Sim, importar</button>
+              <button class="btn btn-cancel" id="confirmNo">Cancelar</button>
+            </div>
+
+            <div class="import-log" id="importLog"></div>
 
             <div id="importHistoryContainer" style="margin-top:18px;">
               <h3 style="margin:0 0 8px 0;font-size:1rem;">Histórico de importações (últimos 5)</h3>
@@ -120,28 +166,45 @@
       /* Open export tab directly if URL has #export */
       if (location.hash === '#export') switchTab('export');
 
-      /* ── Shared helpers ────────────────────────────────────────────── */
-      function nowISO() { return new Date().toISOString(); }
-      function loadJSON(key) { try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : []; } catch(e) { return []; } }
+      const DB = window.GedcomDB;
 
       /* ── Import ────────────────────────────────────────────────────── */
-      function showImportLog(msg) { document.getElementById('importLog').textContent = msg; }
+      const $file      = document.getElementById('gedcomFile');
+      const $fileName  = document.getElementById('fileName');
+      const $importBtn = document.getElementById('importBtn');
+      const $logEl     = document.getElementById('importLog');
+      const $confirm   = document.getElementById('confirmBar');
 
-      function getImportHistory() { try { return JSON.parse(localStorage.getItem('importHistory:myLineage') || '[]'); } catch(e) { return []; } }
-      function saveImportHistory(hist) { localStorage.setItem('importHistory:myLineage', JSON.stringify(hist)); }
+      /* Custom file picker */
+      document.getElementById('pickFileBtn').addEventListener('click', () => $file.click());
+      $file.addEventListener('change', () => {
+        const f = $file.files[0];
+        if (f) {
+          $fileName.textContent = f.name;
+          $fileName.classList.add('has-file');
+          $importBtn.disabled = false;
+        } else {
+          $fileName.textContent = 'Nenhum ficheiro selecionado';
+          $fileName.classList.remove('has-file');
+          $importBtn.disabled = true;
+        }
+        hideConfirm();
+      });
+
+      function showImportLog(msg, type) {
+        $logEl.textContent = msg;
+        $logEl.className = 'import-log visible ' + (type || 'info');
+      }
+      function hideImportLog() { $logEl.className = 'import-log'; }
+      function hideConfirm() { $confirm.classList.remove('visible'); }
 
       function renderImportHistory() {
         const container = document.getElementById('importHistory');
-        const hist = getImportHistory() || [];
-        if (!hist || hist.length === 0) {
+        const hist = (DB.getSetting('importHistory') || []);
+        if (!hist.length) {
           container.innerHTML = '<div style="font-style:italic;color:var(--text-secondary);">Sem importações anteriores.</div>';
           return;
         }
-        hist.sort((a, b) => {
-          const da = a && a.when ? new Date(a.when).getTime() : 0;
-          const db = b && b.when ? new Date(b.when).getTime() : 0;
-          return db - da;
-        });
         function fmtWhen(iso) {
           try {
             const d = new Date(iso);
@@ -149,242 +212,84 @@
             return `${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
           } catch(e) { return iso || ''; }
         }
-        let html = '<table style="width:100%;border-collapse:collapse;font-size:0.95rem;"><thead><tr style="text-align:left;color:var(--text-secondary)"><th>Quando</th><th>Ficheiro</th><th>Apagados</th><th>Inseridos</th></tr></thead><tbody>';
+        let html = '<table style="width:100%;border-collapse:collapse;font-size:0.95rem;"><thead><tr style="text-align:left;color:var(--text-secondary)"><th>Quando</th><th>Ficheiro</th><th>Pessoas</th><th>Famílias</th></tr></thead><tbody>';
         hist.forEach(row => {
-          const when = fmtWhen(row.when);
-          html += `<tr><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${when}</td><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${row.fileName || ''}</td><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${row.deleted}</td><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${row.inserted}</td></tr>`;
+          html += `<tr><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${fmtWhen(row.when)}</td><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${row.fileName || ''}</td><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${row.individuals || 0}</td><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${row.families || 0}</td></tr>`;
         });
         html += '</tbody></table>';
         container.innerHTML = html;
       }
 
-      try { renderImportHistory(); } catch(e) { /* ignore */ }
+      renderImportHistory();
 
-      document.getElementById('importBtn').addEventListener('click', function() {
-        const f = document.getElementById('gedcomFile').files[0];
-        if (!f) return alert('Selecione um ficheiro GEDCOM (.ged)');
-        if (!confirm('Confirma substituição de TODOS os dados existentes com os do ficheiro GEDCOM?')) return;
-
-        const prevPeople    = JSON.parse(localStorage.getItem('people:myLineage')    || '[]');
-        const prevEvents    = JSON.parse(localStorage.getItem('events:myLineage')    || '[]');
-        const prevRelations = JSON.parse(localStorage.getItem('relations:myLineage') || '[]');
-        const deletedCount  = (prevPeople.length || 0) + (prevEvents.length || 0) + (prevRelations.length || 0);
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          try {
-            const txt = e.target.result;
-            const { people, events, relations, report } = parseGedcom(txt);
-            localStorage.setItem('people:myLineage',    JSON.stringify(people));
-            localStorage.setItem('events:myLineage',    JSON.stringify(events));
-            localStorage.setItem('relations:myLineage', JSON.stringify(relations));
-
-            const insertedCount = (people.length || 0) + (events.length || 0) + (relations.length || 0);
-
-            const hist = getImportHistory();
-            hist.unshift({ when: nowISO(), fileName: f.name || '', deleted: deletedCount, inserted: insertedCount });
-            saveImportHistory(hist.slice(0, 5));
-            renderImportHistory();
-
-            let summary = `Import concluído.\nPessoas importadas: ${people.length}\nEventos importados: ${events.length}\nRelações importadas: ${relations.length}\n\n`;
-            if (report.peopleWarnings && report.peopleWarnings.length) {
-              summary += 'Avisos sobre pessoas importadas:\n';
-              report.peopleWarnings.forEach(w => summary += `- ${w.id || '(sem id)'}: ${w.reason}\n`);
-              summary += '\n';
-            }
-            if (report.skippedEvents && report.skippedEvents.length) {
-              summary += 'Eventos não importados:\n';
-              report.skippedEvents.forEach(s => summary += `- ${s.id || '(sem id)'}: ${s.reason}\n`);
-              summary += '\n';
-            }
-            if (report.skippedRelations && report.skippedRelations.length) {
-              summary += 'Relações não importadas:\n';
-              report.skippedRelations.forEach(s => summary += `- ${s.description || s.id || '(sem descrição)'}: ${s.reason}\n`);
-              summary += '\n';
-            }
-            showImportLog(summary.trim());
-          } catch(err) {
-            console.error(err);
-            showImportLog('Erro ao importar: ' + (err && err.message || err));
-          }
-        };
-        reader.readAsText(f, 'utf-8');
+      /* Import button → show inline confirm */
+      $importBtn.addEventListener('click', () => {
+        $confirm.classList.add('visible');
+        hideImportLog();
       });
 
-      function parseGedcom(text) {
-        const lines = text.split(/\r?\n/).map(l => l.replace(/\t/g, ' ').trimEnd());
-        const records = [];
-        let cur = null;
-        for (const raw of lines) {
-          if (!raw) continue;
-          const m = raw.match(/^(\d+)\s+(.*)$/);
-          if (!m) continue;
-          const level = parseInt(m[1], 10);
-          const rest = m[2];
-          if (level === 0) {
-            if (cur) records.push(cur);
-            cur = { raw: [rest], lines: [raw] };
-          } else if (cur) {
-            cur.raw.push(rest);
-            cur.lines.push(raw);
-          }
-        }
-        if (cur) records.push(cur);
+      document.getElementById('confirmNo').addEventListener('click', hideConfirm);
 
-        const individuals = {};
-        const families    = {};
+      /* Confirmed import */
+      document.getElementById('confirmYes').addEventListener('click', async function() {
+        hideConfirm();
+        const f = $file.files[0];
+        if (!f) return;
 
-        for (const r of records) {
-          const first = r.raw[0];
-          const indMatch = first.match(/^@([^@]+)@\s+INDI/);
-          if (indMatch) {
-            const xref = indMatch[1];
-            const obj  = { id: xref, raw: r.raw.slice() };
-            let i = 1;
-            while (i < r.raw.length) {
-              const part = r.raw[i];
-              if (part.startsWith('NAME')) {
-                const name = part.replace(/^NAME\s+/, '').trim();
-                const surnameMatch = name.match(/\/(.*?)\//);
-                obj.lastName  = surnameMatch ? surnameMatch[1].trim() : '';
-                obj.firstName = name.replace(/\/(.*?)\//,'').trim();
-              } else if (part.startsWith('SEX')) {
-                const sex = part.replace(/^SEX\s+/, '').trim();
-                obj.gender = (sex === 'M') ? 'male' : (sex === 'F') ? 'female' : 'other';
-              } else if (part.startsWith('BIRT')) {
-                if (r.raw[i+1] && r.raw[i+1].startsWith('DATE'))
-                  obj.birth = r.raw[i+1].replace(/^DATE\s+/, '').trim();
-              } else if (part.startsWith('DEAT')) {
-                if (r.raw[i+1] && r.raw[i+1].startsWith('DATE'))
-                  obj.death = r.raw[i+1].replace(/^DATE\s+/, '').trim();
-              }
-              i++;
-            }
-            individuals[xref] = obj;
-            continue;
-          }
-          const famMatch = first.match(/^@([^@]+)@\s+FAM/);
-          if (famMatch) {
-            const xref = famMatch[1];
-            const fam  = { id: xref, raw: r.raw.slice(), HUSB: null, WIFE: null, CHIL: [] };
-            r.raw.forEach(line => {
-              if      (line.startsWith('HUSB')) { const m = line.match(/@([^@]+)@/); if (m) fam.HUSB = m[1]; }
-              else if (line.startsWith('WIFE')) { const m = line.match(/@([^@]+)@/); if (m) fam.WIFE = m[1]; }
-              else if (line.startsWith('CHIL')) { const m = line.match(/@([^@]+)@/); if (m) fam.CHIL.push(m[1]); }
-            });
-            families[xref] = fam;
-            continue;
-          }
-        }
+        $importBtn.disabled = true;
+        showImportLog('A importar «' + f.name + '»…', 'info');
 
-        const importedPeople   = [];
-        const peopleWarnings   = [];
-        Object.values(individuals).forEach(ind => {
-          const person = { id: ind.id, firstName: ind.firstName || '', lastName: ind.lastName || '', gender: ind.gender || '', notes: '', createdAt: nowISO(), updatedAt: nowISO(), deletedAt: null };
-          importedPeople.push(person);
-          if (!(person.firstName && person.firstName.trim()) && !(person.lastName && person.lastName.trim()))
-            peopleWarnings.push({ id: person.id, reason: 'Nome ausente' });
-        });
-
-        const importedEvents = [];
-        const skippedEvents  = [];
-        Object.values(individuals).forEach(ind => {
-          if (ind.birth) {
-            if (ind.birth.trim()) importedEvents.push({ id: ind.id + '_BIRT', personId: ind.id, type: 'BIRTH', date: ind.birth, location: null, notes: '', createdAt: nowISO(), updatedAt: nowISO(), deletedAt: null });
-            else skippedEvents.push({ id: ind.id + '_BIRT', reason: 'Data de nascimento ausente' });
-          }
-          if (ind.death) {
-            if (ind.death.trim()) importedEvents.push({ id: ind.id + '_DEAT', personId: ind.id, type: 'DEATH', date: ind.death, location: null, notes: '', createdAt: nowISO(), updatedAt: nowISO(), deletedAt: null });
-            else skippedEvents.push({ id: ind.id + '_DEAT', reason: 'Data de óbito ausente' });
-          }
-        });
-
-        const importedRelations = [];
-        const skippedRelations  = [];
-        Object.values(families).forEach(fam => {
-          if (fam.HUSB && fam.WIFE) {
-            if (individuals[fam.HUSB] && individuals[fam.WIFE]) {
-              importedRelations.push({ from: fam.HUSB, to: fam.WIFE, type: 'mate' });
-              importedRelations.push({ from: fam.WIFE, to: fam.HUSB, type: 'mate' });
-            } else {
-              skippedRelations.push({ description: `fam ${fam.id} mate`, reason: 'Referência a pessoa desconhecida' });
-            }
-          }
-          fam.CHIL.forEach(ch => {
-            if (fam.HUSB) {
-              if (individuals[ch] && individuals[fam.HUSB]) importedRelations.push({ from: ch, to: fam.HUSB, type: 'ancestor' });
-              else skippedRelations.push({ description: `fam ${fam.id} filho->pai ${ch}->${fam.HUSB}`, reason: 'Referência a pessoa desconhecida' });
-            }
-            if (fam.WIFE) {
-              if (individuals[ch] && individuals[fam.WIFE]) importedRelations.push({ from: ch, to: fam.WIFE, type: 'ancestor' });
-              else skippedRelations.push({ description: `fam ${fam.id} filho->mãe ${ch}->${fam.WIFE}`, reason: 'Referência a pessoa desconhecida' });
-            }
-            fam.CHIL.forEach(sib => {
-              if (sib !== ch) {
-                if (individuals[sib] && individuals[ch]) importedRelations.push({ from: ch, to: sib, type: 'siblin' });
-                else skippedRelations.push({ description: `fam ${fam.id} irmão ${ch}->${sib}`, reason: 'Referência a pessoa desconhecida' });
-              }
-            });
+        try {
+          const text = await f.text();
+          const resp = await fetch('/api/gedcom/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+            body: text
           });
-        });
+          if (!resp.ok) {
+            const errBody = await resp.text();
+            throw new Error('Server ' + resp.status + ': ' + errBody);
+          }
+          const result = await resp.json();
 
-        return { people: importedPeople, events: importedEvents, relations: importedRelations, report: { peopleWarnings, skippedEvents, skippedRelations } };
-      }
+          // Reload in-memory cache
+          DB.reload();
+
+          // Save import history
+          const hist = (DB.getSetting('importHistory') || []);
+          hist.unshift({
+            when: new Date().toISOString(),
+            fileName: f.name || '',
+            individuals: result.stats.individuals,
+            families: result.stats.families
+          });
+          DB.setSetting('importHistory', hist.slice(0, 5));
+          renderImportHistory();
+
+          // Log to history
+          DB.addHistory([{
+            ts: new Date().toISOString(),
+            action: 'GEDCOM importado',
+            detail: `${f.name} — ${result.stats.individuals} pessoas, ${result.stats.families} famílias`,
+            category: 'gedcom'
+          }]);
+
+          let summary = `Import concluído com sucesso!\nPessoas: ${result.stats.individuals}\nFamílias: ${result.stats.families}`;
+          if (result.warnings && result.warnings.length) {
+            summary += '\n\nAvisos:';
+            result.warnings.forEach(w => summary += `\n• ${w.id || ''}: ${w.reason}`);
+          }
+          showImportLog(summary, 'success');
+        } catch(err) {
+          console.error(err);
+          showImportLog('Erro ao importar: ' + (err.message || err), 'error');
+        } finally {
+          $importBtn.disabled = false;
+        }
+      });
 
       /* ── Export ────────────────────────────────────────────────────── */
       function showExportLog(msg) { document.getElementById('exportLog').textContent = msg; }
-
-      function buildGedcom() {
-        const people    = loadJSON('people:myLineage');
-        const events    = loadJSON('events:myLineage');
-        const relations = loadJSON('relations:myLineage');
-
-        const lines = [];
-        lines.push('0 HEAD');
-        lines.push('1 SOUR myLineage');
-        lines.push('1 DATE ' + (new Date()).toISOString().slice(0, 10));
-        lines.push('1 CHAR UTF-8');
-
-        people.forEach(p => {
-          const id   = p.id || ('I' + Math.random().toString(36).slice(2, 10));
-          const name = ((p.firstName || '') + ' /' + (p.lastName || '') + '/').trim();
-          lines.push(`0 @${id}@ INDI`);
-          lines.push(`1 NAME ${name}`);
-          if (p.gender) lines.push(`1 SEX ${p.gender === 'male' ? 'M' : (p.gender === 'female' ? 'F' : 'U')}`);
-          const birth = events.find(ev => ev.personId === p.id && ev.type === 'BIRTH' && !ev.deletedAt);
-          const death = events.find(ev => ev.personId === p.id && ev.type === 'DEATH' && !ev.deletedAt);
-          if (birth && birth.date) { lines.push('1 BIRT'); lines.push('2 DATE ' + birth.date); }
-          if (death && death.date) { lines.push('1 DEAT'); lines.push('2 DATE ' + death.date); }
-        });
-
-        let famIndex = 1;
-        relations.filter(r => r.type === 'mate').forEach(r => {
-          const famId = 'F' + famIndex++;
-          lines.push(`0 @${famId}@ FAM`);
-          const a = people.find(pp => pp.id === r.from);
-          const b = people.find(pp => pp.id === r.to);
-          if (a && b) {
-            if (a.gender === 'male')   lines.push(`1 HUSB @${a.id}@`); else if (a.gender === 'female') lines.push(`1 WIFE @${a.id}@`); else lines.push(`1 CHIL @${a.id}@`);
-            if (b.gender === 'male')   lines.push(`1 HUSB @${b.id}@`); else if (b.gender === 'female') lines.push(`1 WIFE @${b.id}@`); else lines.push(`1 CHIL @${b.id}@`);
-          }
-        });
-
-        relations.filter(r => r.type === 'ancestor').forEach(r => {
-          const famId = 'F' + famIndex++;
-          lines.push(`0 @${famId}@ FAM`);
-          const parent = people.find(pp => pp.id === r.to);
-          const child  = people.find(pp => pp.id === r.from);
-          if (parent) {
-            if (parent.gender === 'male')   lines.push(`1 HUSB @${parent.id}@`);
-            else if (parent.gender === 'female') lines.push(`1 WIFE @${parent.id}@`);
-            else lines.push(`1 _PARENT @${parent.id}@`);
-          }
-          if (child) lines.push(`1 CHIL @${child.id}@`);
-        });
-
-        lines.push('0 TRLR');
-        return lines.join('\n');
-      }
 
       function download(filename, text) {
         const a = document.createElement('a');
@@ -395,12 +300,27 @@
         setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
       }
 
-      document.getElementById('exportBtn').addEventListener('click', function() {
-        const ged  = buildGedcom();
-        const name = 'myLineage_export_' + (new Date()).toISOString().slice(0, 10) + '.ged';
-        download(name, ged);
-        if (window.logHistory) window.logHistory('GEDCOM exportado', name, 'gedcom');
-        showExportLog('GEDCOM gerado: ' + name + '\nTamanho: ' + ged.length + ' bytes');
+      document.getElementById('exportBtn').addEventListener('click', async function() {
+        showExportLog('A exportar…');
+        try {
+          const resp = await fetch('/api/gedcom/export');
+          if (!resp.ok) throw new Error('Server error: ' + resp.status);
+          const ged = await resp.text();
+          const name = 'myLineage_export_' + new Date().toISOString().slice(0, 10) + '.ged';
+          download(name, ged);
+
+          DB.addHistory([{
+            ts: new Date().toISOString(),
+            action: 'GEDCOM exportado',
+            detail: name + ' (' + ged.length + ' bytes)',
+            category: 'gedcom'
+          }]);
+
+          showExportLog('GEDCOM gerado: ' + name + '\nTamanho: ' + ged.length + ' bytes');
+        } catch(err) {
+          console.error(err);
+          showExportLog('Erro ao exportar: ' + (err.message || err));
+        }
       });
     </script>
     <script src="history-logger.js"></script>

@@ -321,9 +321,7 @@
 
     <script>
       // ── Data helpers ───────────────────────────────────────────────────
-      function getPeople()   { try{ const r=localStorage.getItem('people:myLineage');    return r?JSON.parse(r):[]; }catch(e){ return []; } }
-      function getEvents()   { try{ const r=localStorage.getItem('events:myLineage');    return r?JSON.parse(r):[]; }catch(e){ return []; } }
-      function getRelations(){ try{ const r=localStorage.getItem('relations:myLineage'); return r?JSON.parse(r):[]; }catch(e){ return []; } }
+      const DB = window.GedcomDB;
 
       // ── Chart.js defaults ──────────────────────────────────────────────
       Chart.defaults.color       = '#8a9ab5';
@@ -356,43 +354,40 @@
       }
 
       function safeYear(dateStr){
-        if(!dateStr) return null;
-        try{
-          // Handle plain year strings like "1920" and full ISO dates
-          const trimmed = String(dateStr).trim();
-          if(/^\d{4}$/.test(trimmed)) return parseInt(trimmed, 10);
-          const d = new Date(trimmed);
-          return isNaN(d) ? null : d.getFullYear();
-        }catch(e){ return null; }
+        return DB.extractYear(dateStr);
       }
 
       // ── Main build ────────────────────────────────────────────────────
       function buildDashboard(){
-        const allPessoas  = getPeople();
-        const allEventos  = getEvents();
-        const allRelacoes = getRelations();
+        const pessoas  = DB.getIndividuals();
+        const families = DB.getFamilies();
 
-        const pessoas  = allPessoas.filter(p  => !p.deletedAt);
-        const eventos  = allEventos.filter(ev => !ev.deletedAt);
-        const relacoes = allRelacoes;
+        // Collect all events from individuals and families
+        const allIndEvents = [];
+        pessoas.forEach(p => (p.events||[]).forEach(ev => allIndEvents.push({...ev, personId: p.id})));
+        const allFamEvents = [];
+        families.forEach(f => (f.events||[]).forEach(ev => allFamEvents.push({...ev, famId: f.id})));
 
-        const evBirth    = eventos.filter(e=>(e.type||'').toUpperCase()==='BIRTH');
-        const evDeath    = eventos.filter(e=>(e.type||'').toUpperCase()==='DEATH');
-        const evMarriage = eventos.filter(e=>(e.type||'').toUpperCase()==='MARRIAGE');
+        const evBirth    = allIndEvents.filter(e => e.type === 'BIRT');
+        const evDeath    = allIndEvents.filter(e => e.type === 'DEAT');
+        const evMarriage = allFamEvents.filter(e => e.type === 'MARR');
+
+        // Count total relations (family links)
+        const totalRelations = families.reduce((a, f) => a + (f.husb?1:0) + (f.wife?1:0) + (f.children||[]).length, 0);
 
         // ── KPIs ──────────────────────────────────────────────────────
         document.getElementById('kpi-pessoas').textContent    = pessoas.length;
         document.getElementById('kpi-nascimentos').textContent = evBirth.length;
         document.getElementById('kpi-obitos').textContent     = evDeath.length;
         document.getElementById('kpi-casamentos').textContent = evMarriage.length;
-        document.getElementById('kpi-relacoes').textContent   = relacoes.length;
+        document.getElementById('kpi-relacoes').textContent   = totalRelations;
 
-        const gM = pessoas.filter(p=>(p.gender||'').toLowerCase()==='male').length;
-        const gF = pessoas.filter(p=>(p.gender||'').toLowerCase()==='female').length;
+        const gM = pessoas.filter(p => p.sex === 'M').length;
+        const gF = pessoas.filter(p => p.sex === 'F').length;
         const subEl = document.getElementById('kpi-pessoas-sub');
         if(subEl) subEl.textContent = gM+' masc. · '+gF+' fem.';
 
-        const divorces = eventos.filter(e=>(e.type||'').toUpperCase()==='DIVORCE').length;
+        const divorces = allFamEvents.filter(e => e.type === 'DIV').length;
         const casSubEl = document.getElementById('kpi-casamentos-sub');
         if(casSubEl && divorces>0) casSubEl.textContent = divorces+' divórcio'+(divorces!==1?'s':'');
 
@@ -402,12 +397,11 @@
         // ── Distribuição por Género (donut) ───────────────────────────
         {
           const gCounts = { Masculino:0, Feminino:0, Outro:0, 'Não informado':0 };
-          pessoas.forEach(p=>{
-            const g=(p.gender||'').toLowerCase();
-            if(g==='male')        gCounts['Masculino']++;
-            else if(g==='female') gCounts['Feminino']++;
-            else if(g==='other')  gCounts['Outro']++;
-            else                  gCounts['Não informado']++;
+          pessoas.forEach(p => {
+            if(p.sex === 'M') gCounts['Masculino']++;
+            else if(p.sex === 'F') gCounts['Feminino']++;
+            else if(p.sex === 'X') gCounts['Outro']++;
+            else gCounts['Não informado']++;
           });
           const nz = Object.entries(gCounts).filter(([,v])=>v>0);
           const bgColors = { Masculino:'#5294e2', Feminino:'#ef799e', Outro:'#b877d9', 'Não informado':'#3d4a5c' };
@@ -431,22 +425,12 @@
 
         // ── Nascimentos por Década (bar) ──────────────────────────────
         {
-          const birthDates = [];
-          const seenBirth = new Set();
-          evBirth.forEach(ev=>{
-            const yr = safeYear(ev.date);
-            if(yr){ birthDates.push(yr); if(ev.personId) seenBirth.add(ev.personId); }
-          });
-          pessoas.forEach(p=>{
-            if(!seenBirth.has(p.id)){
-              const yr = safeYear(p.birthDate);
-              if(yr) birthDates.push(yr);
-            }
-          });
+          const birthYears = [];
+          evBirth.forEach(ev => { const yr = safeYear(ev.date); if(yr) birthYears.push(yr); });
           document.getElementById('kpi-nascimentos-sub').textContent =
-            birthDates.length > 0 ? 'com data: '+birthDates.length : '';
+            birthYears.length > 0 ? 'com data: '+birthYears.length : '';
           const counts = {};
-          birthDates.forEach(yr=>{ const dec=Math.floor(yr/10)*10; counts[dec]=(counts[dec]||0)+1; });
+          birthYears.forEach(yr => { const dec = Math.floor(yr/10)*10; counts[dec] = (counts[dec]||0)+1; });
           const decades = Object.keys(counts).map(Number).sort((a,b)=>a-b);
           if(decades.length){
             mkChart('chartNascimentos','bar',{
@@ -474,11 +458,14 @@
         // ── Eventos por Tipo (horizontal bar) ─────────────────────────
         {
           const evLabels = {
-            BIRTH:'Nascimento', BAPTISM:'Batismo', DEATH:'Óbito',
-            MARRIAGE:'Casamento', DIVORCE:'Divórcio', ADOPTION:'Adoção', CUSTOM:'Outro'
+            BIRT:'Nascimento', BAPM:'Batismo', DEAT:'Óbito', BURI:'Enterro',
+            MARR:'Casamento', DIV:'Divórcio', ADOP:'Adoção', CENS:'Censo',
+            CHR:'Crisma', CONF:'Confirmação', EMIG:'Emigração', IMMI:'Imigração',
+            EVEN:'Outro'
           };
           const evCounts = {};
-          eventos.forEach(ev=>{ const t=(ev.type||'').toUpperCase(); evCounts[t]=(evCounts[t]||0)+1; });
+          allIndEvents.forEach(ev => { const t = (ev.type||'').toUpperCase(); evCounts[t] = (evCounts[t]||0)+1; });
+          allFamEvents.forEach(ev => { const t = (ev.type||'').toUpperCase(); evCounts[t] = (evCounts[t]||0)+1; });
           const items = Object.entries(evCounts).sort((a,b)=>b[1]-a[1]);
           if(items.length){
             mkChart('chartEventos','bar',{
@@ -505,13 +492,16 @@
 
         // ── Tipos de Relações (donut) ─────────────────────────────────
         {
-          const rlLabels = { siblin:'Irmã/Irmão', ancestor:'Pai/Mãe', child:'Filho(a)', mate:'Companheiro(a)' };
-          const rlCounts = {};
-          relacoes.forEach(r=>{ if(r&&r.type) rlCounts[r.type]=(rlCounts[r.type]||0)+1; });
-          const items = Object.entries(rlCounts).sort((a,b)=>b[1]-a[1]);
+          // Derive relation types from families
+          const rlCounts = { 'Conjugal':0, 'Filiação':0 };
+          families.forEach(f => {
+            if(f.husb || f.wife) rlCounts['Conjugal']++;
+            rlCounts['Filiação'] += (f.children||[]).length;
+          });
+          const items = Object.entries(rlCounts).filter(([,v])=>v>0);
           if(items.length){
             mkChart('chartRelacoes','doughnut',{
-              labels: items.map(([t])=>rlLabels[t]||t),
+              labels: items.map(([t])=>t),
               datasets:[{
                 data: items.map(([,v])=>v),
                 backgroundColor:['#b877d9','#5294e2','#73bf69','#f2cc0c','#f25757','#ff9830'],
@@ -527,24 +517,19 @@
             document.getElementById('chartRelacoes').replaceWith(Object.assign(document.createElement('p'),{className:'no-data',textContent:'Sem relações registadas'}));
           }
           const rlSubEl = document.getElementById('kpi-relacoes-sub');
-          if(rlSubEl){
-            const mates = (rlCounts['mate']||0);
-            const children = (rlCounts['child']||0);
-            rlSubEl.textContent = mates ? mates+' laços conjugais' : (children ? children+' filiações':'');
-          }
+          if(rlSubEl) rlSubEl.textContent = families.length + ' família' + (families.length!==1?'s':'');
         }
 
         // ── Top Nomes helper ──────────────────────────────────────────
-        function buildTopNamesChart(canvasId, gender, color){
+        function buildTopNamesChart(canvasId, sex, color){
           const nameCounts = {};
-          pessoas.forEach(p=>{
-            const g=(p.gender||'').toLowerCase();
-            if(gender==='male'   && g!=='male')   return;
-            if(gender==='female' && g!=='female') return;
-            let fn=(p.firstName||'').trim();
-            if(!fn){ const full=(p.fullName||p.name||'').trim(); fn=full.split(/\s+/)[0]||''; }
+          pessoas.forEach(p => {
+            if(sex && p.sex !== sex) return;
+            const fn = DB.getGivenName(p);
             if(!fn) return;
-            nameCounts[fn.toLowerCase()]=(nameCounts[fn.toLowerCase()]||0)+1;
+            // Use first token of given name
+            const first = fn.split(/\s+/)[0].toLowerCase();
+            if(first) nameCounts[first] = (nameCounts[first]||0)+1;
           });
           const items = topN(nameCounts, 8);
           if(items.length){
@@ -568,17 +553,16 @@
             if(el) el.replaceWith(Object.assign(document.createElement('p'),{className:'no-data',textContent:'Sem dados'}));
           }
         }
-        buildTopNamesChart('chartNomesM','male','#5294e2');
-        buildTopNamesChart('chartNomesF','female','#ef799e');
+        buildTopNamesChart('chartNomesM','M','#5294e2');
+        buildTopNamesChart('chartNomesF','F','#ef799e');
 
         // ── Top Apelidos ──────────────────────────────────────────────
         {
           const snCounts = {};
-          pessoas.forEach(p=>{
-            let sn=(p.lastName||'').trim();
-            if(!sn){ const full=(p.fullName||p.name||'').trim(); const parts=full.split(/\s+/); if(parts.length>1) sn=parts[parts.length-1]; }
-            if(!sn||sn.length<2) return;
-            snCounts[sn.toLowerCase()]=(snCounts[sn.toLowerCase()]||0)+1;
+          pessoas.forEach(p => {
+            const sn = DB.getSurname(p);
+            if(!sn || sn.length < 2) return;
+            snCounts[sn.toLowerCase()] = (snCounts[sn.toLowerCase()]||0)+1;
           });
           const items = topN(snCounts, 8);
           if(items.length){
@@ -604,19 +588,17 @@
 
         // ── Longevidade ───────────────────────────────────────────────
         {
-          const birthYearMap = {};
-          const deathYearMap = {};
-          evBirth.forEach(ev=>{ if(ev.personId){ const yr=safeYear(ev.date); if(yr) birthYearMap[ev.personId]=yr; } });
-          evDeath.forEach(ev=>{ if(ev.personId){ const yr=safeYear(ev.date); if(yr) deathYearMap[ev.personId]=yr; } });
-          pessoas.forEach(p=>{
-            if(p.birthDate && !birthYearMap[p.id]){ const yr=safeYear(p.birthDate); if(yr) birthYearMap[p.id]=yr; }
-            if(p.deathDate && !deathYearMap[p.id]){ const yr=safeYear(p.deathDate); if(yr) deathYearMap[p.id]=yr; }
-          });
           const ages = [];
-          Object.keys(birthYearMap).forEach(pid=>{
-            if(deathYearMap[pid]){
-              const age = deathYearMap[pid]-birthYearMap[pid];
-              if(age>=0 && age<130) ages.push(age);
+          pessoas.forEach(p => {
+            const bev = DB.getBirthEvent(p);
+            const dev = DB.getDeathEvent(p);
+            if(bev && dev && bev.date && dev.date){
+              const by = safeYear(bev.date);
+              const dy = safeYear(dev.date);
+              if(by && dy){
+                const age = dy - by;
+                if(age >= 0 && age < 130) ages.push(age);
+              }
             }
           });
           const mediaEl = document.getElementById('longi-media');
@@ -659,12 +641,10 @@
         // ── Óbitos por Década ─────────────────────────────────────────
         {
           const deathYrs = [];
-          const seenDeath = new Set();
-          evDeath.forEach(ev=>{ const yr=safeYear(ev.date); if(yr){ deathYrs.push(yr); if(ev.personId) seenDeath.add(ev.personId); } });
-          pessoas.forEach(p=>{ if(!seenDeath.has(p.id)){ const yr=safeYear(p.deathDate); if(yr) deathYrs.push(yr); } });
+          evDeath.forEach(ev => { const yr = safeYear(ev.date); if(yr) deathYrs.push(yr); });
           const counts={};
-          deathYrs.forEach(yr=>{ const dec=Math.floor(yr/10)*10; counts[dec]=(counts[dec]||0)+1; });
-          const decades=Object.keys(counts).map(Number).sort((a,b)=>a-b);
+          deathYrs.forEach(yr => { const dec = Math.floor(yr/10)*10; counts[dec] = (counts[dec]||0)+1; });
+          const decades = Object.keys(counts).map(Number).sort((a,b)=>a-b);
           const obitosEl = document.getElementById('chartObitos');
           if(decades.length && obitosEl){
             mkChart('chartObitos','bar',{

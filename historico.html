@@ -276,9 +276,10 @@
       </main>
     </div>
 
+    <script src="remote-storage.js"></script>
     <script>
       /* ── config ──────────────────────────────────────────────────────── */
-      const HIST_KEY = 'history:myLineage';
+      const DB = window.GedcomDB;
 
       const CAT_META = {
         pessoas:    { icon: 'mdi-account-multiple',    label: 'Pessoas' },
@@ -294,16 +295,6 @@
       /* ── state ───────────────────────────────────────────────────────── */
       let activeCategory = 'all';
       let searchQuery    = '';
-
-      /* ── data helpers ────────────────────────────────────────────────── */
-      function getHistory() {
-        try { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); }
-        catch (e) { return []; }
-      }
-
-      function clearHistory() {
-        localStorage.removeItem(HIST_KEY);
-      }
 
       /* ── date helpers ────────────────────────────────────────────────── */
       const MONTHS = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
@@ -329,7 +320,7 @@
 
       /* ── render ──────────────────────────────────────────────────────── */
       function render() {
-        const all      = getHistory();
+        const all      = DB.getHistory();
         const q        = searchQuery.trim().toLowerCase();
         const filtered = all.filter(e => {
           if (activeCategory !== 'all' && e.category !== activeCategory) return false;
@@ -410,17 +401,12 @@
       /* ── clear ───────────────────────────────────────────────────────── */
       document.getElementById('clearBtn').addEventListener('click', function () {
         if (!confirm('Apagar todo o histórico de acções? Esta operação não pode ser desfeita.')) return;
-        clearHistory();
+        DB.clearHistory();
         render();
       });
 
       /* ── init ────────────────────────────────────────────────────────── */
       render();
-
-      // refresh if localStorage changes from another tab
-      window.addEventListener('storage', function (e) {
-        if (e.key === HIST_KEY) render();
-      });
     </script>
   </body>
 </html>

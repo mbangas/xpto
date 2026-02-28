@@ -593,36 +593,51 @@
 
     <script>
       document.getElementById('year').textContent = new Date().getFullYear();
+      const DB = window.GedcomDB;
       // Quick stats
       try {
-        const people   = JSON.parse(localStorage.getItem('people:myLineage')   || '[]').filter(p  => !p.deletedAt);
-        const events   = JSON.parse(localStorage.getItem('events:myLineage')   || '[]').filter(ev => !ev.deletedAt);
-        const relations= JSON.parse(localStorage.getItem('relations:myLineage')|| '[]');
-        const births   = events.filter(e => (e.type||'').toUpperCase() === 'BIRTH');
-        document.getElementById('stat-pessoas').textContent    = people.length;
-        document.getElementById('stat-eventos').textContent    = events.length;
-        document.getElementById('stat-relacoes').textContent   = relations.length;
-        document.getElementById('stat-nascimentos').textContent= births.length;
+        const people   = DB.getIndividuals();
+        const families = DB.getFamilies();
+        const media    = DB.getMultimedia();
+
+        // Count events and births across all individuals
+        let totalEvents = 0, totalBirths = 0;
+        people.forEach(p => {
+          const evs = p.events || [];
+          totalEvents += evs.length;
+          if (evs.some(e => e.type === 'BIRT')) totalBirths++;
+        });
+        // Count relations = families * average links
+        const totalRelations = families.reduce((a, f) => a + (f.husb ? 1 : 0) + (f.wife ? 1 : 0) + (f.children || []).length, 0);
+
+        document.getElementById('stat-pessoas').textContent     = people.length;
+        document.getElementById('stat-eventos').textContent      = totalEvents;
+        document.getElementById('stat-relacoes').textContent     = totalRelations;
+        document.getElementById('stat-nascimentos').textContent  = totalBirths;
 
         // Aniversários — próximos 3 de pessoas vivas
-        const deathIds = new Set(events.filter(e => (e.type||'').toUpperCase() === 'DEATH').map(e => e.personId));
-        const living   = people.filter(p => !deathIds.has(p.id));
+        const living = people.filter(p => !DB.getDeathEvent(p));
+        const GEDCOM_MONTHS = {JAN:0,FEB:1,MAR:2,APR:3,MAY:4,JUN:5,JUL:6,AUG:7,SEP:8,OCT:9,NOV:10,DEC:11};
+        function parseGedcomDate(d) {
+          if (!d) return null;
+          const m = String(d).match(/(?:(\d{1,2})\s+)?(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{3,4})/i);
+          if (!m) return null;
+          return { day: m[1] ? parseInt(m[1]) : 1, month: GEDCOM_MONTHS[m[2].toUpperCase()], year: parseInt(m[3]) };
+        }
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const today = new Date(); today.setHours(0,0,0,0);
         const upcoming = [];
         living.forEach(p => {
-          const birth = events.find(e => e.personId === p.id && (e.type||'').toUpperCase() === 'BIRTH');
-          if (!birth || !birth.date) return;
-          const bd = new Date(birth.date);
-          if (isNaN(bd)) return;
-          const birthYear = bd.getFullYear();
-          let next = new Date(today.getFullYear(), bd.getMonth(), bd.getDate());
-          next.setHours(0, 0, 0, 0);
-          if (next < today) next = new Date(today.getFullYear() + 1, bd.getMonth(), bd.getDate());
+          const bev = DB.getBirthEvent(p);
+          if (!bev || !bev.date) return;
+          const bd = parseGedcomDate(bev.date);
+          if (!bd || bd.month === undefined) return;
+          let next = new Date(today.getFullYear(), bd.month, bd.day);
+          next.setHours(0,0,0,0);
+          if (next < today) next = new Date(today.getFullYear() + 1, bd.month, bd.day);
           const daysUntil   = Math.round((next - today) / 86400000);
-          const ageWillTurn = next.getFullYear() - birthYear;
-          const name = [p.firstName, p.lastName].filter(Boolean).join(' ') || '(sem nome)';
+          const ageWillTurn = next.getFullYear() - bd.year;
+          const name = DB.getDisplayName(p);
           upcoming.push({ name, daysUntil, ageWillTurn, next });
         });
         upcoming.sort((a, b) => a.daysUntil - b.daysUntil);
@@ -644,7 +659,7 @@
             </div>`;
           }).join('');
         }
-      } catch(e) {}
+      } catch(e) { console.error(e); }
     </script>
     <script src="history-logger.js"></script>
   </body>

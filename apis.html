@@ -38,6 +38,7 @@
       }
       .method-get    { background: rgba(80,200,120,0.18); color: #50c878; }
       .method-post   { background: rgba(100,160,255,0.18); color: #64a0ff; }
+      .method-put    { background: rgba(255,180,50,0.18); color: #f0a030; }
       .method-delete { background: rgba(255,90,90,0.18); color: #ff5a5a; }
       .endpoint-code {
         font-family: monospace;
@@ -133,157 +134,220 @@
             Referência das APIs REST disponíveis no servidor local (<code>server.js</code>). Pode testar cada endpoint diretamente aqui.
           </p>
 
-          <!-- ── Data API ─────────────────────────────────────────── -->
+          <!-- ── Entity CRUD APIs ───────────────────────────────── -->
           <div class="api-section">
-            <h2><i class="mdi mdi-database" style="margin-right:6px;"></i>API de Dados — <code style="font-size:0.9em;">/api/data</code></h2>
+            <h2><i class="mdi mdi-database" style="margin-right:6px;"></i>Entidades GEDCOM 7 — CRUD</h2>
+            <hr class="section-divider">
+            <p style="color:var(--text-secondary);margin:0 0 14px 0;font-size:0.88rem;">
+              Cada entidade segue o mesmo padrão CRUD. Os dados são guardados como mapas <code>id → objeto</code> em ficheiros JSON dentro de <code>JSON-DATA/</code>.
+              O <em>soft-delete</em> preenche <code>deletedAt</code> sem apagar o registo. Use <code>?includeDeleted=true</code> no GET para incluir eliminados.
+            </p>
+            <table class="api-table">
+              <thead>
+                <tr>
+                  <th style="width:90px;">Método</th>
+                  <th style="width:280px;">Endpoint</th>
+                  <th>Descrição</th>
+                  <th style="width:80px;">Testar</th>
+                </tr>
+              </thead>
+              <tbody id="crudRows"></tbody>
+            </table>
+          </div>
+
+          <!-- ── Utility APIs ────────────────────────────────────── -->
+          <div class="api-section">
+            <h2><i class="mdi mdi-cog-outline" style="margin-right:6px;"></i>APIs Utilitárias</h2>
             <hr class="section-divider">
             <table class="api-table">
               <thead>
                 <tr>
                   <th style="width:90px;">Método</th>
-                  <th style="width:260px;">Endpoint</th>
+                  <th style="width:280px;">Endpoint</th>
                   <th>Descrição</th>
                   <th style="width:80px;">Testar</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><span class="method-badge method-get">GET</span></td>
-                  <td><span class="endpoint-code">/api/data</span></td>
-                  <td>Lista todas as chaves (ficheiros JSON) guardados em <code>JSON-DATA/</code>.</td>
-                  <td><button class="try-btn" onclick="tryApi('GET','/api/data')">Testar</button></td>
+                  <td><span class="method-badge method-post">POST</span></td>
+                  <td><span class="endpoint-code">/api/bulk-replace</span></td>
+                  <td>Substitui colecções inteiras de uma só vez. Corpo: <code>{ individuals, families, sources, … }</code>.</td>
+                  <td></td>
                 </tr>
                 <tr>
                   <td><span class="method-badge method-get">GET</span></td>
-                  <td><span class="endpoint-code">/api/data/<em>:key</em></span></td>
-                  <td>Devolve o conteúdo JSON do ficheiro com a chave indicada.</td>
-                  <td>
-                    <div class="input-row">
-                      <input id="key-get" type="text" placeholder="chave" />
-                      <button class="try-btn" onclick="tryApiKey('GET','/api/data/','key-get')">Testar</button>
-                    </div>
-                  </td>
+                  <td><span class="endpoint-code">/api/header</span></td>
+                  <td>Devolve o cabeçalho GEDCOM (versão, charset, fonte).</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/header')">Testar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="method-badge method-put">PUT</span></td>
+                  <td><span class="endpoint-code">/api/header</span></td>
+                  <td>Actualiza o cabeçalho GEDCOM.</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td><span class="method-badge method-get">GET</span></td>
+                  <td><span class="endpoint-code">/api/settings</span></td>
+                  <td>Devolve as definições da aplicação (photoBase, docBase, focusedPerson, …).</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/settings')">Testar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="method-badge method-put">PUT</span></td>
+                  <td><span class="endpoint-code">/api/settings</span></td>
+                  <td>Actualiza (merge) definições. Corpo: <code>{ key: value, … }</code>.</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td><span class="method-badge method-get">GET</span></td>
+                  <td><span class="endpoint-code">/api/history</span></td>
+                  <td>Devolve o histórico de acções (array, máx. 500 entradas, mais recente primeiro).</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/history')">Testar</button></td>
                 </tr>
                 <tr>
                   <td><span class="method-badge method-post">POST</span></td>
-                  <td><span class="endpoint-code">/api/data/<em>:key</em></span></td>
-                  <td>Cria ou substitui o ficheiro JSON para a chave indicada. O corpo do pedido deve ser JSON.</td>
-                  <td>
-                    <div class="input-row">
-                      <input id="key-post" type="text" placeholder="chave" />
-                      <input id="body-post" type="text" placeholder='{"exemplo":1}' style="min-width:140px;" />
-                      <button class="try-btn" onclick="tryPost()">Testar</button>
-                    </div>
-                  </td>
+                  <td><span class="endpoint-code">/api/history</span></td>
+                  <td>Adiciona entradas ao histórico (prepend). Corpo: objecto ou array de objectos.</td>
+                  <td></td>
                 </tr>
                 <tr>
                   <td><span class="method-badge method-delete">DELETE</span></td>
-                  <td><span class="endpoint-code">/api/data/<em>:key</em></span></td>
-                  <td>Remove o ficheiro JSON da chave indicada de <code>JSON-DATA/</code>.</td>
-                  <td>
-                    <div class="input-row">
-                      <input id="key-del" type="text" placeholder="chave" />
-                      <button class="try-btn" onclick="tryApiKey('DELETE','/api/data/','key-del')">Testar</button>
-                    </div>
-                  </td>
+                  <td><span class="endpoint-code">/api/history</span></td>
+                  <td>Limpa todo o histórico.</td>
+                  <td><button class="try-btn" onclick="tryApi('DELETE','/api/history')">Testar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="method-badge method-get">GET</span></td>
+                  <td><span class="endpoint-code">/api/stats</span></td>
+                  <td>Estatísticas agregadas: contagens de indivíduos, famílias, nascimentos, óbitos, casamentos, etc.</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/stats')">Testar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="method-badge method-get">GET</span></td>
+                  <td><span class="endpoint-code">/api/gedcom/export</span></td>
+                  <td>Exporta todos os dados como texto GEDCOM 7 (<code>text/plain</code>).</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/gedcom/export')">Testar</button></td>
+                </tr>
+                <tr>
+                  <td><span class="method-badge method-post">POST</span></td>
+                  <td><span class="endpoint-code">/api/gedcom/import</span></td>
+                  <td>Importa um ficheiro GEDCOM. Corpo: <code>{ text: "…" }</code>. Devolve <code>{ ok, stats, warnings }</code>.</td>
+                  <td></td>
+                </tr>
+                <tr>
+                  <td><span class="method-badge method-get">GET</span></td>
+                  <td><span class="endpoint-code">/api/topola-json</span></td>
+                  <td>Devolve os dados no formato JSON esperado pelo Topola (visualização em árvore).</td>
+                  <td><button class="try-btn" onclick="tryApi('GET','/api/topola-json')">Testar</button></td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <!-- ── Remote Storage API ─────────────────────────────── -->
+          <!-- ── GedcomDB Client API ─────────────────────────────── -->
           <div class="api-section">
-            <h2><i class="mdi mdi-cloud-outline" style="margin-right:6px;"></i>Remote Storage — <code style="font-size:0.9em;">remote-storage.js</code></h2>
+            <h2><i class="mdi mdi-language-javascript" style="margin-right:6px;"></i>GedcomDB — <code style="font-size:0.9em;">remote-storage.js</code></h2>
             <hr class="section-divider">
             <p style="color:var(--text-secondary);margin:0 0 14px 0;font-size:0.88rem;">
-              Shim que sincroniza o <code>localStorage</code> do browser com o servidor. É carregado antes de qualquer outro script e intercepta <code>setItem</code> / <code>removeItem</code>.
+              Módulo cliente (<code>window.GedcomDB</code>) que carrega todos os dados de forma síncrona ao inicializar e mantém cache em memória.
+              As escritas são enviadas de forma assíncrona para o servidor. Todas as páginas usam <code>const DB = window.GedcomDB;</code>.
             </p>
             <table class="api-table">
               <thead>
                 <tr>
-                  <th style="width:200px;">Função</th>
+                  <th style="width:320px;">Método</th>
                   <th>Descrição</th>
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td><code>remoteGet(key)</code></td>
-                  <td>Lê o valor JSON guardado para <em>key</em> via <code>GET /api/data/:key</code>. Devolve <code>null</code> se não existir.</td>
-                </tr>
-                <tr>
-                  <td><code>remoteSet(key, value)</code></td>
-                  <td>Guarda o valor JSON para <em>key</em> via <code>POST /api/data/:key</code>.</td>
-                </tr>
-                <tr>
-                  <td><code>remoteRemove(key)</code></td>
-                  <td>Elimina a entrada para <em>key</em> via <code>DELETE /api/data/:key</code>.</td>
-                </tr>
-                <tr>
-                  <td><code>remoteKeys()</code></td>
-                  <td>Devolve a lista de todas as chaves via <code>GET /api/data</code>.</td>
-                </tr>
+                <tr><td><code>DB.getIndividuals()</code></td><td>Array de todos os indivíduos (INDI) activos.</td></tr>
+                <tr><td><code>DB.getIndividual(id)</code></td><td>Devolve um indivíduo pelo <code>id</code> ou <code>null</code>.</td></tr>
+                <tr><td><code>DB.saveIndividual(data)</code></td><td>Cria ou actualiza um indivíduo. Devolve o registo guardado.</td></tr>
+                <tr><td><code>DB.deleteIndividual(id)</code></td><td>Soft-delete de um indivíduo.</td></tr>
+                <tr><td><code>DB.getFamilies()</code></td><td>Array de todas as famílias (FAM) activas.</td></tr>
+                <tr><td><code>DB.saveFamily(data)</code></td><td>Cria ou actualiza uma família.</td></tr>
+                <tr><td><code>DB.deleteFamily(id)</code></td><td>Soft-delete de uma família.</td></tr>
+                <tr><td><code>DB.getMultimedia()</code></td><td>Array de todos os objectos multimédia (OBJE) activos.</td></tr>
+                <tr><td><code>DB.saveMultimedia(data)</code></td><td>Cria ou actualiza um objecto multimédia.</td></tr>
+                <tr><td><code>DB.deleteMultimedia(id)</code></td><td>Soft-delete de um objecto multimédia.</td></tr>
+                <tr><td><code>DB.getSources() / getNotes() / …</code></td><td>Padrão idêntico para Sources, Notes, Repositories, Submitters.</td></tr>
+                <tr><td><code>DB.getDisplayName(indi)</code></td><td>Nome completo formatado (<code>given + surname</code>).</td></tr>
+                <tr><td><code>DB.getGivenName(indi)</code></td><td>Primeiro nome (nome próprio).</td></tr>
+                <tr><td><code>DB.getSurname(indi)</code></td><td>Apelido (nome de família).</td></tr>
+                <tr><td><code>DB.getBirthEvent(indi)</code></td><td>Evento BIRT do indivíduo ou <code>null</code>.</td></tr>
+                <tr><td><code>DB.getDeathEvent(indi)</code></td><td>Evento DEAT do indivíduo ou <code>null</code>.</td></tr>
+                <tr><td><code>DB.getEvent(indi, type)</code></td><td>Primeiro evento do tipo especificado ou <code>null</code>.</td></tr>
+                <tr><td><code>DB.extractYear(dateStr)</code></td><td>Extrai o ano numérico de uma data GEDCOM (ex: <code>"1 JAN 1980"</code> → <code>1980</code>).</td></tr>
+                <tr><td><code>DB.formatDate(dateStr)</code></td><td>Formata uma data GEDCOM para exibição.</td></tr>
+                <tr><td><code>DB.computeAge(birthDate, refDate)</code></td><td>Calcula a idade entre duas datas GEDCOM.</td></tr>
+                <tr><td><code>DB.getParents(id)</code></td><td>Array de IDs dos progenitores de um indivíduo.</td></tr>
+                <tr><td><code>DB.getChildren(id)</code></td><td>Array de IDs dos filhos de um indivíduo.</td></tr>
+                <tr><td><code>DB.getSpouses(id)</code></td><td>Array de IDs dos cônjuges de um indivíduo.</td></tr>
+                <tr><td><code>DB.getSiblings(id)</code></td><td>Array de IDs dos irmãos de um indivíduo.</td></tr>
+                <tr><td><code>DB.getMultimediaForIndividual(id)</code></td><td>Array de OBJE ligados ao indivíduo (via <code>multimediaRefs</code>).</td></tr>
+                <tr><td><code>DB.getThumbnailForPerson(id)</code></td><td>URL da primeira imagem disponível para o indivíduo ou <code>null</code>.</td></tr>
+                <tr><td><code>DB.getSetting(key)</code></td><td>Lê uma definição (<code>photoBase</code>, <code>docBase</code>, <code>focusedPerson</code>, …).</td></tr>
+                <tr><td><code>DB.setSetting(key, value)</code></td><td>Guarda uma definição no servidor.</td></tr>
+                <tr><td><code>DB.getHistory()</code></td><td>Array do histórico de acções.</td></tr>
+                <tr><td><code>DB.addHistory(entry)</code></td><td>Adiciona uma entrada ao histórico.</td></tr>
+                <tr><td><code>DB.clearHistory()</code></td><td>Limpa o histórico.</td></tr>
+                <tr><td><code>DB.bulkReplace(data)</code></td><td>Substitui colecções inteiras (usado na importação GEDCOM).</td></tr>
+                <tr><td><code>DB.reload()</code></td><td>Recarrega todos os dados do servidor.</td></tr>
+                <tr><td><code>DB.genderPlaceholder(sex)</code></td><td>SVG placeholder colorido conforme o sexo (<code>'M'</code>/<code>'F'</code>/<code>'X'</code>).</td></tr>
               </tbody>
             </table>
           </div>
 
-          <!-- ── localStorage Keys ──────────────────────────────── -->
+          <!-- ── Data Model ──────────────────────────────────────── -->
           <div class="api-section">
-            <h2><i class="mdi mdi-database-outline" style="margin-right:6px;"></i>Chaves localStorage / JSON-DATA</h2>
+            <h2><i class="mdi mdi-file-tree" style="margin-right:6px;"></i>Modelo de Dados — GEDCOM 7</h2>
             <hr class="section-divider">
             <p style="color:var(--text-secondary);margin:0 0 14px 0;font-size:0.88rem;">
-              Todas as chaves são persistidas em <code>JSON-DATA/</code> via <code>remote-storage.js</code>. O nome do ficheiro é <code>encodeURIComponent(key) + .json</code>.
+              Estrutura dos registos armazenados em <code>JSON-DATA/</code>. Cada ficheiro JSON contém um mapa <code>{ id: record, … }</code>.
             </p>
             <table class="api-table">
               <thead>
                 <tr>
-                  <th style="width:260px;">Chave</th>
-                  <th>Conteúdo</th>
-                  <th style="width:90px;">Testar</th>
+                  <th style="width:160px;">Entidade</th>
+                  <th>Campos principais</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
-                  <td><span class="endpoint-code">people:myLineage</span></td>
-                  <td>Array de pessoas — cada objeto tem <code>id</code>, <code>firstName</code>, <code>lastName</code>, <code>gender</code>, <code>notes</code>, <code>createdAt</code>, <code>updatedAt</code>, <code>deletedAt</code>.</td>
-                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/people%3AmyLineage')">Testar</button></td>
+                  <td><code>Individual (INDI)</code></td>
+                  <td><code>id</code>, <code>type:'INDI'</code>, <code>names:[{given, surname, prefix, suffix}]</code>, <code>sex</code> (M/F/U), <code>events:[{type, date, place, notes}]</code>, <code>attributes:[]</code>, <code>famc</code>, <code>fams:[]</code>, <code>notes:[]</code>, <code>sourceRefs:[]</code>, <code>multimediaRefs:[]</code></td>
                 </tr>
                 <tr>
-                  <td><span class="endpoint-code">events:myLineage</span></td>
-                  <td>Array de eventos — <code>id</code>, <code>personId</code>, <code>type</code> (BIRTH, BAPTISM, MARRIAGE, DEATH, …), <code>date</code>, <code>location</code>, <code>notes</code>.</td>
-                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/events%3AmyLineage')">Testar</button></td>
+                  <td><code>Family (FAM)</code></td>
+                  <td><code>id</code>, <code>type:'FAM'</code>, <code>husb</code>, <code>wife</code>, <code>children:[]</code>, <code>events:[{type, date, place}]</code>, <code>notes:[]</code>, <code>sourceRefs:[]</code>, <code>multimediaRefs:[]</code></td>
                 </tr>
                 <tr>
-                  <td><span class="endpoint-code">relations:myLineage</span></td>
-                  <td>Array de relações — <code>from</code>, <code>to</code>, <code>type</code> (parent, child, sibling, spouse, …).</td>
-                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/relations%3AmyLineage')">Testar</button></td>
+                  <td><code>Source (SOUR)</code></td>
+                  <td><code>id</code>, <code>type:'SOUR'</code>, <code>title</code>, <code>author</code>, <code>publication</code>, <code>abbreviation</code>, <code>text</code>, <code>repositoryRef</code>, <code>callNumber</code>, <code>notes:[]</code>, <code>multimediaRefs:[]</code></td>
                 </tr>
                 <tr>
-                  <td><span class="endpoint-code">photos:myLineage</span></td>
-                  <td>Array de fotografias — <code>id</code>, <code>name</code>, <code>baseCopyName</code>, <code>originalDataUrl</code>, <code>notes</code>, <code>tags</code> (identificações com <code>bbox</code> e <code>personId</code>), <code>createdAt</code>.</td>
-                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/photos%3AmyLineage')">Testar</button></td>
+                  <td><code>Repository (REPO)</code></td>
+                  <td><code>id</code>, <code>type:'REPO'</code>, <code>name</code>, <code>address:{addr, city, state, postal, country}</code>, <code>phone</code>, <code>email</code>, <code>web</code></td>
                 </tr>
                 <tr>
-                  <td><span class="endpoint-code">photoRelations:myLineage</span></td>
-                  <td>Objeto de mapeamento <code>personId → [photoId, …]</code> — associação entre pessoas e fotos.</td>
-                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/photoRelations%3AmyLineage')">Testar</button></td>
+                  <td><code>Multimedia (OBJE)</code></td>
+                  <td><code>id</code>, <code>type:'OBJE'</code>, <code>files:[{file, form}]</code>, <code>dataUrl</code>, <code>tags:[{bbox, personName}]</code>, <code>notes:[]</code>, <code>sourceRefs:[]</code></td>
                 </tr>
                 <tr>
-                  <td><span class="endpoint-code">photoBase:myLineage</span></td>
-                  <td>Objeto com a configuração da Biblioteca de Fotos: <code>folder</code>, <code>files</code> (contagem), <code>when</code> (ISO).</td>
-                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/photoBase%3AmyLineage')">Testar</button></td>
+                  <td><code>Note (NOTE)</code></td>
+                  <td><code>id</code>, <code>type:'NOTE'</code>, <code>text</code>, <code>sourceRefs:[]</code></td>
                 </tr>
                 <tr>
-                  <td><span class="endpoint-code">docBase:myLineage</span></td>
-                  <td>Objeto com a configuração da Biblioteca de Documentos: <code>folder</code>, <code>files</code> (contagem), <code>when</code> (ISO).</td>
-                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/docBase%3AmyLineage')">Testar</button></td>
-                </tr>
-                <tr>
-                  <td><span class="endpoint-code">focusedPerson:myLineage</span></td>
-                  <td>Objeto da pessoa em foco: <code>id</code>, <code>name</code>, <code>when</code>.</td>
-                  <td><button class="try-btn" onclick="tryApi('GET','/api/data/focusedPerson%3AmyLineage')">Testar</button></td>
+                  <td><code>Submitter (SUBM)</code></td>
+                  <td><code>id</code>, <code>type:'SUBM'</code>, <code>name</code>, <code>address:{…}</code>, <code>phone</code>, <code>email</code>, <code>web</code>, <code>language</code></td>
                 </tr>
               </tbody>
             </table>
+            <p style="color:var(--text-secondary);margin:14px 0 0 0;font-size:0.82rem;">
+              Tipos de evento: <code>BIRT</code> (nascimento), <code>DEAT</code> (óbito), <code>MARR</code> (casamento), <code>DIV</code> (divórcio), <code>BAPM</code> (baptismo), <code>CHR</code> (crisma), <code>BURI</code> (enterro), <code>EMIG</code> (emigração), <code>IMMI</code> (imigração), <code>CENS</code> (censo), <code>ADOP</code> (adopção), etc.
+              Datas no formato GEDCOM: <code>"1 JAN 1980"</code>, <code>"ABT 1920"</code>, <code>"BEF 1 MAR 1850"</code>.
+            </p>
           </div>
 
           <!-- ── IndexedDB Handles ───────────────────────────────── -->
@@ -323,6 +387,59 @@
     </div>
 
     <script>
+      /* ── Build CRUD rows for each entity collection ──────────────── */
+      (function(){
+        const entities = [
+          { name:'individuals', label:'Indivíduos',  prefix:'I' },
+          { name:'families',    label:'Famílias',     prefix:'F' },
+          { name:'sources',     label:'Fontes',       prefix:'S' },
+          { name:'repositories',label:'Repositórios', prefix:'R' },
+          { name:'multimedia',  label:'Multimédia',   prefix:'M' },
+          { name:'notes',       label:'Notas',        prefix:'N' },
+          { name:'submitters',  label:'Submitters',   prefix:'U' }
+        ];
+        const tbody = document.getElementById('crudRows');
+        entities.forEach(e => {
+          tbody.innerHTML += `
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td><span class="endpoint-code">/api/${e.name}</span></td>
+            <td>Lista todos os registos de <strong>${e.label}</strong> activos. <code>?includeDeleted=true</code> para incluir eliminados.</td>
+            <td><button class="try-btn" onclick="tryApi('GET','/api/${e.name}')">Testar</button></td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-get">GET</span></td>
+            <td><span class="endpoint-code">/api/${e.name}/:id</span></td>
+            <td>Devolve um registo de ${e.label} pelo <code>id</code>.</td>
+            <td>
+              <div class="input-row">
+                <input id="get-${e.name}" type="text" placeholder="${e.prefix}1" style="min-width:80px;" />
+                <button class="try-btn" onclick="tryApiKey('GET','/api/${e.name}/','get-${e.name}')">Testar</button>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-post">POST</span></td>
+            <td><span class="endpoint-code">/api/${e.name}</span></td>
+            <td>Cria um novo registo de ${e.label}. Corpo: JSON do registo.</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-put">PUT</span></td>
+            <td><span class="endpoint-code">/api/${e.name}/:id</span></td>
+            <td>Actualiza um registo existente de ${e.label}.</td>
+            <td></td>
+          </tr>
+          <tr>
+            <td><span class="method-badge method-delete">DELETE</span></td>
+            <td><span class="endpoint-code">/api/${e.name}/:id</span></td>
+            <td>Soft-delete de um registo de ${e.label}.</td>
+            <td></td>
+          </tr>`;
+        });
+      })();
+
+      /* ── Test helpers ───────────────────────────────────────────── */
       async function tryApi(method, url) {
         try {
           const res = await fetch(url, { method });
@@ -337,30 +454,8 @@
 
       async function tryApiKey(method, base, inputId) {
         const key = document.getElementById(inputId).value.trim();
-        if (!key) { alert('Introduza uma chave.'); return; }
+        if (!key) { alert('Introduza um identificador.'); return; }
         await tryApi(method, base + encodeURIComponent(key));
-      }
-
-      async function tryPost() {
-        const key  = document.getElementById('key-post').value.trim();
-        const body = document.getElementById('body-post').value.trim();
-        if (!key)  { alert('Introduza uma chave.'); return; }
-        if (!body) { alert('Introduza o corpo JSON.'); return; }
-        let parsed;
-        try { parsed = JSON.parse(body); } catch(_) { alert('Corpo inválido — deve ser JSON válido.'); return; }
-        try {
-          const res = await fetch('/api/data/' + encodeURIComponent(key), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(parsed)
-          });
-          const text = await res.text();
-          let formatted = text;
-          try { formatted = JSON.stringify(JSON.parse(text), null, 2); } catch(_) {}
-          showResponse(res.status, formatted);
-        } catch(e) {
-          showResponse('ERR', String(e));
-        }
       }
 
       function showResponse(status, body) {

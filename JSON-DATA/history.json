@@ -1,5 +1,77 @@
 [
   {
+    "timestamp": "2026-02-28T11:43:29.032Z",
+    "entity": "Individual",
+    "action": "delete",
+    "id": "I444",
+    "description": "Indivíduo I444",
+    "detail": "delete indivíduo I444"
+  },
+  {
+    "timestamp": "2026-02-28T11:43:21.401Z",
+    "entity": "Individual",
+    "action": "delete",
+    "id": "37c742bd-5fda-49fc-9bf0-e9d9dde0b6ee",
+    "description": "Indivíduo 37c742bd-5fda-49fc-9bf0-e9d9dde0b6ee",
+    "detail": "delete indivíduo 37c742bd-5fda-49fc-9bf0-e9d9dde0b6ee"
+  },
+  {
+    "timestamp": "2026-02-28T11:43:02.679Z",
+    "entity": "Family",
+    "action": "update",
+    "id": "F25",
+    "description": "Família F25",
+    "detail": "update família F25"
+  },
+  {
+    "timestamp": "2026-02-28T11:43:02.677Z",
+    "entity": "Family",
+    "action": "create",
+    "id": "F25",
+    "description": "Família F25",
+    "detail": "create família F25"
+  },
+  {
+    "timestamp": "2026-02-28T11:43:02.678Z",
+    "entity": "Individual",
+    "action": "create",
+    "id": "I444",
+    "description": "Indivíduo: xxx yyy",
+    "detail": "create indivíduo I444"
+  },
+  {
+    "timestamp": "2026-02-28T11:43:02.678Z",
+    "entity": "Individual",
+    "action": "update",
+    "id": "I500215",
+    "description": "Indivíduo: Henrique Vaz",
+    "detail": "update indivíduo I500215"
+  },
+  {
+    "timestamp": "2026-02-28T11:41:10.976Z",
+    "entity": "Individual",
+    "action": "delete",
+    "id": "I372",
+    "description": "Indivíduo I372",
+    "detail": "delete indivíduo I372"
+  },
+  {
+    "timestamp": "2026-02-28T11:40:34.187Z",
+    "entity": "Family",
+    "action": "update",
+    "id": "F29",
+    "description": "Família F29",
+    "detail": "update família F29"
+  },
+  {
+    "timestamp": "2026-02-28T11:40:34.186Z",
+    "entity": "Individual",
+    "action": "create",
+    "id": "I372",
+    "description": "Indivíduo: xxx yyy",
+    "detail": "create indivíduo I372"
+  },
+  {
     "timestamp": "2026-02-28T11:35:26.009Z",
     "entity": "Individual",
     "action": "delete",

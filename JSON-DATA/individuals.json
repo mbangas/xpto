@@ -53879,7 +53879,7 @@
       }
     ],
     "attributes": [],
-    "famc": null,
+    "famc": "F25",
     "fams": [
       "F500091"
     ],
@@ -53895,7 +53895,7 @@
     ],
     "multimediaRefs": [],
     "createdAt": "2026-02-28T01:52:55.104Z",
-    "updatedAt": "2026-02-28T01:52:55.104Z",
+    "updatedAt": "2026-02-28T11:43:03.852Z",
     "deletedAt": null
   },
   "I500216": {
@@ -73011,5 +73011,51 @@
     "createdAt": "2026-02-28T11:35:11.101Z",
     "updatedAt": "2026-02-28T11:35:27.168Z",
     "deletedAt": "2026-02-28T11:35:27.168Z"
+  },
+  "I372": {
+    "id": "I372",
+    "type": "INDI",
+    "names": [
+      {
+        "given": "xxx",
+        "surname": "yyy",
+        "type": "birth"
+      }
+    ],
+    "sex": "M",
+    "events": [],
+    "attributes": [],
+    "famc": "F29",
+    "fams": [],
+    "notes": "",
+    "sourceRefs": [],
+    "multimediaRefs": [],
+    "createdAt": "2026-02-28T11:40:34.186Z",
+    "updatedAt": "2026-02-28T11:41:12.123Z",
+    "deletedAt": "2026-02-28T11:41:12.123Z"
+  },
+  "I444": {
+    "id": "I444",
+    "type": "INDI",
+    "names": [
+      {
+        "given": "xxx",
+        "surname": "yyy",
+        "type": "birth"
+      }
+    ],
+    "sex": "M",
+    "events": [],
+    "attributes": [],
+    "famc": null,
+    "fams": [
+      "F25"
+    ],
+    "notes": "",
+    "sourceRefs": [],
+    "multimediaRefs": [],
+    "createdAt": "2026-02-28T11:43:02.678Z",
+    "updatedAt": "2026-02-28T11:43:30.165Z",
+    "deletedAt": "2026-02-28T11:43:30.165Z"
   }
 }

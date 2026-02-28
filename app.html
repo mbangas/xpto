@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Cadastro de Pessoas</title>
+    <title>myLineage — Cadastro</title>
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
     <style>
@@ -37,71 +37,42 @@
       </aside>
       <main class="content">
         <div class="topbar">
-          <div style="display:flex;align-items:center;gap:12px"><h1>Cadastro de Pessoas</h1></div>
+          <div style="display:flex;align-items:center;gap:12px"><h1>Cadastro</h1></div>
+          <button class="btn btn-sm" id="newPersonBtn"><i class="mdi mdi-account-plus-outline"></i> Nova Pessoa</button>
         </div>
-        <div class="main-grid">
-          <div class="table-panel card">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0;">
-                <div style="display:flex;gap:12px;align-items:center;">
-                    <div style="display:flex;align-items:center;gap:6px;">
-                      <input type="text" id="nameFilter" placeholder="Filtrar por nome..." style="padding:8px 10px;border-radius:8px;border:1px solid rgba(163,163,255,0.06);background:transparent;color:var(--text-main);" />
-                      <button id="nameSearchBtn" class="icon-btn" type="button" title="Pesquisar"><i class="mdi mdi-magnify" aria-hidden="true"></i></button>
-                    </div>
-                  </div>
-              </div>
-          <div>
-            <label><input type="checkbox" id="hideDeleted" checked /> Ocultar registros excluídos</label>
-          </div>
-          <table id="peopleTable">
-          <thead>
-            <tr>
-              <th>Nome</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-        <div id="paginationControls" style="color:var(--text-secondary);margin-top:12px;"></div>
-      </div>
-      <div class="form-panel card" id="formPanel" style="display:none;">
-        <div class="accordion">
-          <div class="accordion-card" id="cardDados">
-            <button type="button" class="accordion-header" data-target="contentDados"><span>Dados Pessoais</span><span class="accordion-arrow"><i class="mdi mdi-chevron-down" aria-hidden="true"></i></span></button>
-            <div class="accordion-content" id="contentDados">
-              <form id="personForm">
-                <input type="hidden" id="indiId" />
-                <div>
-                  <label for="firstName">First Name</label>
-                  <input type="text" id="firstName" name="firstName" required />
-                </div>
-                <div>
-                  <label for="lastName">Last Name</label>
-                  <input type="text" id="lastName" name="lastName" required />
-                </div>
-                <div>
-                  <label for="gender">Gender</label>
-                  <select id="gender" name="gender">
-                    <option value="">-- selecione --</option>
-                    <option value="M">Masculino</option>
-                    <option value="F">Feminino</option>
-                    <option value="X">Outro</option>
-                  </select>
-                </div>
-                <div class="full">
-                  <label for="notes">Notes</label>
-                  <textarea id="notes" name="notes"></textarea>
-                </div>
-                <div id="ageInfo"></div>
-                <div class="full" style="display:flex;gap:8px;flex-wrap:wrap;">
-                  <button type="submit" id="saveBtn" class="btn">Salvar</button>
-                  <button type="button" id="resetBtn" class="btn btn-ghost">Limpar</button>
-                </div>
-              </form>
+        <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
+
+          <!-- Toolbar -->
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <div style="position:relative;flex:1;min-width:160px;max-width:320px;">
+              <i class="mdi mdi-magnify" style="position:absolute;left:10px;top:50%;transform:translateY(-50%);color:var(--text-disabled);font-size:1rem;pointer-events:none;"></i>
+              <input id="nameFilter" type="search" placeholder="Pesquisar por nome…" autocomplete="off"
+                style="width:100%;padding:7px 12px 7px 34px;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius-sm);color:var(--text-main);font-size:0.85rem;font-family:var(--font-main);outline:none;transition:border-color var(--transition);" />
             </div>
+            <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--text-secondary);cursor:pointer;user-select:none;white-space:nowrap;">
+              <input type="checkbox" id="hideDeleted" checked /> Ocultar eliminados
+            </label>
           </div>
-        </div>
-        <div id="datesInfo" style="font-size:0.85em;color:#666;margin-top:16px;text-align:right;"></div>
-      </div>
+
+          <!-- Summary -->
+          <div id="tableSummary" style="font-size:0.78rem;color:var(--text-disabled);"></div>
+
+          <!-- Table card -->
+          <div class="card" style="padding:0;overflow:hidden;gap:0;">
+            <table id="peopleTable">
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Nascimento</th>
+                  <th>Idade</th>
+                  <th style="text-align:right;">Acções</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+            <div id="paginationControls" style="padding:10px 20px;border-top:1px solid var(--border-subtle);min-height:42px;"></div>
+          </div>
+
         </div>
       </main>
     </div>
@@ -183,17 +154,6 @@
         return d.getDate().toString().padStart(2,'0')+'-'+(d.getMonth()+1).toString().padStart(2,'0')+'-'+d.getFullYear();
       }
 
-      /* ── Accordion ────────────────────────────────────────────────────── */
-      const formPanel = document.getElementById('formPanel');
-      function showFormPanel(show){ formPanel.style.display = show ? 'block' : 'none'; }
-      function openAccordion(id){ const el=document.getElementById(id); if(!el) return; el.style.display='block'; if(el.parentElement) el.parentElement.classList.add('open'); }
-      function closeAccordion(id){ const el=document.getElementById(id); if(!el) return; el.style.display='none'; if(el.parentElement) el.parentElement.classList.remove('open'); }
-      function toggleAccordion(id){ const el=document.getElementById(id); if(!el) return; if(el.style.display==='block') closeAccordion(id); else openAccordion(id); }
-      document.addEventListener('click',function(e){ const btn=e.target.closest&&e.target.closest('.accordion-header'); if(btn&&btn.dataset&&btn.dataset.target) toggleAccordion(btn.dataset.target); });
-
-      showFormPanel(false);
-      closeAccordion('contentDados');
-
       /* ── Pagination + filter ──────────────────────────────────────────── */
       let currentPage = 1;
       const PAGE_SIZE = 10;
@@ -203,8 +163,7 @@
         const ctrl=document.getElementById('paginationControls');
         if(!ctrl) return;
         if(totalPages<=1){ ctrl.innerHTML=''; return; }
-        ctrl.style.whiteSpace='nowrap'; ctrl.style.display='inline-flex'; ctrl.style.alignItems='center'; ctrl.style.gap='6px';
-        ctrl.innerHTML='<button id="prevPage" '+(currentPage<=1?'disabled':'')+' class="icon-btn" aria-label="Página anterior"><i class="mdi mdi-chevron-left"></i></button><span>Página '+currentPage+' de '+totalPages+'</span><button id="nextPage" '+(currentPage>=totalPages?'disabled':'')+' class="icon-btn" aria-label="Próxima página"><i class="mdi mdi-chevron-right"></i></button>';
+        ctrl.innerHTML='<div style="display:flex;align-items:center;gap:6px;"><button id="prevPage" '+(currentPage<=1?'disabled':'')+' class="icon-btn" aria-label="Página anterior"><i class="mdi mdi-chevron-left"></i></button><span style="font-size:0.82rem;color:var(--text-secondary);">Página '+currentPage+' de '+totalPages+'</span><button id="nextPage" '+(currentPage>=totalPages?'disabled':'')+' class="icon-btn" aria-label="Próxima página"><i class="mdi mdi-chevron-right"></i></button></div>';
         const prev=document.getElementById('prevPage'), next=document.getElementById('nextPage');
         if(prev) prev.addEventListener('click',function(){ if(currentPage>1){ currentPage--; renderTable(); }});
         if(next) next.addEventListener('click',function(){ if(currentPage<totalPages){ currentPage++; renderTable(); }});
@@ -220,6 +179,11 @@
           if(!currentFilter) return true;
           return DB.getDisplayName(indi).toLowerCase().indexOf(currentFilter)!==-1;
         });
+        const summaryEl=document.getElementById('tableSummary');
+        if(summaryEl){
+          const total=DB.getIndividuals(false).filter(i=>!i.deletedAt).length;
+          summaryEl.textContent=filtered.length===0?'Sem registos':`${filtered.length} ${filtered.length===1?'pessoa':'pessoas'}${filtered.length!==total?' (filtrado de '+total+' no total)':''}`;
+        }
         const totalPages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));
         if(currentPage>totalPages) currentPage=totalPages;
         const start=(currentPage-1)*PAGE_SIZE;
@@ -227,76 +191,59 @@
           const tr=document.createElement('tr');
           if(indi.deletedAt) tr.classList.add('deleted');
           const name=_esc(DB.getDisplayName(indi));
-          tr.innerHTML='<td><a href="#" class="person-link" data-id="'+indi.id+'">'+name+'</a></td><td class="actions"><button data-id="'+indi.id+'" class="tree-focus" title="Ver na Árvore" style="background:none;border:none;cursor:pointer;padding:0;"><i class="mdi mdi-sitemap" style="font-size:1.2em;"></i></button></td>';
+          const avatarBg=indi.sex==='F'?'#e26aa6':indi.sex==='M'?'#4493f8':'#555';
+          const avatarChar=indi.sex==='F'?'♀':indi.sex==='M'?'♂':'?';
+          const birth=DB.getBirthEvent(indi);
+          const death=DB.getDeathEvent(indi);
+          const birthParsed=birth&&birth.date?parseGedcomDate(birth.date):null;
+          const deathParsed=death&&death.date?parseGedcomDate(death.date):null;
+          const birthYear=(birthParsed&&birthParsed.year)||null;
+          const age=birthParsed?_calcAge(birthParsed, deathParsed):null;
+          const agePillBg=indi.deletedAt?'rgba(248,81,73,0.18)':(death?'rgba(255,255,255,0.07)':avatarBg.replace(')',',0.18)').replace('#e26aa6','rgba(226,106,166,0.18)').replace('#4493f8','rgba(68,147,248,0.18)').replace('#555','rgba(85,85,85,0.18)'));
+          const agePillColor=indi.deletedAt?'var(--red)':(death?'var(--text-secondary)':avatarBg);
+          const agePillIcon=death?'✝':'♥';
+          const ageHTML=age!=null
+            ?`<div style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;background:${agePillBg};border:1px solid ${agePillColor}33;">
+                <span style="font-size:0.65rem;color:${agePillColor};">${agePillIcon}</span>
+                <span style="font-size:0.82rem;font-weight:600;color:${agePillColor};font-variant-numeric:tabular-nums;">${age}</span>
+                <span style="font-size:0.7rem;color:${agePillColor};opacity:0.7;">anos</span>
+               </div>`
+            :'<span style="color:var(--text-disabled);font-size:0.82rem;">—</span>';
+          tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:10px;"><div style="width:28px;height:28px;border-radius:50%;background:${avatarBg};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;color:#fff;font-weight:600;">${avatarChar}</div><a href="#" class="person-link" data-id="${indi.id}" style="font-weight:500;">${name}</a></div></td><td style="color:var(--text-secondary);font-size:0.82rem;font-variant-numeric:tabular-nums;">${birthYear||'—'}</td><td>${ageHTML}</td><td style="text-align:right;" class="actions"><button data-id="${indi.id}" class="tree-focus icon-btn" title="Ver na Árvore"><i class="mdi mdi-sitemap"></i></button></td>`;
           tbody.appendChild(tr);
         });
         renderPagination(totalPages);
       }
 
-      /* ── Search ────────────────────────────────────────────────────────── */
+      function _parseYear(dateStr){
+        if(!dateStr) return null;
+        const m=dateStr.match(/\b(\d{3,4})\b/);
+        return m?parseInt(m[1]):null;
+      }
+
+      /* Exact age in completed years from a parsed birth to a parsed or current date */
+      function _calcAge(birthP, refP){
+        if(!birthP||!birthP.year) return null;
+        const now=new Date();
+        const refYear  = refP&&refP.year  ? refP.year  : now.getFullYear();
+        const refMonth = refP&&refP.month ? refP.month : now.getMonth()+1;
+        const refDay   = refP&&refP.day   ? refP.day   : now.getDate();
+        const bYear  = birthP.year;
+        const bMonth = birthP.month||1;   // if unknown assume Jan (most conservative)
+        const bDay   = birthP.day  ||1;
+        let age = refYear - bYear;
+        // subtract 1 if birthday hasn't occurred yet in the reference year
+        if(refMonth < bMonth || (refMonth===bMonth && refDay < bDay)) age--;
+        return age>=0?age:null;
+      }
+
+      /* ── Search + nova pessoa ─────────────────────────────────────────── */
       (function(){
-        const btn=document.getElementById('nameSearchBtn'),input=document.getElementById('nameFilter');
-        if(btn&&input){
-          btn.addEventListener('click',function(){ currentFilter=(input.value||'').toLowerCase().trim(); currentPage=1; renderTable(); });
-          input.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); currentFilter=(this.value||'').toLowerCase().trim(); currentPage=1; renderTable(); }});
-        }
+        const input=document.getElementById('nameFilter');
+        if(input) input.addEventListener('input',function(){ currentFilter=this.value.toLowerCase().trim(); currentPage=1; renderTable(); });
+        const nb=document.getElementById('newPersonBtn');
+        if(nb) nb.addEventListener('click',function(){ openDrawer('create'); });
       })();
-
-      /* ── Form panel submit ─────────────────────────────────────────────── */
-      function resetForm(){
-        document.getElementById('personForm').reset();
-        document.getElementById('indiId').value='';
-        const a=document.getElementById('ageInfo'); if(a) a.textContent='';
-      }
-
-      function showDatesInfo(indi){
-        const el=document.getElementById('datesInfo');
-        if(!el) return;
-        if(!indi){ el.innerHTML=''; return; }
-        let h='';
-        if(indi.createdAt) h+='<div>Criado em: '+formatISODate(indi.createdAt)+'</div>';
-        if(indi.updatedAt) h+='<div>Atualizado em: '+formatISODate(indi.updatedAt)+'</div>';
-        if(indi.deletedAt) h+='<div>Excluído em: '+formatISODate(indi.deletedAt)+'</div>';
-        el.innerHTML=h;
-      }
-
-      function editPersonInForm(id){
-        const indi=DB.getIndividual(id);
-        if(!indi) return alert('Registro não encontrado');
-        document.getElementById('indiId').value=indi.id;
-        document.getElementById('firstName').value=DB.getGivenName(indi);
-        document.getElementById('lastName').value=DB.getSurname(indi);
-        document.getElementById('gender').value=indi.sex||'';
-        document.getElementById('notes').value=indi.notes||'';
-        showDatesInfo(indi);
-        const birth=DB.getBirthEvent(indi), death=DB.getDeathEvent(indi);
-        const ageEl=document.getElementById('ageInfo');
-        if(birth&&birth.date){
-          const age=DB.computeAge(birth.date, death?death.date:null);
-          ageEl.textContent=age==null?'':(death?'Idade ao falecer: '+age+' anos':'Idade: '+age+' anos');
-        } else if(ageEl) ageEl.textContent='';
-        showFormPanel(true);
-        openAccordion('contentDados');
-      }
-
-      document.getElementById('personForm').addEventListener('submit',function(e){
-        e.preventDefault();
-        const id=document.getElementById('indiId').value;
-        const given=document.getElementById('firstName').value.trim();
-        const surname=document.getElementById('lastName').value.trim();
-        const sex=document.getElementById('gender').value;
-        const notes=document.getElementById('notes').value;
-        const existing=id?DB.getIndividual(id):null;
-        const data=existing?{...existing}:{};
-        data.names=[{given:given,surname:surname,type:'birth'}];
-        data.sex=sex||'U';
-        data.notes=notes;
-        if(id) data.id=id;
-        DB.saveIndividual(data);
-        renderTable(); resetForm(); showDatesInfo(); showFormPanel(false); closeAccordion('contentDados');
-      });
-
-      document.getElementById('resetBtn').addEventListener('click',function(){ resetForm(); showDatesInfo(); showFormPanel(false); closeAccordion('contentDados'); });
 
       /* ── Table click handlers ──────────────────────────────────────────── */
       document.getElementById('peopleTable').addEventListener('click',function(e){

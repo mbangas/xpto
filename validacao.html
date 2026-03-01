@@ -409,20 +409,58 @@
     </div>
 
     <script>
-    // ── Data helpers ────────────────────────────────────────────────────────
-    function getPeople()    { try{ const r=localStorage.getItem('people:myLineage');    return r?JSON.parse(r):[]; }catch(e){ return []; } }
-    function getRelations() { try{ const r=localStorage.getItem('relations:myLineage'); return r?JSON.parse(r):[]; }catch(e){ return []; } }
-    function getEvents()    { try{ const r=localStorage.getItem('events:myLineage');    return r?JSON.parse(r):[]; }catch(e){ return []; } }
+    // ── Data helpers (GEDCOM 7 model via GedcomDB) ────────────────────────
+    function getIndividuals() { return window.GedcomDB ? GedcomDB.getIndividuals() : []; }
+    function getFamilies()    { return window.GedcomDB ? GedcomDB.getFamilies()    : []; }
 
-    function personName(p){ return (((p.firstName||'')+' '+(p.lastName||'')).trim()) || ('<id:'+p.id+'>'); }
-    function personLink(p){ const n=personName(p); const id=p.id.replace(/\\/g,'\\\\').replace(/'/g,"\\'"); return `<a class="person-link" href="#" onclick="event.preventDefault();openDrawer('edit','${id}')" title="Editar Pessoa">${esc(n)}</a>`; }
+    function personName(p) { return window.GedcomDB ? GedcomDB.getDisplayName(p) : (String(p&&p.id||'?')); }
+    function personLink(p) {
+      const n = personName(p);
+      const id = esc(String(p.id || ''));
+      return `<a class="person-link" href="app.html#${id}" title="Ver em Cadastro">${esc(n)}</a>`;
+    }
     function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
-    // Parse a rough year from an event with dateYear / date fields
-    function eventYear(ev){
-      if(ev.dateYear) return parseInt(ev.dateYear,10);
-      if(ev.date){ const m=String(ev.date).match(/^(\d{4})/); if(m) return parseInt(m[1],10); }
-      return null;
+    // Extract year from a GEDCOM date string e.g. "2 FEB 1962", "ABT 1920", "1985"
+    function eventYear(ev) {
+      if (!ev) return null;
+      return window.GedcomDB ? GedcomDB.extractYear(ev.date || '') : null;
+    }
+
+    // Get all individual events of a given GEDCOM type
+    function indiEventsOf(indi, type) {
+      return (indi.events || []).filter(e => e.type === type);
+    }
+
+    // Get first year of a specific event type for an individual
+    function indiYear(indi, type) {
+      const evs = indiEventsOf(indi, type);
+      return evs.length ? eventYear(evs[0]) : null;
+    }
+
+    // Get marriage year from all families an individual belongs to as spouse
+    function spouseMarriageYears(indi, famMap) {
+      const years = [];
+      (indi.fams || []).forEach(fid => {
+        const fam = famMap[fid];
+        if (!fam || fam.deletedAt) return;
+        (fam.events || []).filter(e => e.type === 'MARR').forEach(e => {
+          const y = eventYear(e);
+          if (y !== null) years.push(y);
+        });
+      });
+      return years;
+    }
+
+    // Compatibility shim — drawer code still references these legacy helpers
+    function getEvents() { return []; }
+    function getPeople() {
+      if (!window.GedcomDB) return [];
+      return GedcomDB.getIndividuals().map(p => {
+        const nm = (p.names && p.names[0]) || {};
+        return { id: p.id, firstName: nm.given||'', lastName: nm.surname||'',
+                 gender: p.sex==='M'?'male':p.sex==='F'?'female':'', deletedAt: p.deletedAt||null };
+      });
     }
 
     // ── Filter state ─────────────────────────────────────────────────────────
@@ -446,47 +484,48 @@
     // ── Global issues storage ─────────────────────────────────────────────────
     let allIssues = [];
 
-    // ── Main validation engine ────────────────────────────────────────────────
+    // ── Main validation engine (GEDCOM 7) ────────────────────────────────────
     function runValidation(){
-      const people    = getPeople();
-      const relations = getRelations();
-      const events    = getEvents();
-      const issues    = [];
+      const individuals = getIndividuals();
+      const families    = getFamilies();
+      const issues      = [];
 
-      // Active (non-deleted) people map
-      const active = people.filter(p => !p.deletedAt);
-      const activeIds = new Set(active.map(p=>String(p.id)));
-      const peopleMap = {};
-      people.forEach(p=>{ peopleMap[String(p.id)]=p; });
+      // Build maps
+      const indiMap = {};
+      individuals.forEach(p => { indiMap[p.id] = p; });
+      const famMap = {};
+      families.forEach(f => { famMap[f.id] = f; });
 
-      // Active events
-      const activeEvents = events.filter(e=>!e.deletedAt);
+      const active     = individuals.filter(p => !p.deletedAt);
+      const activeIds  = new Set(active.map(p => String(p.id)));
+      const activeFams = families.filter(f => !f.deletedAt);
+
+      const currentYear = new Date().getFullYear();
 
       // ── Functional checks ─────────────────────────────────────────────────
 
-      // F1 – Person without first name or only `<desconhecido>`
-      active.forEach(p=>{
-        const fn=(p.firstName||'').trim();
-        const ln=(p.lastName||'').trim();
-        const isUnknown = fn==='<desconhecido>'||fn==='desconhecido'||fn==='';
-        if(isUnknown){
+      // F1 – Person without a given name
+      active.forEach(p => {
+        const nm = (p.names && p.names[0]) || {};
+        const given = (nm.given || '').trim();
+        const surname = (nm.surname || '').trim();
+        const isUnknown = given === '' || given.toLowerCase() === '<desconhecido>' || given.toLowerCase() === 'desconhecido';
+        if (isUnknown) {
           issues.push({
-            tipo:'funcional', severidade:'aviso',
-            codigo:'F1',
+            tipo:'funcional', severidade:'aviso', codigo:'F1',
             titulo:'Pessoa sem nome identificado',
-            descricao:`A pessoa <b>${esc(fn||ln||'(sem nome)')}</b> não tem nome definido. Pode comprometer a apresentação na árvore.`,
+            descricao:`A pessoa <b>${esc(surname || p.id)}</b> não tem nome próprio definido. Pode comprometer a apresentação na árvore.`,
             pessoa: p,
             sugestao:'Atualizar o nome no Cadastro.'
           });
         }
       });
 
-      // F2 – Person without gender
-      active.forEach(p=>{
-        if(!p.gender||p.gender===''){
+      // F2 – Gender not defined
+      active.forEach(p => {
+        if (!p.sex || p.sex === 'U' || p.sex === '') {
           issues.push({
-            tipo:'funcional', severidade:'info',
-            codigo:'F2',
+            tipo:'funcional', severidade:'info', codigo:'F2',
             titulo:'Género não definido',
             descricao:`${personLink(p)} não tem género definido. A árvore usa o género para colorir e posicionar nós.`,
             pessoa: p,
@@ -495,133 +534,95 @@
         }
       });
 
-      // F3 – Child without any parent
-      active.forEach(p=>{
-        const ancestors = relations.filter(r=>String(r.from)===String(p.id)&&r.type==='ancestor'&&activeIds.has(String(r.to)));
-        const isRoot = relations.filter(r=>String(r.to)===String(p.id)&&r.type==='child'&&activeIds.has(String(r.from))).length === 0;
-        // Only flag if they also have no ancestor relations at all AND are not an orphan root consciously
-        if(ancestors.length===0 && isRoot){
-          // Has at least one child or sibling? Then flagging as isolated root could be noise; only flag if completely isolated
-          const hasSomething = relations.some(r=>(String(r.from)===String(p.id)||String(r.to)===String(p.id))&&activeIds.has(String(r.from))&&activeIds.has(String(r.to)));
-          if(!hasSomething && active.length > 1){
+      // F3 – Person without any family connection
+      if (active.length > 1) {
+        active.forEach(p => {
+          const hasFamily = p.famc || (p.fams && p.fams.length > 0);
+          if (!hasFamily) {
             issues.push({
-              tipo:'funcional', severidade:'info',
-              codigo:'F3',
+              tipo:'funcional', severidade:'info', codigo:'F3',
               titulo:'Pessoa sem ligações familiares',
-              descricao:`${personLink(p)} não tem qualquer relação com outros membros. Não aparecerá na árvore.`,
+              descricao:`${personLink(p)} não pertence a nenhuma família. Não aparecerá na árvore.`,
               pessoa: p,
-              sugestao:'Adicionar relações (progenitor, filho, irmão ou cônjuge) no Cadastro.'
+              sugestao:'Adicionar relações (progenitor, filho ou cônjuge) no Cadastro.'
             });
           }
-        }
-      });
-
-      // F4 – More than 2 parents
-      active.forEach(p=>{
-        const parents = relations.filter(r=>String(r.from)===String(p.id)&&r.type==='ancestor'&&activeIds.has(String(r.to)));
-        if(parents.length>2){
-          issues.push({
-            tipo:'funcional', severidade:'erro',
-            codigo:'F4',
-            titulo:'Mais de 2 progenitores',
-            descricao:`${personLink(p)} tem ${parents.length} progenitores registados. Uma pessoa não pode ter mais de 2 progenitores biológicos.`,
-            pessoa: p,
-            sugestao:'Revisar e remover relações de ascendência redundantes.'
-          });
-        }
-      });
+        });
+      }
 
       // F5 – Birth after death
-      active.forEach(p=>{
-        const births = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='BIRTH');
-        const deaths = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='DEATH');
-        births.forEach(b=>{
-          deaths.forEach(d=>{
-            const by=eventYear(b), dy=eventYear(d);
-            if(by!==null&&dy!==null&&by>dy){
-              issues.push({
-                tipo:'funcional', severidade:'erro',
-                codigo:'F5',
-                titulo:'Data de nascimento posterior à morte',
-                descricao:`${personLink(p)} tem nascimento em <b>${by}</b> mas morte em <b>${dy}</b>.`,
-                pessoa: p,
-                sugestao:'Corrigir as datas dos eventos de nascimento ou morte.'
-              });
-            }
+      active.forEach(p => {
+        const by = indiYear(p, 'BIRT');
+        const dy = indiYear(p, 'DEAT');
+        if (by !== null && dy !== null && by > dy) {
+          issues.push({
+            tipo:'funcional', severidade:'erro', codigo:'F5',
+            titulo:'Data de nascimento posterior à morte',
+            descricao:`${personLink(p)} tem nascimento em <b>${by}</b> mas morte em <b>${dy}</b>.`,
+            pessoa: p,
+            sugestao:'Corrigir as datas dos eventos de nascimento ou morte.'
           });
-        });
+        }
       });
 
       // F6 – Birth in the future
-      const currentYear = new Date().getFullYear();
-      active.forEach(p=>{
-        const births = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='BIRTH');
-        births.forEach(b=>{
-          const by=eventYear(b);
-          if(by!==null&&by>currentYear){
+      active.forEach(p => {
+        const by = indiYear(p, 'BIRT');
+        if (by !== null && by > currentYear) {
+          issues.push({
+            tipo:'funcional', severidade:'aviso', codigo:'F6',
+            titulo:'Nascimento no futuro',
+            descricao:`${personLink(p)} tem data de nascimento em <b>${by}</b>, que é posterior ao ano atual (${currentYear}).`,
+            pessoa: p,
+            sugestao:'Verificar se o ano foi introduzido corretamente.'
+          });
+        }
+      });
+
+      // F7 – Age over 120 years (alive)
+      active.forEach(p => {
+        const by = indiYear(p, 'BIRT');
+        const dy = indiYear(p, 'DEAT');
+        if (by !== null && dy === null) {
+          const age = currentYear - by;
+          if (age > 120) {
             issues.push({
-              tipo:'funcional', severidade:'aviso',
-              codigo:'F6',
-              titulo:'Nascimento no futuro',
-              descricao:`${personLink(p)} tem data de nascimento em <b>${by}</b>, que é posterior ao ano atual (${currentYear}).`,
+              tipo:'funcional', severidade:'aviso', codigo:'F7',
+              titulo:'Idade implausível (> 120 anos)',
+              descricao:`${personLink(p)} nasceu em <b>${by}</b> e não tem registo de falecimento, o que implicaria ${age} anos de vida.`,
               pessoa: p,
-              sugestao:'Verificar se o ano foi introduzido corretamente.'
+              sugestao:'Verificar se falta registar um evento de falecimento.'
             });
           }
-        });
+        }
       });
 
-      // F7 – Age over 120 years
-      active.forEach(p=>{
-        const births = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='BIRTH');
-        const deaths = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='DEATH');
-        const isAlive = deaths.length===0;
-        births.forEach(b=>{
-          const by=eventYear(b);
-          if(by!==null){
-            const age = isAlive ? currentYear-by : null;
-            if(age!==null&&age>120){
-              issues.push({
-                tipo:'funcional', severidade:'aviso',
-                codigo:'F7',
-                titulo:'Idade implausível (> 120 anos)',
-                descricao:`${personLink(p)} nasceu em <b>${by}</b> e não tem registo de falecimento, o que implicaria ${age} anos de vida.`,
-                pessoa: p,
-                sugestao:'Verificar se falta registar um evento de falecimento.'
-              });
-            }
-          }
-        });
-      });
-
-      // F8 – Child born before parent
-      active.forEach(p=>{
-        const childBirths = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='BIRTH');
-        const childYear = childBirths.length>0?eventYear(childBirths[0]):null;
-        if(childYear===null) return;
-        const parents = relations.filter(r=>String(r.from)===String(p.id)&&r.type==='ancestor'&&activeIds.has(String(r.to)));
-        parents.forEach(rel=>{
-          const par=peopleMap[String(rel.to)];
-          if(!par||par.deletedAt) return;
-          const parBirths=activeEvents.filter(e=>String(e.personId)===String(par.id)&&e.type==='BIRTH');
-          if(!parBirths.length) return;
-          const parYear=eventYear(parBirths[0]);
-          if(parYear===null) return;
-          if(childYear<=parYear){
+      // F8 / F8b – Child born before/same year as parent, or parent too young
+      active.forEach(p => {
+        const childYear = indiYear(p, 'BIRT');
+        if (childYear === null) return;
+        if (!p.famc) return;
+        const fam = famMap[p.famc];
+        if (!fam || fam.deletedAt) return;
+        [fam.husb, fam.wife].forEach(parId => {
+          if (!parId) return;
+          const par = indiMap[parId];
+          if (!par || par.deletedAt) return;
+          const parYear = indiYear(par, 'BIRT');
+          if (parYear === null) return;
+          if (childYear <= parYear) {
             issues.push({
-              tipo:'funcional', severidade:'erro',
-              codigo:'F8',
+              tipo:'funcional', severidade:'erro', codigo:'F8',
               titulo:'O(A) filho(a) é mais velho(a) do que o progenitor',
               descricao:`${personLink(p)} (nascimento <b>${childYear}</b>) foi registado como filho de ${personLink(par)} (nascimento <b>${parYear}</b>).`,
               pessoa: p,
               sugestao:'Verificar as datas ou a relação de descendência.'
             });
-          } else if(childYear-parYear<16){
+          } else if (childYear - parYear < 16) {
             issues.push({
-              tipo:'funcional', severidade:'aviso',
-              codigo:'F8b',
+              tipo:'funcional', severidade:'aviso', codigo:'F8b',
               titulo:'Progenitor demasiado jovem quando teve um filho',
-              descricao:`${personLink(par)} teria apenas <b>${childYear-parYear} anos</b> quando ${personLink(p)} nasceu.`,
+              descricao:`${personLink(par)} teria apenas <b>${childYear - parYear} anos</b> quando ${personLink(p)} nasceu.`,
               pessoa: par,
               sugestao:'Verificar as datas ou a relação de descendência.'
             });
@@ -630,15 +631,14 @@
       });
 
       // F9 – Multiple birth or death events
-      active.forEach(p=>{
-        ['BIRTH','DEATH'].forEach(evType=>{
-          const evs=activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type===evType);
-          if(evs.length>1){
+      active.forEach(p => {
+        ['BIRT','DEAT'].forEach(evType => {
+          const evs = indiEventsOf(p, evType);
+          if (evs.length > 1) {
             issues.push({
-              tipo:'funcional', severidade:'aviso',
-              codigo:'F9',
-              titulo:`Múltiplos eventos de ${evType==='BIRTH'?'nascimento':'falecimento'}`,
-              descricao:`${personLink(p)} tem <b>${evs.length}</b> eventos de ${evType==='BIRTH'?'nascimento':'falecimento'} registados.`,
+              tipo:'funcional', severidade:'aviso', codigo:'F9',
+              titulo:`Múltiplos eventos de ${evType === 'BIRT' ? 'nascimento' : 'falecimento'}`,
+              descricao:`${personLink(p)} tem <b>${evs.length}</b> eventos de ${evType === 'BIRT' ? 'nascimento' : 'falecimento'} registados.`,
               pessoa: p,
               sugestao:'Manter apenas um evento de nascimento e um de falecimento por pessoa.'
             });
@@ -646,24 +646,18 @@
         });
       });
 
-      // ── Functional checks (continued) ──────────────────────────────────────
-
       // F10 – Event occurring before person's birth
-      active.forEach(p=>{
-        const births = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='BIRTH');
-        if(!births.length) return;
-        const birthYear = eventYear(births[0]);
-        if(birthYear===null) return;
-        const typeLabels={DEATH:'Óbito',MARRIAGE:'Casamento',BAPTISM:'Batismo',DIVORCE:'Divórcio',ADOPTION:'Adoção',CUSTOM:'Outro'};
-        const otherEvs = activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type!=='BIRTH');
-        otherEvs.forEach(ev=>{
-          const evYear=eventYear(ev);
-          if(evYear===null) return;
-          if(evYear<birthYear){
-            const lbl=typeLabels[ev.type]||ev.type;
+      active.forEach(p => {
+        const birthYear = indiYear(p, 'BIRT');
+        if (birthYear === null) return;
+        const typeLabels = { DEAT:'Óbito', MARR:'Casamento', BAPM:'Batismo', DIV:'Divórcio', ADOP:'Adoção', BURI:'Sepultamento' };
+        (p.events || []).filter(e => e.type !== 'BIRT').forEach(ev => {
+          const evYear = eventYear(ev);
+          if (evYear === null) return;
+          if (evYear < birthYear) {
+            const lbl = typeLabels[ev.type] || ev.type;
             issues.push({
-              tipo:'funcional', severidade:'erro',
-              codigo:'F10',
+              tipo:'funcional', severidade:'erro', codigo:'F10',
               titulo:'O facto ocorreu antes do nascimento',
               descricao:`${personLink(p)} tem um evento de <b>${esc(lbl)}</b> em <b>${evYear}</b>, anterior ao seu nascimento em <b>${birthYear}</b>.`,
               pessoa: p,
@@ -673,38 +667,36 @@
         });
       });
 
-      // F11 – Siblings with very close ages (< 9 months apart)
-      const siblingGroups = new Map();
-      active.forEach(p=>{
-        const parents = relations.filter(r=>String(r.from)===String(p.id)&&r.type==='ancestor'&&activeIds.has(String(r.to)));
-        if(!parents.length) return;
-        const parentKey = parents.map(r=>String(r.to)).sort().join('|');
-        if(!siblingGroups.has(parentKey)) siblingGroups.set(parentKey,[]);
-        siblingGroups.get(parentKey).push(String(p.id));
-      });
-      siblingGroups.forEach(sibIds=>{
-        if(sibIds.length<2) return;
-        const sibBirths = sibIds.map(id=>{
-          const p=peopleMap[id]; if(!p||p.deletedAt) return null;
-          const evs=activeEvents.filter(e=>String(e.personId)===id&&e.type==='BIRTH');
-          if(!evs.length) return null;
-          return {p, year:eventYear(evs[0]), month:evs[0].dateMonth||null};
-        }).filter(x=>x&&x.year!==null);
-        for(let i=0;i<sibBirths.length;i++){
-          for(let j=i+1;j<sibBirths.length;j++){
-            const a=sibBirths[i], b=sibBirths[j];
-            const yearDiff=Math.abs(a.year-b.year);
-            let tooClose=false;
-            if(yearDiff===0) tooClose=true;
-            else if(yearDiff===1&&a.month!==null&&b.month!==null){
-              const earlier=a.year<b.year?a.month:b.month;
-              const later=a.year<b.year?b.month:a.month;
-              if((12-earlier)+later<9) tooClose=true;
+      // F11 – Siblings with very close ages (< 9 months)
+      activeFams.forEach(fam => {
+        const children = (fam.children || []).map(cid => indiMap[cid]).filter(c => c && !c.deletedAt);
+        if (children.length < 2) return;
+        const sibBirths = children.map(c => {
+          const evs = indiEventsOf(c, 'BIRT');
+          if (!evs.length) return null;
+          const year = eventYear(evs[0]);
+          if (year === null) return null;
+          // Try to extract month from GEDCOM date string
+          const dateStr = evs[0].date || '';
+          const months = { JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12 };
+          const mMatch = dateStr.match(/\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b/);
+          const month = mMatch ? months[mMatch[1]] : null;
+          return { p: c, year, month };
+        }).filter(Boolean);
+        for (let i = 0; i < sibBirths.length; i++) {
+          for (let j = i + 1; j < sibBirths.length; j++) {
+            const a = sibBirths[i], b = sibBirths[j];
+            const yearDiff = Math.abs(a.year - b.year);
+            let tooClose = false;
+            if (yearDiff === 0) tooClose = true;
+            else if (yearDiff === 1 && a.month !== null && b.month !== null) {
+              const earlier = a.year < b.year ? a.month : b.month;
+              const later   = a.year < b.year ? b.month : a.month;
+              if ((12 - earlier) + later < 9) tooClose = true;
             }
-            if(tooClose&&!issues.some(x=>x.codigo==='F11'&&x.pessoa&&String(x.pessoa.id)===String(a.p.id)&&x.descricao.includes(personName(b.p)))){
+            if (tooClose && !issues.some(x => x.codigo === 'F11' && x.pessoa && x.pessoa.id === a.p.id && x.descricao.includes(personName(b.p)))) {
               issues.push({
-                tipo:'funcional', severidade:'aviso',
-                codigo:'F11',
+                tipo:'funcional', severidade:'aviso', codigo:'F11',
                 titulo:'Irmãos com idade muito próxima',
                 descricao:`${personLink(a.p)} e ${personLink(b.p)} são irmãos com datas de nascimento com menos de 9 meses de diferença (<b>${a.year}</b> e <b>${b.year}</b>).`,
                 pessoa: a.p,
@@ -715,23 +707,18 @@
         }
       });
 
-      // F12 – Married too young (< 16 years)
-      active.forEach(p=>{
-        const births=activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='BIRTH');
-        const marriages=activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='MARRIAGE');
-        if(!births.length||!marriages.length) return;
-        const birthYear=eventYear(births[0]);
-        if(birthYear===null) return;
-        marriages.forEach(m=>{
-          const mYear=eventYear(m);
-          if(mYear===null) return;
-          const age=mYear-birthYear;
-          if(age<16){
+      // F12 – Married too young (< 16 years old)
+      active.forEach(p => {
+        const birthYear = indiYear(p, 'BIRT');
+        if (birthYear === null) return;
+        const marrYears = spouseMarriageYears(p, famMap);
+        marrYears.forEach(mYear => {
+          const age = mYear - birthYear;
+          if (age < 16) {
             issues.push({
-              tipo:'funcional', severidade:'aviso',
-              codigo:'F12',
+              tipo:'funcional', severidade:'aviso', codigo:'F12',
               titulo:'Casou demasiado novo',
-              descricao:`${personLink(p)} casou em <b>${mYear}</b> com apenas <b>${age} ano${age===1?'':'s'}</b> de idade.`,
+              descricao:`${personLink(p)} casou em <b>${mYear}</b> com apenas <b>${age} ano${age === 1 ? '' : 's'}</b> de idade.`,
               pessoa: p,
               sugestao:'Verificar as datas de nascimento e de casamento.'
             });
@@ -739,21 +726,16 @@
         });
       });
 
-      // F13 – Died before marriage (too young to be a spouse)
-      active.forEach(p=>{
-        const deaths=activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='DEATH');
-        const marriages=activeEvents.filter(e=>String(e.personId)===String(p.id)&&e.type==='MARRIAGE');
-        if(!deaths.length||!marriages.length) return;
-        const deathYear=eventYear(deaths[0]);
-        if(deathYear===null) return;
-        marriages.forEach(m=>{
-          const mYear=eventYear(m);
-          if(mYear===null) return;
-          if(deathYear<mYear){
+      // F13 – Died before marriage
+      active.forEach(p => {
+        const deathYear = indiYear(p, 'DEAT');
+        if (deathYear === null) return;
+        const marrYears = spouseMarriageYears(p, famMap);
+        marrYears.forEach(mYear => {
+          if (deathYear < mYear) {
             issues.push({
-              tipo:'funcional', severidade:'erro',
-              codigo:'F13',
-              titulo:'Morreu demasiado jovem para ser cônjuge',
+              tipo:'funcional', severidade:'erro', codigo:'F13',
+              titulo:'Morreu antes do casamento registado',
               descricao:`${personLink(p)} faleceu em <b>${deathYear}</b>, antes do seu registo de casamento em <b>${mYear}</b>.`,
               pessoa: p,
               sugestao:'Verificar as datas de falecimento e de casamento.'
@@ -762,27 +744,28 @@
         });
       });
 
-      // F14 – Siblings sharing the same first name
-      siblingGroups.forEach(sibIds=>{
-        if(sibIds.length<2) return;
-        const nameMap=new Map();
-        sibIds.forEach(id=>{
-          const p=peopleMap[id]; if(!p||p.deletedAt) return;
-          const fn=(p.firstName||'').trim();
-          if(!fn||fn==='<desconhecido>'||fn.toLowerCase()==='desconhecido') return;
-          const key=fn.toLowerCase();
-          if(!nameMap.has(key)) nameMap.set(key,[]);
-          nameMap.get(key).push(p);
+      // F14 – Siblings sharing the same given name
+      activeFams.forEach(fam => {
+        const children = (fam.children || []).map(cid => indiMap[cid]).filter(c => c && !c.deletedAt);
+        if (children.length < 2) return;
+        const nameMap = new Map();
+        children.forEach(c => {
+          const nm = (c.names && c.names[0]) || {};
+          const fn = (nm.given || '').trim();
+          if (!fn || fn.toLowerCase() === '<desconhecido>' || fn.toLowerCase() === 'desconhecido') return;
+          const key = fn.toLowerCase();
+          if (!nameMap.has(key)) nameMap.set(key, []);
+          nameMap.get(key).push(c);
         });
-        nameMap.forEach((sameNamePeople,key)=>{
-          if(sameNamePeople.length<2) return;
-          const alreadyFlagged=issues.some(x=>x.codigo==='F14'&&x.pessoa&&String(x.pessoa.id)===String(sameNamePeople[0].id));
-          if(!alreadyFlagged){
+        nameMap.forEach((sameNamePeople) => {
+          if (sameNamePeople.length < 2) return;
+          const already = issues.some(x => x.codigo === 'F14' && x.pessoa && x.pessoa.id === sameNamePeople[0].id);
+          if (!already) {
+            const nm = (sameNamePeople[0].names && sameNamePeople[0].names[0]) || {};
             issues.push({
-              tipo:'funcional', severidade:'aviso',
-              codigo:'F14',
+              tipo:'funcional', severidade:'aviso', codigo:'F14',
               titulo:'Irmãos com o mesmo nome próprio',
-              descricao:`${sameNamePeople.map(p=>personLink(p)).join(' e ')} são irmãos com o mesmo nome próprio <b>${esc(sameNamePeople[0].firstName||'')}</b>.`,
+              descricao:`${sameNamePeople.map(p => personLink(p)).join(' e ')} são irmãos com o mesmo nome próprio <b>${esc(nm.given || '')}</b>.`,
               pessoa: sameNamePeople[0],
               sugestao:'Verificar se são pessoas distintas ou se existe um registo duplicado.'
             });
@@ -792,123 +775,205 @@
 
       // ── Technical checks ──────────────────────────────────────────────────
 
-      // T1 – Relations pointing to non-existent people
-      relations.forEach((r,idx)=>{
-        const fromExists = !!peopleMap[String(r.from||'')];
-        const toExists   = !!peopleMap[String(r.to||'')];
-        if(!fromExists||!toExists){
-          const srcLabel = fromExists ? esc(personName(peopleMap[String(r.from)]||{})) : `<span style="color:#f07070">${esc(String(r.from))}</span>`;
-          const dstLabel = toExists   ? esc(personName(peopleMap[String(r.to)]||{}))   : `<span style="color:#f07070">${esc(String(r.to))}</span>`;
-          issues.push({
-            tipo:'tecnico', severidade:'erro',
-            codigo:'T1',
-            titulo:'Relação com ID inexistente',
-            descricao:`Relação #${idx} (tipo <b>${esc(r.type)}</b>) referencia ${!fromExists?'origem':'destino'} <b>${!fromExists?srcLabel:dstLabel}</b> que não existe na base de dados.`,
-            pessoa: null,
-            sugestao:'Limpar relações órfãs. Exportar e reimportar via GEDCOM pode resolver.'
-          });
-        }
-      });
-
-      // T2 – Missing reciprocal relations
-      const relSet = new Set(relations.map(r=>`${r.from}|${r.to}|${r.type}`));
-      relations.forEach(r=>{
-        if(!activeIds.has(String(r.from))||!activeIds.has(String(r.to))) return;
-        let expectedType=null, label='';
-        if(r.type==='child')    { expectedType='ancestor'; label='ancestor recíproco'; }
-        if(r.type==='ancestor') { expectedType='child';    label='child recíproco'; }
-        if(r.type==='mate')     { expectedType='mate';     label='mate recíproco'; }
-        if(r.type==='siblin')   { expectedType='siblin';   label='siblin recíproco'; }
-        if(!expectedType) return;
-        const recip=`${r.to}|${r.from}|${expectedType}`;
-        if(!relSet.has(recip)){
-          const pA=peopleMap[String(r.from)], pB=peopleMap[String(r.to)];
-          if(!pA||!pB||pA.deletedAt||pB.deletedAt) return;
-          issues.push({
-            tipo:'tecnico', severidade:'aviso',
-            codigo:'T2',
-            titulo:'Relação sem reciprocidade',
-            descricao:`${personLink(pA)} → <b>${esc(r.type)}</b> → ${personLink(pB)}, mas falta o ${label} inverso.`,
-            pessoa: pA,
-            sugestao:'Reeditar a relação no Cadastro para regenerar os índices recíprocos.'
-          });
-        }
-      });
-
-      // T3 – Duplicate relations (same from/to/type)
-      const seen = new Map();
-      relations.forEach((r,idx)=>{
-        const key=`${r.from}|${r.to}|${r.type}`;
-        if(seen.has(key)){
-          const pA=peopleMap[String(r.from)], pB=peopleMap[String(r.to)];
-          if(pA&&pB&&!pA.deletedAt&&!pB.deletedAt)
+      // T1 – Families referencing non-existent individuals
+      activeFams.forEach(fam => {
+        [fam.husb, fam.wife].filter(Boolean).forEach(pid => {
+          if (!indiMap[pid]) {
             issues.push({
-              tipo:'tecnico', severidade:'aviso',
-              codigo:'T3',
-              titulo:'Relação duplicada',
-              descricao:`Existe mais de uma entrada para ${personLink(pA)} → <b>${esc(r.type)}</b> → ${personLink(pB)}.`,
-              pessoa: pA,
-              sugestao:'Remover entradas duplicadas na tabela de relações (poderá ser feito via exportação/importação GEDCOM).'
+              tipo:'tecnico', severidade:'erro', codigo:'T1',
+              titulo:'Família com progenitor inexistente',
+              descricao:`A família <b>${esc(fam.id)}</b> referencia o progenitor <span style="color:#f07070"><b>${esc(pid)}</b></span> que não existe na base de dados.`,
+              pessoa: null,
+              sugestao:'Exportar e reimportar via GEDCOM, ou corrigir o JSON manualmente.'
             });
-        } else {
-          seen.set(key,idx);
-        }
+          }
+        });
+        (fam.children || []).forEach(cid => {
+          if (!indiMap[cid]) {
+            issues.push({
+              tipo:'tecnico', severidade:'erro', codigo:'T1',
+              titulo:'Família com filho inexistente',
+              descricao:`A família <b>${esc(fam.id)}</b> referencia o filho <span style="color:#f07070"><b>${esc(cid)}</b></span> que não existe na base de dados.`,
+              pessoa: null,
+              sugestao:'Exportar e reimportar via GEDCOM, ou corrigir o JSON manualmente.'
+            });
+          }
+        });
       });
 
-      // T4 – Duplicate person IDs
-      const idCount = {};
-      people.forEach(p=>{ idCount[String(p.id)]=(idCount[String(p.id)]||0)+1; });
-      Object.entries(idCount).forEach(([id,count])=>{
-        if(count>1){
-          const p=peopleMap[id];
+      // T1b – Individual referencing non-existent families
+      active.forEach(p => {
+        if (p.famc && !famMap[p.famc]) {
           issues.push({
-            tipo:'tecnico', severidade:'erro',
-            codigo:'T4',
+            tipo:'tecnico', severidade:'erro', codigo:'T1',
+            titulo:'Pessoa com família-filho inexistente',
+            descricao:`${personLink(p)} referencia <b>famc = ${esc(p.famc)}</b> que não existe nas famílias.`,
+            pessoa: p,
+            sugestao:'Corrigir o campo famc ou reimportar via GEDCOM.'
+          });
+        }
+        (p.fams || []).forEach(fid => {
+          if (!famMap[fid]) {
+            issues.push({
+              tipo:'tecnico', severidade:'erro', codigo:'T1',
+              titulo:'Pessoa com família-cônjuge inexistente',
+              descricao:`${personLink(p)} referencia <b>fams = ${esc(fid)}</b> que não existe nas famílias.`,
+              pessoa: p,
+              sugestao:'Corrigir fams ou reimportar via GEDCOM.'
+            });
+          }
+        });
+      });
+
+      // T2 – Missing reciprocal references
+      active.forEach(p => {
+        // famc → should be in family.children
+        if (p.famc && famMap[p.famc]) {
+          const fam = famMap[p.famc];
+          if (!(fam.children || []).includes(p.id)) {
+            issues.push({
+              tipo:'tecnico', severidade:'aviso', codigo:'T2',
+              titulo:'Referência famc sem reciprocidade',
+              descricao:`${personLink(p)} tem <b>famc = ${esc(p.famc)}</b>, mas a família não inclui esta pessoa em <b>children[]</b>.`,
+              pessoa: p,
+              sugestao:'Reeditar a relação no Cadastro para regenerar os índices.'
+            });
+          }
+        }
+        // fams → should be husb or wife in each family
+        (p.fams || []).forEach(fid => {
+          const fam = famMap[fid];
+          if (!fam) return;
+          if (fam.husb !== p.id && fam.wife !== p.id) {
+            issues.push({
+              tipo:'tecnico', severidade:'aviso', codigo:'T2',
+              titulo:'Referência fams sem reciprocidade',
+              descricao:`${personLink(p)} tem <b>fams = ${esc(fid)}</b>, mas a família não regista esta pessoa como cônjuge.`,
+              pessoa: p,
+              sugestao:'Reeditar a relação no Cadastro para regenerar os índices.'
+            });
+          }
+        });
+      });
+
+      // T2b – Family husb/wife not referencing back
+      activeFams.forEach(fam => {
+        [fam.husb, fam.wife].filter(Boolean).forEach(pid => {
+          const p = indiMap[pid];
+          if (!p || p.deletedAt) return;
+          if (!(p.fams || []).includes(fam.id)) {
+            issues.push({
+              tipo:'tecnico', severidade:'aviso', codigo:'T2',
+              titulo:'Cônjuge não referencia a família',
+              descricao:`A família <b>${esc(fam.id)}</b> lista <b>${esc(pid)}</b> como cônjuge, mas ${personLink(p)} não tem esta família em <b>fams[]</b>.`,
+              pessoa: p,
+              sugestao:'Reeditar a relação no Cadastro para regenerar os índices.'
+            });
+          }
+        });
+        (fam.children || []).forEach(cid => {
+          const c = indiMap[cid];
+          if (!c || c.deletedAt) return;
+          if (c.famc !== fam.id) {
+            issues.push({
+              tipo:'tecnico', severidade:'aviso', codigo:'T2',
+              titulo:'Filho não referencia a família',
+              descricao:`A família <b>${esc(fam.id)}</b> lista <b>${esc(cid)}</b> como filho, mas ${personLink(c)} tem <b>famc = ${esc(c.famc || '(nulo)')}</b>.`,
+              pessoa: c,
+              sugestao:'Reeditar a relação no Cadastro para regenerar os índices.'
+            });
+          }
+        });
+      });
+
+      // T3 – Duplicate children / fams entries
+      activeFams.forEach(fam => {
+        const seen = new Set();
+        (fam.children || []).forEach(cid => {
+          if (seen.has(cid)) {
+            const c = indiMap[cid];
+            issues.push({
+              tipo:'tecnico', severidade:'aviso', codigo:'T3',
+              titulo:'Filho duplicado na família',
+              descricao:`A família <b>${esc(fam.id)}</b> lista ${c ? personLink(c) : `<b>${esc(cid)}</b>`} mais de uma vez em <b>children[]</b>.`,
+              pessoa: c || null,
+              sugestao:'Remover entradas duplicadas (exportar/reimportar GEDCOM).'
+            });
+          }
+          seen.add(cid);
+        });
+      });
+      active.forEach(p => {
+        const seen = new Set();
+        (p.fams || []).forEach(fid => {
+          if (seen.has(fid)) {
+            issues.push({
+              tipo:'tecnico', severidade:'aviso', codigo:'T3',
+              titulo:'Família duplicada em fams[]',
+              descricao:`${personLink(p)} referencia a família <b>${esc(fid)}</b> mais de uma vez em <b>fams[]</b>.`,
+              pessoa: p,
+              sugestao:'Remover entradas duplicadas (exportar/reimportar GEDCOM).'
+            });
+          }
+          seen.add(fid);
+        });
+      });
+
+      // T4 – Duplicate individual IDs
+      const idCount = {};
+      individuals.forEach(p => { idCount[p.id] = (idCount[p.id] || 0) + 1; });
+      Object.entries(idCount).forEach(([id, count]) => {
+        if (count > 1) {
+          const p = indiMap[id];
+          issues.push({
+            tipo:'tecnico', severidade:'erro', codigo:'T4',
             titulo:'ID de pessoa duplicado',
-            descricao:`O ID <b>${esc(id)}</b> ${p?`(${esc(personName(p))}) `:''} aparece <b>${count}</b> vezes na lista de pessoas.`,
-            pessoa: p||null,
+            descricao:`O ID <b>${esc(id)}</b> ${p ? `(${esc(personName(p))}) ` : ''} aparece <b>${count}</b> vezes na lista de pessoas.`,
+            pessoa: p || null,
             sugestao:'Exportar os dados, remover duplicados manualmente no JSON e reimportar.'
           });
         }
       });
 
-      // T5 – Circular ancestry (A is ancestor of B and B is ancestor of A)
-      const ancestorRels = relations.filter(r=>r.type==='ancestor'&&activeIds.has(String(r.from))&&activeIds.has(String(r.to)));
-      ancestorRels.forEach(r=>{
-        const reverse=ancestorRels.find(x=>String(x.from)===String(r.to)&&String(x.to)===String(r.from));
-        if(reverse){
-          const pA=peopleMap[String(r.from)], pB=peopleMap[String(r.to)];
-          if(pA&&pB&&!pA.deletedAt&&!pB.deletedAt){
-            // avoid duplicate alerts
-            const alreadyFlagged=issues.some(i=>i.codigo==='T5'&&i.pessoa&&String(i.pessoa.id)===String(pB.id));
-            if(!alreadyFlagged)
-              issues.push({
-                tipo:'tecnico', severidade:'erro',
-                codigo:'T5',
-                titulo:'Ciclo de ascendência',
-                descricao:`${personLink(pA)} é ancestral de ${personLink(pB)} e vice-versa, formando um ciclo impossível.`,
-                pessoa: pA,
-                sugestao:'Rever a cadeia de ascendência e corrigir a relação incorreta.'
-              });
+      // T5 – Circular ancestry (detect cycle in famc chain)
+      active.forEach(p => {
+        const visited = new Set();
+        let cur = p;
+        while (cur && cur.famc) {
+          if (visited.has(cur.id)) {
+            issues.push({
+              tipo:'tecnico', severidade:'erro', codigo:'T5',
+              titulo:'Ciclo de ascendência',
+              descricao:`${personLink(p)} faz parte de um ciclo impossível na cadeia de ascendência (passando por <b>${esc(cur.id)}</b>).`,
+              pessoa: p,
+              sugestao:'Rever a cadeia de ascendência e corrigir a relação incorreta.'
+            });
+            break;
           }
+          visited.add(cur.id);
+          const fam = famMap[cur.famc];
+          if (!fam) break;
+          // Pick first available parent to walk up
+          const parentId = fam.husb || fam.wife;
+          if (!parentId) break;
+          cur = indiMap[parentId];
         }
       });
 
-      // T6 – Events with no valid date (optional, info only)
-      active.forEach(p=>{
-        const evs=activeEvents.filter(e=>String(e.personId)===String(p.id)&&(e.type==='BIRTH'||e.type==='DEATH'));
-        evs.forEach(ev=>{
-          const y=eventYear(ev);
-          if(y===null){
-            issues.push({
-              tipo:'tecnico', severidade:'info',
-              codigo:'T6',
-              titulo:'Evento sem data válida',
-              descricao:`${personLink(p)} tem um evento de <b>${ev.type==='BIRTH'?'nascimento':'falecimento'}</b> sem data ou com data incompleta.`,
-              pessoa: p,
-              sugestao:'Preencher o ano no evento para ativar cálculos de idade e deteção de inconsistências.'
-            });
-          }
+      // T6 – BIRT or DEAT events without a parseable date
+      active.forEach(p => {
+        ['BIRT','DEAT'].forEach(evType => {
+          indiEventsOf(p, evType).forEach(ev => {
+            if (eventYear(ev) === null) {
+              issues.push({
+                tipo:'tecnico', severidade:'info', codigo:'T6',
+                titulo:'Evento sem data válida',
+                descricao:`${personLink(p)} tem um evento de <b>${evType === 'BIRT' ? 'nascimento' : 'falecimento'}</b> sem data ou com data não reconhecida.`,
+                pessoa: p,
+                sugestao:'Preencher o ano no evento para ativar cálculos de idade e deteção de inconsistências.'
+              });
+            }
+          });
         });
       });
 
@@ -1026,7 +1091,7 @@
     <script>
       // ── Drawer: aliases and helpers ─────────────────────────────────────────
       function loadPeople(){ return getPeople(); }
-      function savePeople(p){ localStorage.setItem('people:myLineage', JSON.stringify(p)); }
+      function savePeople(p){ /* no-op: editing done via GedcomDB in Cadastro */ }
       function renderTable(){ runValidation(); }
       function _esc(s){ return esc(s); }
       function fmtEventDate(ev){

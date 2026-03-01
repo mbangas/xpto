@@ -1,0 +1,2 @@
+const QRCode = require('qrcode');
+window.QRCode = QRCode;

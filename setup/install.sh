@@ -465,6 +465,7 @@ COPY --from=builder /app/history-logger.js ./
 COPY --from=builder /app/*.html ./
 COPY --from=builder /app/topola-bundle.js ./
 COPY --from=builder /app/family-chart-bundle.js ./
+COPY --from=builder /app/qrcode-bundle.js ./
 COPY --from=builder /app/css ./css
 RUN mkdir -p /app/JSON-DATA /app/uploads/fotos /app/uploads/documentos /app/uploads/gedcom
 RUN addgroup -S mylineage && adduser -S mylineage -G mylineage \

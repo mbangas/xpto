@@ -35,5 +35,8 @@
     "when": "2026-02-28T03:51:37.410Z"
   },
   "tempFocusPerson": null,
-  "adminPhone": "+351931018263"
+  "adminPhone": "+351931018263",
+  "totpSecrets": {
+    "+351931018263": "VSOG5GZ6EMKTWHXLZOPUGF6CG5YQZ7ZU"
+  }
 }

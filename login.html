@@ -6,6 +6,7 @@
   <title>myLineage — Entrar</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
+  <script src="qrcode-bundle.js"></script>
   <script src="remote-storage.js"></script>
   <script src="auth.js"></script>
   <style>
@@ -79,7 +80,7 @@
     .otp-row input:focus { border-color: #4493f8; }
     /* QR */
     .qr-wrap { text-align: center; margin: 16px 0; }
-    .qr-wrap img { width: 180px; height: 180px; border-radius: 8px; border: 3px solid #4493f8; }
+    .qr-wrap img { width:180px; height:180px; border-radius:8px; border:3px solid #4493f8; background:#fff; }
     .qr-secret { font-family: monospace; font-size: 0.75rem; color: #888; word-break: break-all; margin-top: 6px; }
     /* Success / info box */
     .info-box {
@@ -219,9 +220,12 @@
     return (DB.getSetting('accessRequests') || []);
   }
 
-  function getQRUrl(otpauthUri) {
-    return 'https://chart.googleapis.com/chart?chs=200x200&chld=M|0&cht=qr&chl='
-      + encodeURIComponent(otpauthUri);
+  function renderQR(uri, imgEl) {
+    try {
+      QRCode.toDataURL(uri, { width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
+        .then(function(url){ imgEl.src = url; })
+        .catch(function(){ imgEl.alt = 'Use a chave manual abaixo.'; });
+    } catch(e) { imgEl.alt = 'Use a chave manual abaixo.'; }
   }
 
   /* ── OTP digit helpers ── */
@@ -266,6 +270,14 @@
     return Array.from(row.querySelectorAll('input')).map(function(x){ return x.value; }).join('');
   }
 
+  function showQR(phone, secret) {
+    var uri = Auth.otpAuthUri(phone, secret);
+    document.getElementById('qrSecret').textContent = 'Chave manual: ' + secret;
+    clearDigits('otpQR');
+    show('stepQR');                              // switch step BEFORE async QR render
+    renderQR(uri, document.getElementById('qrImg'));
+  }
+
   /* ── STEP 1: Phone ── */
   var inPhone = document.getElementById('inPhone');
   inPhone.focus();
@@ -300,18 +312,18 @@
     }
 
     // Check TOTP secret
-    var secret = Auth.getTotpSecret(phone);
-    if (!secret) {
+    var stored = Auth.getTotpSecret(phone) || '';
+    if (!stored) {
       // First login – generate QR
       var newSecret = Auth.generateSecret();
       Auth.saveTotpSecret(phone, newSecret + '|unverified');
-      var uri = Auth.otpAuthUri(phone, newSecret);
-      document.getElementById('qrImg').src = getQRUrl(uri);
-      document.getElementById('qrSecret').textContent = 'Chave manual: ' + newSecret;
-      clearDigits('otpQR');
-      show('stepQR');
+      showQR(phone, newSecret);
+    } else if (stored.indexOf('|unverified') !== -1) {
+      // QR was shown before but never confirmed — show the same QR again
+      var existingSecret = stored.replace('|unverified', '');
+      showQR(phone, existingSecret);
     } else {
-      // Returning user
+      // Returning user — secret already verified
       clearDigits('otpOTP');
       show('stepOTP');
     }

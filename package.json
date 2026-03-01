@@ -6,7 +6,8 @@
     "start": "node server.js",
     "build:topola": "esbuild topola-entry.js --bundle --outfile=topola-bundle.js --format=iife --global-name=TopolaLib --platform=browser --minify",
     "build:familychart": "esbuild family-chart-entry.js --bundle --outfile=family-chart-bundle.js --format=iife --global-name=F3Lib --platform=browser --minify",
-    "build:all": "npm run build:topola && npm run build:familychart",
+    "build:qrcode": "esbuild qrcode-entry.js --bundle --outfile=qrcode-bundle.js --format=iife --platform=browser --minify",
+    "build:all": "npm run build:topola && npm run build:familychart && npm run build:qrcode",
     "prestart": "npm run build:all",
     "test": "jest",
     "test:unit": "jest tests/unit --verbose",
@@ -31,6 +32,7 @@
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "family-chart": "^0.9.0",
+    "qrcode": "^1.5.4",
     "topola": "^3.8.3"
   },
   "devDependencies": {

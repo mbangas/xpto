@@ -6,6 +6,7 @@
   <title>myLineage — Configuração Inicial</title>
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
+  <script src="qrcode-bundle.js"></script>
   <script src="remote-storage.js"></script>
   <script src="auth.js"></script>
   <style>
@@ -52,7 +53,7 @@
     }
     .otp-row input:focus { border-color:#4493f8; }
     .qr-wrap { text-align:center; margin:16px 0; }
-    .qr-wrap img { width:180px; height:180px; border-radius:8px; border:3px solid #4493f8; }
+    .qr-wrap img { width:180px; height:180px; border-radius:8px; border:3px solid #4493f8; background:#fff; }
     .qr-secret { font-family:monospace; font-size:0.75rem; color:#888; word-break:break-all; margin-top:6px; }
     .done-icon { text-align:center; font-size:3rem; margin-bottom:12px; color:#4493f8; }
     .back-link { text-align:center; margin-top:14px; font-size:0.8rem; color:var(--text-secondary); }
@@ -135,8 +136,12 @@
     document.getElementById(id).classList.add('active');
   }
 
-  function getQRUrl(uri){
-    return 'https://chart.googleapis.com/chart?chs=200x200&chld=M|0&cht=qr&chl=' + encodeURIComponent(uri);
+  function renderQR(uri, imgEl){
+    try {
+      QRCode.toDataURL(uri, { width: 200, margin: 1, color: { dark: '#000000', light: '#ffffff' } })
+        .then(function(url){ imgEl.src = url; })
+        .catch(function(){ imgEl.alt = 'Use a chave manual abaixo.'; });
+    } catch(e) { imgEl.alt = 'Use a chave manual abaixo.'; }
   }
 
   /* ── Step 1 ── */
@@ -157,12 +162,12 @@
     Auth.saveTotpSecret(_phone, _secret + '|unverified');
 
     document.getElementById('s2PhoneLabel').textContent = _phone;
-    var uri = Auth.otpAuthUri(_phone, _secret);
-    document.getElementById('s2QRImg').src = getQRUrl(uri);
     document.getElementById('s2QRSecret').textContent = 'Chave manual: ' + _secret;
+    var uri = Auth.otpAuthUri(_phone, _secret);
     clearOTP();
-    show('s2');
+    show('s2');                                  // switch step BEFORE async QR render
     setTimeout(function(){ document.querySelector('#s2OTP input').focus(); }, 80);
+    renderQR(uri, document.getElementById('s2QRImg'));
   }
 
   /* ── Step 2 ── */

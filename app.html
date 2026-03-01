@@ -102,6 +102,7 @@
       <div class="drawer-header">
         <button class="btn btn-ghost btn-sm" id="drawerBackBtn" style="display:none;padding:2px 6px;margin-right:4px;" title="Voltar"><i class="mdi mdi-arrow-left"></i></button>
         <h2 id="drawerTitle" style="flex:1;">Detalhes da Pessoa</h2>
+        <button class="btn btn-ghost btn-sm" id="drawerTreeBtn" style="display:none;padding:2px 6px;margin-right:4px;" title="Ver na Árvore"><i class="mdi mdi-sitemap"></i></button>
         <button class="drawer-close" id="drawerCloseBtn" aria-label="Fechar painel"><i class="mdi mdi-close"></i></button>
       </div>
       <div class="drawer-person-header" id="drawerPersonHeader">
@@ -438,6 +439,11 @@
         _drawerMode=mode; _drawerPersonId=personId||null;
         const indi=personId?DB.getIndividual(personId):null;
         document.getElementById('drawerTitle').textContent=mode==='create'?'Nova Pessoa':'Editar Pessoa';
+        const _treeBtn=document.getElementById('drawerTreeBtn');
+        if(_treeBtn){
+          _treeBtn.style.display=(mode==='edit'&&personId)?'':'none';
+          _treeBtn.onclick=function(){ DB.setSetting('tempFocusPerson',_drawerPersonId); window.location.href='arvore.html'; };
+        }
         const nameEl=document.getElementById('drawerPersonName'), subEl=document.getElementById('drawerPersonSub'), avatarEl=document.getElementById('drawerAvatar');
         if(indi){
           nameEl.textContent=DB.getDisplayName(indi);
@@ -483,6 +489,7 @@
         const footer=document.querySelector('.drawer-footer'); if(footer) footer.style.display='none';
         const phdr=document.getElementById('drawerPersonHeader'); if(phdr) phdr.style.display='none';
         const backBtn=document.getElementById('drawerBackBtn'); if(backBtn){ backBtn.style.display=''; backBtn._personId=personId; }
+        const _treeBtn2=document.getElementById('drawerTreeBtn'); if(_treeBtn2) _treeBtn2.style.display='none';
         document.getElementById('drawerTitle').textContent=(section==='relacoes'?'Relações':section==='fotos'?'Fotos':'Eventos')+' — '+DB.getDisplayName(indi);
         const body=document.getElementById('drawerBody');
         body.innerHTML=section==='relacoes'?_renderRelations(personId):section==='fotos'?_renderPhotos(personId):_renderEvents(personId);

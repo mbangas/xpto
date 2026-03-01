@@ -417,7 +417,7 @@
     function personLink(p) {
       const n = personName(p);
       const id = esc(String(p.id || ''));
-      return `<a class="person-link" href="app.html#${id}" title="Ver em Cadastro">${esc(n)}</a>`;
+      return `<a class="person-link" href="#" onclick="openDrawer('edit','${id}');return false;" title="Editar Pessoa">${esc(n)}</a>`;
     }
     function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -1022,10 +1022,11 @@
         const sevClass = {erro:'sev-erro',aviso:'sev-aviso',info:'sev-info'}[issue.severidade]||'sev-info';
         const sevLabel = {erro:'Erro',aviso:'Aviso',info:'Info'}[issue.severidade]||'Info';
         const sevIcon  = {erro:'mdi-alert-circle-outline',aviso:'mdi-alert-outline',info:'mdi-information-outline'}[issue.severidade]||'mdi-information-outline';
+        const editBtn  = issue.pessoa ? `<button class="btn btn-ghost btn-sm" style="padding:1px 5px;font-size:0.75rem;margin-left:6px;vertical-align:middle;" onclick="openDrawer('edit','${esc(issue.pessoa.id||'')}')" title="Editar Pessoa"><i class="mdi mdi-pencil-outline"></i></button>` : '';
         rows+=`<tr>
           <td style="width:90px;"><span class="severity ${sevClass}"><i class="mdi ${sevIcon}"></i>${sevLabel}</span></td>
           <td style="width:60px;color:#666;font-family:monospace;font-size:0.75rem;">${esc(issue.codigo)}</td>
-          <td style="font-weight:600;color:#e0e4ef;">${esc(issue.titulo)}</td>
+          <td style="font-weight:600;color:#e0e4ef;">${esc(issue.titulo)}${editBtn}</td>
           <td>${issue.descricao}</td>
           <td style="color:#8a949e;font-size:0.78rem;">${esc(issue.sugestao)}</td>
         </tr>`;
@@ -1050,6 +1051,7 @@
       <div class="drawer-header">
         <button class="btn btn-ghost btn-sm" id="drawerBackBtn" style="display:none;padding:2px 6px;margin-right:4px;" title="Voltar"><i class="mdi mdi-arrow-left"></i></button>
         <h2 id="drawerTitle" style="flex:1;">Editar Pessoa</h2>
+        <button class="btn btn-ghost btn-sm" id="drawerTreeBtn" style="display:none;padding:2px 6px;margin-right:4px;" title="Ver na Árvore"><i class="mdi mdi-sitemap"></i></button>
         <button class="drawer-close" id="drawerCloseBtn" aria-label="Fechar painel"><i class="mdi mdi-close"></i></button>
       </div>
       <div class="drawer-person-header" id="drawerPersonHeader">
@@ -1126,6 +1128,14 @@
         const drawer=document.getElementById('personDrawer');
         const overlay=document.getElementById('drawerOverlay');
         document.getElementById('drawerTitle').textContent=mode==='create'?'Nova Pessoa':'Editar Pessoa';
+        const _treeBtn=document.getElementById('drawerTreeBtn');
+        if(_treeBtn){
+          _treeBtn.style.display=(mode==='edit'&&personId)?'':'none';
+          _treeBtn.onclick=function(){
+            if(window.GedcomDB) GedcomDB.setSetting('tempFocusPerson',_drawerPersonId);
+            window.location.href='arvore.html';
+          };
+        }
         const nameEl=document.getElementById('drawerPersonName');
         const subEl=document.getElementById('drawerPersonSub');
         const avatarEl=document.getElementById('drawerAvatar');
@@ -1187,6 +1197,7 @@
         if(phdr) phdr.style.display='none';
         const backBtn=document.getElementById('drawerBackBtn');
         if(backBtn){ backBtn.style.display=''; backBtn._personId=String(personId); }
+        const _treeBtn2=document.getElementById('drawerTreeBtn'); if(_treeBtn2) _treeBtn2.style.display='none';
         const sectionLabel=section==='relacoes'?'Rela\u00e7\u00f5es':section==='fotos'?'Fotos':'Eventos';
         const pName=(((person.firstName||'')+' '+(person.lastName||'')).trim())||'';
         document.getElementById('drawerTitle').textContent=sectionLabel+'\u2014 '+pName;

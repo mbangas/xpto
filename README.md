@@ -241,3 +241,19 @@ A página **Validação** analisa os dados carregados e reporta:
 1. Aceda a **GEDCOM** na barra lateral.
 2. **Importar**: cole ou carregue um ficheiro `.ged` (GEDCOM 5.5, 5.5.1 ou 7.0) e confirme — os registos `INDI` e `FAM` são convertidos e substituem os dados actuais.
 3. **Exportar**: clique em **Exportar .ged** — o servidor serializa todos os dados em GEDCOM 7.0 e devolve o ficheiro para download.
+
+---
+
+## Testes
+
+A suite de testes cobre CRUD de todas as entidades, conformidade GEDCOM 7, importação/exportação e fluxos de integração multi-entidade.
+
+```bash
+npm install          # instalar dependências (inclui jest e supertest)
+npm test             # testes unitários + integração
+npm run test:unit    # só unitários
+npm run test:integration  # só integração
+npm run test:coverage    # com relatório de cobertura
+```
+
+Consulte **[tests/README.md](tests/README.md)** para a organização completa das pastas, detalhes de cada ficheiro e instruções para automatização via GitHub Actions.

@@ -119,6 +119,28 @@
           </div>
         </div>
 
+        <!-- ── Ações Perigosas ─────────────────────────────────────────────── -->
+        <div class="card centered-panel" style="max-width:760px;width:100%;margin-top:16px;border-color:rgba(224,82,82,0.25);">
+          <h2 style="margin:0 0 8px;"><i class="mdi mdi-alert-octagon" style="color:#e05252;margin-right:8px;"></i>Ações Perigosas</h2>
+          <p style="color:var(--text-secondary);margin:0 0 16px;font-size:0.85rem;">Operações irreversíveis sobre os dados da aplicação.</p>
+          <div style="display:flex;flex-direction:column;gap:14px;">
+            <div style="display:flex;align-items:flex-start;gap:16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:14px 16px;">
+              <div style="flex:1;">
+                <div style="font-weight:700;font-size:0.88rem;color:var(--text-main);margin-bottom:3px;"><i class="mdi mdi-database-remove-outline" style="color:#e05252;margin-right:5px;"></i>Apagar todo o conteúdo</div>
+                <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.45;">Remove permanentemente todas as pessoas, famílias, fontes, repositórios, notas e multimédia registados na base de dados. O histórico de ações também será limpo. Esta operação não pode ser desfeita.</div>
+              </div>
+              <button onclick="dangerDeleteAllContent()" style="display:flex;align-items:center;gap:6px;padding:7px 16px;border-radius:6px;border:1px solid rgba(224,82,82,0.5);background:rgba(224,82,82,0.10);color:#f07070;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background 0.15s;"><i class="mdi mdi-trash-can-outline"></i> Apagar tudo</button>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:6px;padding:14px 16px;">
+              <div style="flex:1;">
+                <div style="font-weight:700;font-size:0.88rem;color:var(--text-main);margin-bottom:3px;"><i class="mdi mdi-cog-off-outline" style="color:#e0a132;margin-right:5px;"></i>Limpar todas as definições</div>
+                <div style="font-size:0.78rem;color:var(--text-secondary);line-height:1.45;">Repõe todas as definições da aplicação (pessoa em foco, pastas configuradas, preferências) para os valores padrão. Os dados genealógicos não são afetados.</div>
+              </div>
+              <button onclick="dangerClearSettings()" style="display:flex;align-items:center;gap:6px;padding:7px 16px;border-radius:6px;border:1px solid rgba(224,161,50,0.5);background:rgba(224,161,50,0.10);color:#f0b84a;font-size:0.82rem;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;transition:background 0.15s;"><i class="mdi mdi-restore"></i> Limpar definições</button>
+            </div>
+          </div>
+        </div>
+
       </main>
     </div>
 
@@ -337,6 +359,30 @@
 
         showCurrentFocus();
       });
+
+      function dangerDeleteAllContent() {
+        if (!confirm('⚠️ Tem a certeza? Esta ação vai apagar PERMANENTEMENTE todas as pessoas, famílias, fontes, repositórios, notas e multimédia.\n\nPode fazer um backup GEDCOM antes de continuar.\n\nEsta operação não pode ser desfeita!')) return;
+        if (!confirm('Confirme de novo: apagar TODOS os dados genealógicos?')) return;
+        if (!window.GedcomDB) { alert('GedcomDB não disponível.'); return; }
+        try {
+          GedcomDB.bulkReplace({ individuals: {}, families: {}, sources: {}, repositories: {}, multimedia: {}, notes: {}, submitters: {} });
+          GedcomDB.clearHistory();
+          if (window.logHistory) window.logHistory('Todo o conteúdo foi apagado', '', 'configuracao');
+          setTimeout(() => { location.reload(); }, 800);
+        } catch(e) { alert('Erro ao apagar conteúdo: ' + e); }
+      }
+
+      function dangerClearSettings() {
+        if (!confirm('⚠️ Tem a certeza? Esta ação vai repor todas as definições para os valores padrão.\n\nOs dados genealógicos não serão afetados.')) return;
+        fetch('/api/settings', { method: 'DELETE', headers: { 'Content-Type': 'application/json' } })
+          .then(r => r.ok ? r.json() : Promise.reject(r.status))
+          .then(() => {
+            if (window.logHistory) window.logHistory('Todas as definições foram limpas', '', 'configuracao');
+            alert('Definições limpas com sucesso.');
+            setTimeout(() => { location.reload(); }, 400);
+          })
+          .catch(err => alert('Erro ao limpar definições: ' + err));
+      }
     </script>
     <script src="history-logger.js"></script>
     <script>

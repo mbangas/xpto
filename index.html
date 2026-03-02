@@ -245,6 +245,26 @@
         flex: 1;
         min-width: 220px;
       }
+      .home-aniv-tree-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        background: rgba(82,148,226,0.10);
+        border: 1px solid rgba(82,148,226,0.25);
+        color: #5294e2;
+        font-size: 1.1rem;
+        text-decoration: none !important;
+        flex-shrink: 0;
+        transition: background 0.15s, border-color 0.15s, color 0.15s;
+      }
+      .home-aniv-tree-btn:hover {
+        background: rgba(82,148,226,0.22);
+        border-color: rgba(82,148,226,0.55);
+        color: #7eb8f7;
+      }
       .home-aniv-avatar {
         width: 40px;
         height: 40px;
@@ -639,7 +659,7 @@
           const daysUntil   = Math.round((next - today) / 86400000);
           const ageWillTurn = next.getFullYear() - bd.year;
           const name = DB.getDisplayName(p);
-          upcoming.push({ name, daysUntil, ageWillTurn, next });
+          upcoming.push({ name, id: p.id, daysUntil, ageWillTurn, next });
         });
         upcoming.sort((a, b) => a.daysUntil - b.daysUntil);
         const top3 = upcoming.slice(0, 3);
@@ -653,10 +673,11 @@
             const daysText = item.daysUntil === 0 ? 'hoje!' : item.daysUntil === 1 ? 'amanhã' : 'em ' + item.daysUntil + ' dias';
             return `<div class="home-aniv-card">
               <div class="home-aniv-avatar">${item.name.charAt(0).toUpperCase()}</div>
-              <div>
+              <div style="flex:1;min-width:0;">
                 <div class="home-aniv-name">${item.name}</div>
                 <div class="home-aniv-meta">${dateStr} · faz ${item.ageWillTurn} anos · <span class="home-aniv-days">${daysText}</span></div>
               </div>
+              <a href="arvore.html" class="home-aniv-tree-btn" title="Ver na Árvore a partir da pessoa em foco"><i class="mdi mdi-sitemap" aria-hidden="true"></i></a>
             </div>`;
           }).join('');
         }

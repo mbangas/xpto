@@ -310,6 +310,8 @@
       @media (max-width: 700px) {
         .val-kpi-row { grid-template-columns: repeat(2, 1fr); }
       }
+
+
     </style>
   </head>
   <body>
@@ -381,7 +383,7 @@
           <!-- Functional Issues Section -->
           <div class="val-section" id="sectionFuncional">
             <div class="val-section-header" onclick="toggleSection('bodyFuncional','arrowFuncional')">
-              <i class="mdi mdi-account-group-outline"></i>
+              <i class="mdi mdi-account-group-outline" style="color:#5294e2;"></i>
               Inconsistências Funcionais
               <span style="font-size:0.7rem;font-weight:400;color:#666;text-transform:none;letter-spacing:0;margin-left:4px;">Impacto na apresentação e navegação da família</span>
               <span class="badge" id="badgeFuncional">0</span>
@@ -395,7 +397,7 @@
           <!-- Technical Issues Section -->
           <div class="val-section" id="sectionTecnico">
             <div class="val-section-header" onclick="toggleSection('bodyTecnico','arrowTecnico')">
-              <i class="mdi mdi-wrench-outline"></i>
+              <i class="mdi mdi-wrench-outline" style="color:#e0a132;"></i>
               Inconsistências Técnicas
               <span style="font-size:0.7rem;font-weight:400;color:#666;text-transform:none;letter-spacing:0;margin-left:4px;">Integridade dos dados armazenados</span>
               <span class="badge" id="badgeTecnico">0</span>
@@ -405,6 +407,7 @@
               <div class="empty-state"><i class="mdi mdi-check-circle-outline"></i>Sem problemas técnicos encontrados</div>
             </div>
           </div>
+
         </div>
       </main>
     </div>

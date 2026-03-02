@@ -180,6 +180,12 @@ app.delete('/api/history', (req, res) => {
   catch (e) { res.status(500).json({ error: String(e) }); }
 });
 
+/* ── Settings reset ──────────────────────────────────────────────────── */
+app.delete('/api/settings', (req, res) => {
+  try { ensureDataDir(); fs.writeFileSync(path.join(getDataDir(),'settings.json'),'{}','utf8'); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: String(e) }); }
+});
+
 /* ── Stats ───────────────────────────────────────────────────────────── */
 app.get('/api/stats', (req, res) => {
   try {

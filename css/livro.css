@@ -349,47 +349,93 @@ body.livro-body {
   font-size: 12.5px;
   line-height: 1.7;
   color: #3c2010;
-  flex: 1;
+  flex-shrink: 1;
   overflow: hidden;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+  max-height: 120px;
+}
+
+/* Family relations list */
+.bio-relations-wrap {
+  margin-bottom: 8px;
+  flex-shrink: 0;
 }
 
 /* Family relations list */
 .bio-relations {
   font-size: 12px;
   color: #5a380a;
-  margin-bottom: 10px;
+  line-height: 1.5;
 }
 
 .bio-relations strong {
   color: #3c1808;
 }
 
-/* Photo grid */
-.bio-photos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+/* Inline page-reference chip */
+.bio-pg-ref-resolved {
+  display: inline-block;
+  font-size: 10px;
+  color: #ffffff;
+  background: #7a3e1e;
+  border-radius: 3px;
+  padding: 0 4px;
+  margin-left: 3px;
+  vertical-align: middle;
+  line-height: 1.6;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  cursor: default;
+}
+
+/* ── Photo area wrapper ────────────────────────────────────── */
+.bio-photo-area {
   margin-top: auto;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 6px;
 }
 
-.bio-photo-thumb {
-  width: 70px;
-  height: 70px;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid #d4c4a0;
-  box-shadow: 0 2px 6px #00000020;
-}
+.bio-photo-area.photo-h-sm { height: 110px; }
+.bio-photo-area.photo-h-md { height: 180px; }
+.bio-photo-area.photo-h-lg { height: 260px; }
 
-.bio-photo-wide {
+/* ── Photo mosaic layouts ──────────────────────────────────── */
+.bio-photo-mosaic {
+  display: flex;
+  gap: 4px;
   width: 100%;
-  max-height: 160px;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 6px;
+}
+
+.bio-photo-mosaic-img {
+  display: block;
+  flex-shrink: 0;
+}
+
+/* 1 photo: single full-width panel */
+.bio-photo-mosaic-1 .bio-photo-mosaic-img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   border-radius: 6px;
-  border: 1px solid #d4c4a0;
-  box-shadow: 0 2px 8px #00000025;
-  margin-bottom: 8px;
+}
+
+/* 3-photo: column split handled inline */
+.bio-photo-mosaic-3 {
+  align-items: stretch;
+}
+
+/* 4-photo: 2×2 grid — column direction */
+.bio-photo-mosaic-4 {
+  flex-direction: column;
+}
+
+/* 5/6-photo: rows handled inline */
+.bio-photo-mosaic-5 {
+  flex-direction: column;
 }
 
 /* ---- Tree Page ----------------------------------------------- */
@@ -600,3 +646,17 @@ body.livro-body {
 #livro-print-pages {
   display: none;
 }
+
+/* Goto input focus ring */
+#lbrGotoInput:focus {
+  border-color: #c8a96e !important;
+  box-shadow: 0 0 0 2px #c8a96e30;
+}
+
+/* Hide number input spin buttons */
+#lbrGotoInput::-webkit-inner-spin-button,
+#lbrGotoInput::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+#lbrGotoInput { -moz-appearance: textfield; }

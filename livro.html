@@ -27,7 +27,12 @@
   <label style="color:#a08060;font-size:12px;white-space:nowrap;">Pessoa foco:</label>
   <select id="lbrPersonSelect" title="Mudar pessoa foco"></select>
   <div class="lbr-sep"></div>
-  <span class="lbr-page-indicator" id="lbrPageIndicator">p. 1</span>
+  <div style="display:flex;align-items:center;gap:6px;">
+    <label style="color:#a08060;font-size:12px;white-space:nowrap;">p.</label>
+    <input id="lbrGotoInput" type="number" min="1" title="Ir para página" placeholder="…"
+      style="width:52px;padding:3px 6px;border-radius:6px;border:1px solid #5a3a1a;background:#1e150c;color:#e0ccaa;font-size:13px;font-family:Georgia,serif;text-align:center;outline:none;">
+    <span id="lbrPageTotal" style="color:#a08060;font-size:12px;white-space:nowrap;">/ …</span>
+  </div>
   <div class="lbr-sep"></div>
   <button id="lbrPrintBtn" title="Imprimir / Guardar PDF">
     <span class="mdi mdi-printer"></span> Imprimir
@@ -162,58 +167,74 @@
       });
     }
 
-    /** BFS to collect all reachable families ordered by proximity to root */
+    /** BFS to collect all reachable families.
+     *  Order: focus-person's own families first, then ancestors, then descendants/collaterals.
+     */
     traverseAllGenerations(rootId) {
       const ind = this.individuals[rootId];
       if (!ind) return;
 
       const visitedFam = new Set();
       const visitedInd = new Set([rootId]);
-      const queue = [rootId];
 
+      // ── Phase 1: root person's own spouse-families come first ──────────
+      (ind.fams || []).forEach(famId => {
+        if (this.families[famId] && !visitedFam.has(famId)) {
+          visitedFam.add(famId);
+          this.familyOrder.push(famId);
+          const fam = this.families[famId];
+          [fam.husb, fam.wife].forEach(sid => {
+            if (sid && !visitedInd.has(sid)) visitedInd.add(sid);
+          });
+          (fam.children || []).forEach(cid => {
+            if (!visitedInd.has(cid)) visitedInd.add(cid);
+          });
+        }
+      });
+
+      // ── Phase 2: ancestors (walk up via famc) ──────────────────────────
+      const ancestorOrder = [];
+      const walkUp = (personId) => {
+        const p = this.individuals[personId];
+        if (!p || !p.famc) return;
+        const fam = this.families[p.famc];
+        if (!fam || visitedFam.has(p.famc)) return;
+        visitedFam.add(p.famc);
+        ancestorOrder.unshift(p.famc); // most-distant ancestors first
+        [fam.husb, fam.wife].forEach(pid => {
+          if (pid && !visitedInd.has(pid)) {
+            visitedInd.add(pid);
+            walkUp(pid);
+          }
+        });
+      };
+      walkUp(rootId);
+      // Prepend ancestors before root's families
+      this.familyOrder = [...ancestorOrder, ...this.familyOrder];
+
+      // ── Phase 3: BFS outward — children's families, collaterals ─────────
+      // Seed queue with all so-far visited individuals
+      const queue = [...visitedInd];
       while (queue.length) {
         const id = queue.shift();
         const person = this.individuals[id];
         if (!person) continue;
 
-        // Families as spouse
         (person.fams || []).forEach(famId => {
           if (!visitedFam.has(famId) && this.families[famId]) {
             visitedFam.add(famId);
             this.familyOrder.push(famId);
             const fam = this.families[famId];
-            // add spouse
             [fam.husb, fam.wife].forEach(sid => {
-              if (sid && !visitedInd.has(sid)) {
-                visitedInd.add(sid);
-                queue.push(sid);
-              }
+              if (sid && !visitedInd.has(sid)) { visitedInd.add(sid); queue.push(sid); }
             });
-            // add children
             (fam.children || []).forEach(cid => {
-              if (!visitedInd.has(cid)) {
-                visitedInd.add(cid);
-                queue.push(cid);
-              }
+              if (!visitedInd.has(cid)) { visitedInd.add(cid); queue.push(cid); }
             });
           }
         });
-
-        // Family as child → get parents
-        if (person.famc && this.families[person.famc] && !visitedFam.has(person.famc)) {
-          visitedFam.add(person.famc);
-          this.familyOrder.unshift(person.famc); // ancestors first
-          const fam = this.families[person.famc];
-          [fam.husb, fam.wife].forEach(pid => {
-            if (pid && !visitedInd.has(pid)) {
-              visitedInd.add(pid);
-              queue.push(pid);
-            }
-          });
-        }
       }
 
-      // Remove duplicate IDs (unshift may have caused dups)
       this.familyOrder = [...new Set(this.familyOrder)];
     }
 
@@ -442,18 +463,59 @@
       };
     }
 
-    _renderChapterRight(famId, chapterNum) {
-      const fam = this.families[famId];
-      if (!fam) return null;
+    /** Render a photo mosaic that fills available vertical space */
+    _renderPhotoMosaic(photos, name) {
+      if (!photos.length) return '';
+      const n = photos.length;
+      const esc2 = s => esc(s);
 
-      // Focus bio on husband, fallback wife
-      const leadId = fam.husb || fam.wife;
-      const lead = this.individuals[leadId];
-      if (!lead) {
-        return { type: 'chapter-right', title: '', famId, html: '<div class="livro-page-inner"></div>' };
+      // Helper: single photo element with given flex sizing
+      const img = (src, style) =>
+        `<img src="${esc2(src)}" alt="${esc2(name)}" class="bio-photo-mosaic-img" style="${style}" loading="lazy"/>`;
+
+      if (n === 1) {
+        return `<div class="bio-photo-mosaic bio-photo-mosaic-1">${img(photos[0], 'width:100%;height:100%;object-fit:cover;border-radius:6px;')}</div>`;
       }
-
-      return this._renderBioPage(leadId, chapterNum, famId);
+      if (n === 2) {
+        return `<div class="bio-photo-mosaic bio-photo-mosaic-2">
+          ${img(photos[0], 'width:calc(50% - 3px);height:100%;object-fit:cover;border-radius:6px 0 0 6px;')}
+          ${img(photos[1], 'width:calc(50% - 3px);height:100%;object-fit:cover;border-radius:0 6px 6px 0;')}
+        </div>`;
+      }
+      if (n === 3) {
+        return `<div class="bio-photo-mosaic bio-photo-mosaic-3">
+          <div style="flex:1.4;height:100%;overflow:hidden;border-radius:6px 0 0 6px;">
+            ${img(photos[0], 'width:100%;height:100%;object-fit:cover;')}
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:4px;height:100%;">
+            <div style="flex:1;overflow:hidden;border-radius:0 6px 0 0;">${img(photos[1], 'width:100%;height:100%;object-fit:cover;')}</div>
+            <div style="flex:1;overflow:hidden;border-radius:0 0 6px 0;">${img(photos[2], 'width:100%;height:100%;object-fit:cover;')}</div>
+          </div>
+        </div>`;
+      }
+      if (n === 4) {
+        return `<div class="bio-photo-mosaic bio-photo-mosaic-4">
+          <div style="display:flex;gap:4px;flex:1;">
+            <div style="flex:1;overflow:hidden;border-radius:6px 0 0 6px;">${img(photos[0], 'width:100%;height:100%;object-fit:cover;')}</div>
+            <div style="flex:1;overflow:hidden;border-radius:0 6px 6px 0;">${img(photos[1], 'width:100%;height:100%;object-fit:cover;')}</div>
+          </div>
+          <div style="display:flex;gap:4px;flex:1;">
+            <div style="flex:1;overflow:hidden;border-radius:6px 0 0 6px;">${img(photos[2], 'width:100%;height:100%;object-fit:cover;')}</div>
+            <div style="flex:1;overflow:hidden;border-radius:0 6px 6px 0;">${img(photos[3], 'width:100%;height:100%;object-fit:cover;')}</div>
+          </div>
+        </div>`;
+      }
+      // 5 or 6
+      const first3 = photos.slice(0, 3);
+      const rest   = photos.slice(3, 6);
+      const row2   = rest.map(p => `<div style="flex:1;overflow:hidden;border-radius:4px;">${img(p,'width:100%;height:100%;object-fit:cover;')}</div>`).join('');
+      return `<div class="bio-photo-mosaic bio-photo-mosaic-5" style="flex-direction:column;">
+        <div style="display:flex;gap:4px;flex:1.4;min-height:0;">${first3.map((p,i) => {
+          const r = i===0?'6px 0 0 0':i===2?'0 6px 0 0':'0';
+          return `<div style="flex:1;overflow:hidden;border-radius:${r};">${img(p,'width:100%;height:100%;object-fit:cover;')}</div>`;
+        }).join('')}</div>
+        <div style="display:flex;gap:4px;flex:1;min-height:0;">${row2}</div>
+      </div>`;
     }
 
     _renderBioPage(personId, chapterNum, famId) {
@@ -484,16 +546,21 @@
         if (src) photos.push(src);
       });
 
-      // Family relations
+      // ── Family relations with {{pg:ID}} placeholders ──────────────────
+      // These are resolved to real page numbers after the layout pass.
+      const pgRef = (personId) => `<span class="bio-pg-ref" data-pgref="${personId}"></span>`;
+
       let relations = '';
-      // Parents
       if (ind.famc && this.families[ind.famc]) {
         const pfam = this.families[ind.famc];
-        const pNames = [pfam.husb && displayName(this.individuals[pfam.husb]),
-                        pfam.wife && displayName(this.individuals[pfam.wife])].filter(Boolean);
-        if (pNames.length) relations += `<div class="bio-relations"><strong>Pais:</strong> ${esc(pNames.join(' &amp; '))}</div>`;
+        const parents = [pfam.husb, pfam.wife].filter(Boolean).map(pid => {
+          const p = this.individuals[pid];
+          return p ? `${esc(displayName(p))}${pgRef(pid)}` : null;
+        }).filter(Boolean);
+        if (parents.length) {
+          relations += `<div class="bio-relations"><strong>Pais:</strong> ${parents.join(' &amp; ')}</div>`;
+        }
       }
-      // Spouses & children
       (ind.fams || []).forEach(fid => {
         const sfam = this.families[fid];
         if (!sfam) return;
@@ -501,22 +568,17 @@
         const spouse = this.individuals[spouseId];
         if (spouse) {
           const marrEv = (sfam.events || []).find(e => e.type === 'MARR');
-          relations += `<div class="bio-relations"><strong>Cônjuge:</strong> ${esc(displayName(spouse))}${marrEv && marrEv.date ? ' (' + fmtDate(marrEv.date) + ')' : ''}</div>`;
+          relations += `<div class="bio-relations"><strong>Cônjuge:</strong> ${esc(displayName(spouse))}${pgRef(spouseId)}${marrEv && marrEv.date ? ' <span style="color:#a08060;font-size:11px;">(' + esc(fmtDate(marrEv.date)) + ')</span>' : ''}</div>`;
         }
         const kids = (sfam.children || []).map(c => this.individuals[c]).filter(Boolean);
         if (kids.length) {
-          relations += `<div class="bio-relations"><strong>Filhos:</strong> ${esc(kids.map(displayName).join(', '))}</div>`;
+          const kidList = kids.map(k => `${esc(displayName(k))}${pgRef(k.id)}`).join(', ');
+          relations += `<div class="bio-relations"><strong>Filhos:</strong> ${kidList}</div>`;
         }
       });
 
-      // Photo HTML
-      let photosHtml = '';
-      if (photos.length === 1) {
-        photosHtml = `<img class="bio-photo-wide" src="${esc(photos[0])}" alt="${esc(name)}"/>`;
-      } else if (photos.length > 1) {
-        photosHtml = `<div class="bio-photos">${photos.map(p =>
-          `<img class="bio-photo-thumb" src="${esc(p)}" alt="${esc(name)}"/>`).join('')}</div>`;
-      }
+      // Photo mosaic HTML (rendered separately, placed at bottom of page)
+      const photosHtml = this._renderPhotoMosaic(photos, name);
 
       // Bio meta grid
       const metaItems = [
@@ -533,6 +595,12 @@
         `<div class="bio-meta-item"><span class="bio-meta-label">${esc(m.l)}</span><span class="bio-meta-value">${esc(m.v)}</span></div>`
       ).join('');
 
+      // Determine photo height class (varies with content density)
+      const hasNotes = notes.length > 0;
+      const photoHeightClass = photos.length === 0 ? '' :
+        photos.length === 1 ? (hasNotes ? 'photo-h-sm' : 'photo-h-md') :
+        hasNotes ? 'photo-h-sm' : 'photo-h-lg';
+
       return {
         type: 'chapter-right',
         title: name,
@@ -543,10 +611,10 @@
   <div class="chapter-heading">${esc(name)}</div>
   ${years ? `<div class="chapter-years">${esc(years)}</div>` : ''}
   <div class="chapter-divider"></div>
-  ${photosHtml}
   <div class="bio-meta">${metaHtml}</div>
-  ${relations}
+  <div class="bio-relations-wrap">${relations}</div>
   ${notes ? `<div class="bio-notes">${esc(notes).replace(/\n/g,'<br/>')}</div>` : ''}
+  ${photosHtml ? `<div class="bio-photo-area ${photoHeightClass}">${photosHtml}</div>` : ''}
 </div>`
       };
     }
@@ -669,24 +737,58 @@
       return pages;
     }
 
-    /** Main entry: build all pages and return array */
+    _renderChapterRight(famId, chapterNum) {
+      const fam = this.families[famId];
+      if (!fam) return null;
+      const leadId = fam.husb || fam.wife;
+      const lead = this.individuals[leadId];
+      if (!lead) {
+        return { type: 'chapter-right', title: '', famId, html: '<div class="livro-page-inner"></div>' };
+      }
+      return this._renderBioPage(leadId, chapterNum, famId);
+    }
+
+    /** After layout pass: replace data-pgref placeholders with actual page numbers */
+    resolvePgRefs(pages) {
+      // Build map: personId → pageNum
+      const map = {};
+      pages.forEach(p => {
+        if (p && p.ref && p.ref.startsWith('ind_') && p.personId && p.pageNum) {
+          map[p.personId] = p.pageNum;
+        }
+      });
+      // Replace placeholders in all page HTML strings
+      pages.forEach(p => {
+        if (!p || !p.html) return;
+        p.html = p.html.replace(
+          /<span class="bio-pg-ref" data-pgref="([^"]+)"><\/span>/g,
+          (_, pid) => {
+            const pg = map[pid];
+            return pg
+              ? `<span class="bio-pg-ref-resolved" title="p. ${pg}"> p.${pg}</span>`
+              : '';
+          }
+        );
+      });
+    }
+
     buildPages() {
       this._loadData();
       this.traverseAllGenerations(this.rootId);
 
       const pages = [];
 
-      // 1. Cover
+      // 0. Cover  (shown alone by StPageFlip showCover)
       pages.push({ ...this._renderCover(), cssClass: 'page-cover' });
-      // 2. Verso of cover (blank)
-      pages.push(this._renderBlank());
-      // 3. Introduction
+      // 1. Introduction  (LEFT of first spread)
       pages.push({ ...this._renderIntro(), cssClass: 'page-intro' });
-      // 4. TOC placeholder (rebuilt after layout pass)
+      // 2. TOC placeholder  (RIGHT of first spread) — rebuilt after layout pass
       const tocIdx = pages.length;
-      pages.push(null); // placeholder
+      pages.push(null);
 
-      // 5. Chapters: each family → left (tree) + right (bio)
+      // From index 3 onward, chapters land at ODD indices (LEFT = tree) + EVEN (RIGHT = bio)
+      // To keep that invariant we need the pre-chapter count to be ODD (0-based):
+      // cover(0), intro(1), toc(2) → next page index = 3 (odd → LEFT ✓)
       let chapterNum = 0;
       this.familyOrder.forEach(famId => {
         chapterNum++;
@@ -696,11 +798,11 @@
         if (right) pages.push({ ...right, cssClass: 'page-bio' });
       });
 
-      // 6. Indexes (need layout pass first to get page numbers)
-      const idxGeneralIdx = pages.length; pages.push(null);
+      // Indexes (need layout pass first)
+      const idxGeneralIdx  = pages.length; pages.push(null);
       const idxSurnamesIdx = pages.length; pages.push(null);
 
-      // 7. Chronology
+      // Chronology
       const chronoPages = this._renderChronology();
       const chronoIdx = pages.length;
       chronoPages.forEach(cp => pages.push({ ...cp, cssClass: 'page-chrono' }));
@@ -710,13 +812,16 @@
         if (p) p.pageNum = i + 1;
       });
 
+      // ── Resolve person page-reference placeholders ────────────
+      this.resolvePgRefs(pages);
+
       // ── Build indexes now that page numbers are known ──────────
       pages[idxGeneralIdx]  = { ...this._renderIndexGeneral(pages.filter(Boolean)),  cssClass: 'page-index', pageNum: idxGeneralIdx + 1 };
       pages[idxSurnamesIdx] = { ...this._renderIndexSurnames(pages.filter(Boolean)), cssClass: 'page-index', pageNum: idxSurnamesIdx + 1 };
 
       // ── Build TOC ─────────────────────────────────────────────
       const tocEntries = [];
-      tocEntries.push({ title: 'Introdução', level: 1, page: 3 });
+      tocEntries.push({ title: 'Introdução', level: 1, page: 2 });
       let cn = 0;
       this.familyOrder.forEach(famId => {
         cn++;
@@ -725,7 +830,6 @@
         const wife = this.individuals[fam && fam.wife];
         const names = [husb && displayName(husb), wife && displayName(wife)].filter(Boolean);
         const heading = names.join(' & ') || `Família ${cn}`;
-        // find the chapter-left page index
         const pg = pages.findIndex(p => p && p.type === 'chapter-left' && p.famId === famId);
         tocEntries.push({ title: `Cap. ${cn} — ${heading}`, level: 1, page: pg > -1 ? pg + 1 : '?' });
       });
@@ -753,7 +857,10 @@
     if (!pageFlip) return;
     const cp = pageFlip.getCurrentPageIndex() + 1;
     const total = allPages.length;
-    document.getElementById('lbrPageIndicator').textContent = `p. ${cp} / ${total}`;
+    const input = document.getElementById('lbrGotoInput');
+    if (input) input.value = cp;
+    const totalEl = document.getElementById('lbrPageTotal');
+    if (totalEl) totalEl.textContent = '/ ' + total;
   }
 
   function initBook(DB, rootId) {
@@ -906,6 +1013,19 @@
     document.getElementById('livro-next').addEventListener('click', () => {
       if (pageFlip) pageFlip.flipNext('top');
     });
+
+    // Go-to-page input
+    const gotoInput = document.getElementById('lbrGotoInput');
+    const doGoto = () => {
+      if (!pageFlip) return;
+      const n = parseInt(gotoInput.value, 10);
+      if (!isFinite(n)) return;
+      const idx = Math.max(0, Math.min(allPages.length - 1, n - 1));
+      pageFlip.turnToPage(idx);
+      updateIndicator();
+    };
+    gotoInput.addEventListener('keydown', e => { if (e.key === 'Enter') { doGoto(); gotoInput.blur(); } });
+    gotoInput.addEventListener('change', doGoto);
 
     // Keyboard navigation
     document.addEventListener('keydown', e => {

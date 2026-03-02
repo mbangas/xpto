@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 #
-#   🌳  m y L i n e a g e  —  Instalador Automático  v2.0
+#   myLineage  --  Instalador Automatico  v2.1
 #
-#   Genealogia familiar · GEDCOM 7 · Node.js + Docker + Portainer
+#   Genealogia familiar - GEDCOM 7 - Node.js + Docker + Portainer
 #
 #   Suporta: Debian 11/12 · Ubuntu 22.04/24.04
 #   Destino:  LXC em Proxmox (acabado de criar, sem Docker)
@@ -12,25 +12,18 @@
 #       bash install.sh            (como root ou com sudo)
 #       sudo bash install.sh
 #
-# ═══════════════════════════════════════════════════════════════════════════════
+# ===============================================================================
 
 set -euo pipefail
 
-# ── Constantes ─────────────────────────────────────────────────────────────────
+# -- Constantes -----------------------------------------------------------------
 readonly REPO_URL="https://github.com/mbangas/myLineage.git"
 readonly LOG="/tmp/mylineage_install_$(date +%Y%m%d_%H%M%S).log"
-readonly PIPE="/tmp/mylineage_gauge_$$"
-readonly TITLE="🌳  myLineage — Instalador"
 
-APP_DIR="/opt/mylineage"
+APP_DIR="/root/myLineage"
 APP_PORT="3000"
 PORTAINER_HTTPS_PORT="9443"
 PORTAINER_TUNNEL_PORT="8000"
-
-VOL_FOTOS="/data/mylineage/fotos"
-VOL_DOCS="/data/mylineage/documentos"
-VOL_GEDCOM="/data/mylineage/gedcom"
-VOL_DATA="/data/mylineage/data"
 
 ADMIN_PHONE=""
 
@@ -39,60 +32,51 @@ OS_VER=""
 OS_NAME=""
 SERVER_IP=""
 
-# ── Utilitários de log ─────────────────────────────────────────────────────────
-log()  { echo "[$(date '+%H:%M:%S')] $*"        >> "$LOG"; }
-logn() { printf   "[$(date '+%H:%M:%S')] $*\n"  >> "$LOG"; }
-
-# ── Barra de progresso (named pipe + whiptail --gauge) ─────────────────────────
-GAUGE_PID=""
-
-gauge_open() {
-    mkfifo "$PIPE"
-    whiptail \
-        --backtitle "myLineage Installer  v2.0" \
-        --title "$TITLE" \
-        --gauge "A iniciar a instalação..." \
-        10 72 0 < "$PIPE" &
-    GAUGE_PID=$!
-    exec 4>"$PIPE"          # fd 4  →  gauge stdin
+# -- Utilitarios de log ---------------------------------------------------------
+log()  { echo "[$(date '+%H:%M:%S')] $*" >> "$LOG"; }
+info() { echo "  --> $*"; log "$*"; }
+step() {
+    echo ""
+    echo "======================================================================"
+    echo "  $*"
+    echo "======================================================================"
+    log "$*"
 }
 
-gauge_update() {            # gauge_update <pct> <mensagem>
+# -- Progresso no CLI -----------------------------------------------------------
+progress() {   # progress <pct> <mensagem>
     local pct="$1"
     local msg="$2"
-    printf 'XXX\n%s\n%s\nXXX\n' "$pct" "$msg" >&4
+    local bar_len=40
+    local filled=$(( pct * bar_len / 100 ))
+    local empty=$(( bar_len - filled ))
+    local bar=""
+    for ((i=0; i<filled; i++)); do bar="${bar}#"; done
+    for ((i=0; i<empty;  i++)); do bar="${bar}-"; done
+    printf "\r  [%s] %3d%%  %s\n" "$bar" "$pct" "$msg"
+    log "Progress ${pct}%: ${msg}"
 }
 
-gauge_close() {
-    exec 4>&-
-    wait "$GAUGE_PID" 2>/dev/null || true
-    rm -f "$PIPE"
-}
-
-# ── Verificar root ─────────────────────────────────────────────────────────────
+# -- Verificar root -------------------------------------------------------------
 check_root() {
     if [[ $EUID -ne 0 ]]; then
-        # whiptail pode ainda não estar instalado — usar echo simples
         echo ""
-        echo "  ╔══════════════════════════════════════════╗"
-        echo "  ║   ERRO: Execute como root ou com sudo    ║"
-        echo "  ║                                          ║"
-        echo "  ║   sudo bash install.sh                   ║"
-        echo "  ╚══════════════════════════════════════════╝"
+        echo "  ERRO: Execute como root ou com sudo"
+        echo "  sudo bash install.sh"
         echo ""
         exit 1
     fi
 }
 
-# ── Instalar whiptail (se necessário) ──────────────────────────────────────────
+# -- Instalar whiptail (se necessario) ------------------------------------------
 ensure_whiptail() {
     if ! command -v whiptail &>/dev/null; then
-        echo " → A instalar whiptail..."
+        info "A instalar whiptail..."
         apt-get update -qq && apt-get install -y -qq whiptail
     fi
 }
 
-# ── Detectar sistema operativo ─────────────────────────────────────────────────
+# -- Detectar sistema operativo -------------------------------------------------
 detect_os() {
     if [[ -f /etc/os-release ]]; then
         # shellcheck source=/dev/null
@@ -104,18 +88,18 @@ detect_os() {
 
     if [[ "$OS_ID" != "debian" && "$OS_ID" != "ubuntu" ]]; then
         whiptail \
-            --backtitle "myLineage Installer  v2.0" \
-            --title "Sistema Operativo Não Suportado" \
+            --backtitle "myLineage Installer  v2.1" \
+            --title "Sistema Operativo Nao Suportado" \
             --msgbox \
 "Sistema detectado: ${OS_NAME:-Desconhecido}
 
 Este instalador suporta apenas:
-  •  Debian 11 (Bullseye)
-  •  Debian 12 (Bookworm)
-  •  Ubuntu 22.04 LTS (Jammy)
-  •  Ubuntu 24.04 LTS (Noble)
+  - Debian 11 (Bullseye)
+  - Debian 12 (Bookworm)
+  - Ubuntu 22.04 LTS (Jammy)
+  - Ubuntu 24.04 LTS (Noble)
 
-Por favor instale uma dessas versões no seu LXC
+Por favor instale uma dessas versoes no seu LXC
 e execute o instalador novamente." \
             18 60
         exit 1
@@ -123,244 +107,134 @@ e execute o instalador novamente." \
     log "SO detectado: $OS_NAME (ID=$OS_ID  VER=$OS_VER)"
 }
 
-# ── Ecrã de boas-vindas ────────────────────────────────────────────────────────
+# -- Ecra de boas-vindas --------------------------------------------------------
 show_welcome() {
     whiptail \
-        --backtitle "myLineage Installer  v2.0" \
-        --title "$TITLE" \
+        --backtitle "myLineage Installer  v2.1" \
+        --title "myLineage -- Instalador" \
         --msgbox \
-"
-          ╔╦╗╦ ╦  ╦  ╦╔╗╔╔═╗╔═╗╔═╗╔═╗
-          ║║║╚╦╝  ║  ║║║║║╣ ╠═╣║ ╦║╣
-          ╩ ╩ ╩   ╩═╝╩╝╚╝╚═╝╩ ╩╚═╝╚═╝
-              Genealogia Familiar · v2.0
-         ─────────────────────────────────────
-          Explorar · Preservar · Conectar
-              a sua história familiar
-         ─────────────────────────────────────
+"Bem-vindo ao instalador do myLineage v2.1
+Genealogia Familiar - Explorar, Preservar, Conectar
 
-  Sistema detectado: ${OS_NAME}
+Sistema detectado: ${OS_NAME}
 
-  O instalador irá executar automaticamente:
+O instalador ira executar automaticamente:
 
-   [1]  Actualizar o sistema operativo
-   [2]  Instalar Docker CE
-   [3]  Instalar Portainer (gestão Docker)
-   [4]  Configurar volumes de dados
-   [5]  Descarregar myLineage do GitHub
-   [6]  Compilar a imagem Docker
-   [7]  Iniciar todos os serviços
+ [1]  Actualizar o sistema operativo
+ [2]  Instalar Docker CE
+ [3]  Instalar Portainer (gestao Docker)
+ [4]  Descarregar myLineage do GitHub
+ [5]  Compilar a imagem Docker
+ [6]  Iniciar todos os servicos
 
-  Prima  OK  para continuar." \
-        32 66
+ATENCAO: Este processo pode demorar varios minutos
+(10 a 30 min dependendo da ligacao a Internet e
+dos recursos do servidor). Por favor aguarde.
+
+O progresso sera mostrado no terminal.
+
+Prima OK para continuar." \
+        26 64
 }
 
-# ── Confirmação ────────────────────────────────────────────────────────────────
+# -- Confirmacao ----------------------------------------------------------------
 confirm_install() {
     whiptail \
-        --backtitle "myLineage Installer  v2.0" \
-        --title "$TITLE" \
+        --backtitle "myLineage Installer  v2.1" \
+        --title "myLineage -- Instalador" \
         --yesno \
 "Pronto para instalar myLineage no seu servidor.
 
-  Directório de instalação : ${APP_DIR}
-  Sistema operativo         : ${OS_NAME}
-  Log de instalação         : ${LOG}
+  Directorio de instalacao : ${APP_DIR}
+  Sistema operativo        : ${OS_NAME}
+  Log de instalacao        : ${LOG}
 
-A instalação pode demorar alguns minutos
-dependendo da velocidade da ligação à Internet
-e dos recursos do servidor.
+ATENCAO: A instalacao e demorada (10-30 minutos).
+O progresso sera mostrado no terminal.
 
 Deseja continuar?" \
-        16 66
+        16 64
 }
 
-# ── Perguntar porta ────────────────────────────────────────────────────────────
+# -- Perguntar porta e telemovel ------------------------------------------------
 ask_config() {
-    # Porta da aplicação
+    # Porta da aplicacao
     APP_PORT=$(whiptail \
-        --backtitle "myLineage Installer  v2.0" \
-        --title "⚙️   Configuração — Porta da Aplicação" \
+        --backtitle "myLineage Installer  v2.1" \
+        --title "Configuracao -- Porta da Aplicacao" \
         --inputbox \
-"Porta onde o myLineage ficará disponível.
+"Porta onde o myLineage ficara disponivel.
 
-Depois da instalação, a aplicação estará
-acessível em:
+Depois da instalacao, a aplicacao estara
+acessivel em:
   http://<IP-do-servidor>:<porta>
 
 Porta (recomendado: 3000):" \
-        14 62 "3000" 3>&1 1>&2 2>&3) || exit 0
+        14 60 "3000" 3>&1 1>&2 2>&3) || exit 0
 
-    # Directório de instalação
-    APP_DIR=$(whiptail \
-        --backtitle "myLineage Installer  v2.0" \
-        --title "⚙️   Configuração — Directório de Instalação" \
-        --inputbox \
-"Directório onde o código do myLineage
-será instalado no servidor.
-
-Directório de instalação:" \
-        12 62 "/opt/mylineage" 3>&1 1>&2 2>&3) || exit 0
-
-    # Telemóvel do administrador
+    # Telemovel do administrador
     ADMIN_PHONE=$(whiptail \
-        --backtitle "myLineage Installer  v2.0" \
-        --title "🔐  Configuração — Administrador" \
+        --backtitle "myLineage Installer  v2.1" \
+        --title "Configuracao -- Administrador" \
         --inputbox \
-"Telemóvel do administrador do myLineage.
+"Telemovel do administrador do myLineage.
 
-Este número terá acesso total à aplicação
-e será o primeiro a configurar o
+Este numero tera acesso total a aplicacao
+e sera o primeiro a configurar o
 Microsoft Authenticator (TOTP).
 
 Formato: +351910000000
-Telemóvel do administrador:" \
-        16 62 "" 3>&1 1>&2 2>&3) || exit 0
+Telemovel do administrador:" \
+        16 60 "" 3>&1 1>&2 2>&3) || exit 0
 
-    # Validar número de telefone (deve começar com + e ter pelo menos 8 dígitos)
+    # Validar numero de telefone (deve comecar com + e ter pelo menos 8 digitos)
     while [[ ! "$ADMIN_PHONE" =~ ^\+[0-9]{7,} ]]; do
         ADMIN_PHONE=$(whiptail \
-            --backtitle "myLineage Installer  v2.0" \
-            --title "⚠️   Telemóvel Inválido" \
+            --backtitle "myLineage Installer  v2.1" \
+            --title "Telemovel Invalido" \
             --inputbox \
-"Número inválido. Deve começar com +
-e ter pelo menos 8 dígitos.
+"Numero invalido. Deve comecar com +
+e ter pelo menos 8 digitos.
 
 Exemplo: +351910000000
 
-Telemóvel do administrador:" \
-            14 62 "" 3>&1 1>&2 2>&3) || exit 0
+Telemovel do administrador:" \
+            14 60 "" 3>&1 1>&2 2>&3) || exit 0
     done
 }
 
-# ── Perguntar volumes ──────────────────────────────────────────────────────────
-ask_volumes() {
-    whiptail \
-        --backtitle "myLineage Installer  v2.0" \
-        --title "💾  Volumes de Dados" \
-        --msgbox \
-"A seguir irá configurar os três volumes
-de dados da aplicação.
-
-  📸  Volume de Fotografias
-      → Imagens associadas às pessoas
-
-  📄  Volume de Documentos
-      → PDFs, imagens de documentos, etc.
-
-  🗂️   Volume GEDCOM
-      → Ficheiros .ged para importação
-        e exportação
-
-Os caminhos indicados serão criados
-automaticamente se não existirem." \
-        22 62
-
-    # Volume — Fotografias
-    VOL_FOTOS=$(whiptail \
-        --backtitle "myLineage Installer  v2.0" \
-        --title "📸  Volume — Fotografias" \
-        --inputbox \
-"Caminho no servidor para guardar as
-fotografias e imagens da aplicação.
-
-Será criado automaticamente se não existir.
-
-Caminho:" \
-        14 62 "/data/mylineage/fotos" 3>&1 1>&2 2>&3) || exit 0
-
-    # Volume — Documentos
-    VOL_DOCS=$(whiptail \
-        --backtitle "myLineage Installer  v2.0" \
-        --title "📄  Volume — Documentos" \
-        --inputbox \
-"Caminho no servidor para guardar os
-documentos (PDF, imagens, etc.).
-
-Será criado automaticamente se não existir.
-
-Caminho:" \
-        14 62 "/data/mylineage/documentos" 3>&1 1>&2 2>&3) || exit 0
-
-    # Volume — GEDCOM
-    VOL_GEDCOM=$(whiptail \
-        --backtitle "myLineage Installer  v2.0" \
-        --title "🗂️   Volume — Ficheiros GEDCOM" \
-        --inputbox \
-"Caminho no servidor para os ficheiros
-GEDCOM (.ged) de importação e exportação.
-
-Será criado automaticamente se não existir.
-
-Caminho:" \
-        14 62 "/data/mylineage/gedcom" 3>&1 1>&2 2>&3) || exit 0
-
-    # Volume — Base de Dados JSON
-    VOL_DATA=$(whiptail \
-        --backtitle "myLineage Installer  v2.0" \
-        --title "🗄️   Volume — Base de Dados" \
-        --inputbox \
-"Caminho no servidor para os ficheiros
-JSON que guardam todos os registos
-(indivíduos, famílias, fontes, etc.).
-
-Este volume é o mais importante:
-faça backups regulares!
-
-Caminho:" \
-        16 62 "/data/mylineage/data" 3>&1 1>&2 2>&3) || exit 0
-
-    # Confirmação dos volumes
-    whiptail \
-        --backtitle "myLineage Installer  v2.0" \
-        --title "✅  Confirmar Volumes" \
-        --yesno \
-"Os seguintes volumes serão configurados:
-
-  📸  Fotografias   →  ${VOL_FOTOS}
-
-  📄  Documentos    →  ${VOL_DOCS}
-
-  🗂️   GEDCOM        →  ${VOL_GEDCOM}
-
-  🗄️   Dados JSON    →  ${VOL_DATA}
-
-Os directórios são criados automaticamente
-se ainda não existirem.
-
-Confirmar?" \
-        22 66 || ask_volumes
-}
-
-# ── PASSO 1: Actualizar sistema ────────────────────────────────────────────────
+# -- PASSO 1: Actualizar sistema ------------------------------------------------
 step_update_system() {
-    log "=== PASSO 1: Actualizar sistema ==="
+    step "PASSO 1/6: Actualizar sistema operativo"
     export DEBIAN_FRONTEND=noninteractive
+    info "A executar apt-get update..."
     apt-get update -qq                                      >> "$LOG" 2>&1
+    info "A actualizar pacotes instalados..."
     apt-get upgrade -y -qq                                  >> "$LOG" 2>&1
+    info "A instalar dependencias basicas..."
     apt-get install -y -qq \
         curl wget git ca-certificates gnupg \
         lsb-release apt-transport-https \
         software-properties-common \
-        ufw                                                 >> "$LOG" 2>&1
-    log "Sistema actualizado com sucesso."
+        ufw python3                                         >> "$LOG" 2>&1
+    info "Sistema actualizado com sucesso."
 }
 
-# ── PASSO 2: Instalar Docker CE ────────────────────────────────────────────────
+# -- PASSO 2: Instalar Docker CE ------------------------------------------------
 step_install_docker() {
-    log "=== PASSO 2: Instalar Docker ==="
+    step "PASSO 2/6: Instalar Docker CE"
 
     if command -v docker &>/dev/null; then
-        log "Docker já está instalado: $(docker --version)"
+        info "Docker ja esta instalado: $(docker --version)"
         return 0
     fi
 
-    # Remover versões antigas (ignora erros)
+    info "A remover versoes antigas do Docker..."
     apt-get remove -y -qq \
         docker docker-engine docker.io containerd runc \
         2>/dev/null >> "$LOG" 2>&1 || true
 
-    # Configurar chave GPG e repositório
+    info "A configurar repositorio oficial Docker..."
     install -m 0755 -d /etc/apt/keyrings
 
     if [[ "$OS_ID" == "ubuntu" ]]; then
@@ -384,26 +258,29 @@ step_install_docker() {
           > /etc/apt/sources.list.d/docker.list
     fi
 
+    info "A instalar Docker CE..."
     apt-get update -qq                                      >> "$LOG" 2>&1
     apt-get install -y -qq \
         docker-ce docker-ce-cli containerd.io \
         docker-buildx-plugin docker-compose-plugin          >> "$LOG" 2>&1
 
     systemctl enable --now docker                           >> "$LOG" 2>&1
-    log "Docker instalado: $(docker --version)"
+    info "Docker instalado: $(docker --version)"
 }
 
-# ── PASSO 3: Instalar Portainer ────────────────────────────────────────────────
+# -- PASSO 3: Instalar Portainer ------------------------------------------------
 step_install_portainer() {
-    log "=== PASSO 3: Instalar Portainer ==="
+    step "PASSO 3/6: Instalar Portainer"
 
     if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^portainer$"; then
-        log "Portainer já está instalado."
+        info "Portainer ja esta instalado."
         return 0
     fi
 
+    info "A criar volume do Portainer..."
     docker volume create portainer_data                     >> "$LOG" 2>&1
 
+    info "A iniciar contentor Portainer..."
     docker run -d \
         --name portainer \
         --restart=always \
@@ -413,40 +290,34 @@ step_install_portainer() {
         -v portainer_data:/data \
         portainer/portainer-ce:latest                       >> "$LOG" 2>&1
 
-    log "Portainer instalado (porta HTTPS: ${PORTAINER_HTTPS_PORT})"
+    info "Portainer instalado (porta HTTPS: ${PORTAINER_HTTPS_PORT})"
 }
 
-# ── PASSO 4: Criar directórios dos volumes ─────────────────────────────────────
-step_create_volumes() {
-    log "=== PASSO 4: Criar volumes ==="
-    mkdir -p "$VOL_FOTOS" "$VOL_DOCS" "$VOL_GEDCOM" "$VOL_DATA" "$APP_DIR"
-    chmod 755 "$VOL_FOTOS" "$VOL_DOCS" "$VOL_GEDCOM" "$VOL_DATA"
-    log "Directórios criados: $VOL_FOTOS | $VOL_DOCS | $VOL_GEDCOM | $VOL_DATA"
-}
-
-# ── PASSO 5: Clonar repositório ────────────────────────────────────────────────
+# -- PASSO 4: Clonar repositorio -----------------------------------------------
 step_clone_repo() {
-    log "=== PASSO 5: Clonar repositório ==="
+    step "PASSO 4/6: Descarregar myLineage do GitHub"
+
+    # Garantir que o directorio de instalacao existe
+    mkdir -p "$APP_DIR"
+
     if [[ -d "$APP_DIR/.git" ]]; then
-        log "Repositório já existe — a actualizar..."
+        info "Repositorio ja existe -- a actualizar..."
         git -C "$APP_DIR" pull                              >> "$LOG" 2>&1
     else
+        info "A clonar repositorio de ${REPO_URL}..."
         git clone "$REPO_URL" "$APP_DIR"                    >> "$LOG" 2>&1
     fi
-    log "Repositório disponível em: $APP_DIR"
+    info "Repositorio disponivel em: $APP_DIR"
 }
 
-# ── PASSO 6: Criar Dockerfile ──────────────────────────────────────────────────
+# -- PASSO 5: Verificar Dockerfile e gerar docker-compose.yml ------------------
 step_create_dockerfile() {
-    log "=== PASSO 6a: Criar Dockerfile ==="
-    # O Dockerfile já vem no repositório clonado do GitHub.
-    # Esta função garante que existe, mesmo que o clone falhe parcialmente.
     if [[ -f "$APP_DIR/Dockerfile" ]]; then
-        log "Dockerfile já presente no repositório."
+        info "Dockerfile ja presente no repositorio."
         return 0
     fi
 
-    log "Dockerfile não encontrado — a criar versão de fallback..."
+    info "Dockerfile nao encontrado -- a criar versao de fallback..."
     cat > "$APP_DIR/Dockerfile" << 'DOCKERFILE_CONTENT'
 FROM node:18-alpine AS builder
 WORKDIR /app
@@ -467,26 +338,23 @@ COPY --from=builder /app/topola-bundle.js ./
 COPY --from=builder /app/family-chart-bundle.js ./
 COPY --from=builder /app/qrcode-bundle.js ./
 COPY --from=builder /app/css ./css
-RUN mkdir -p /app/JSON-DATA /app/uploads/fotos /app/uploads/documentos /app/uploads/gedcom
-RUN addgroup -S mylineage && adduser -S mylineage -G mylineage \
-    && chown -R mylineage:mylineage /app
-USER mylineage
+COPY --from=builder /app/JSON-DATA ./JSON-DATA
+RUN mkdir -p /app/uploads/fotos /app/uploads/documentos /app/uploads/gedcom
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD wget -qO- http://localhost:3000 > /dev/null 2>&1 || exit 1
 CMD ["node", "server.js"]
 DOCKERFILE_CONTENT
-    log "Dockerfile de fallback criado."
+    info "Dockerfile de fallback criado."
 }
 
-# ── PASSO 7: Criar docker-compose.yml ─────────────────────────────────────────
 step_create_compose() {
-    log "=== PASSO 6b: Criar docker-compose.yml ==="
+    info "A gerar docker-compose.yml..."
     cat > "$APP_DIR/docker-compose.yml" << COMPOSE_CONTENT
-# ─────────────────────────────────────────────────────────────────────────────
-#  myLineage — docker-compose.yml
+# -----------------------------------------------------------------------------
+#  myLineage -- docker-compose.yml
 #  Gerado automaticamente pelo instalador em $(date)
-# ─────────────────────────────────────────────────────────────────────────────
+# -----------------------------------------------------------------------------
 
 services:
 
@@ -495,24 +363,31 @@ services:
       context: .
       dockerfile: Dockerfile
     image: mylineage:latest
+    pull_policy: never
     container_name: mylineage
     restart: unless-stopped
 
     ports:
       - "${APP_PORT}:3000"
 
-    volumes:
-      # Base de dados JSON (registos genealógicos — IMPORTANTE: fazer backups)
-      - ${VOL_DATA}:/app/JSON-DATA
-
-      # Galeria de fotografias
-      - ${VOL_FOTOS}:/app/uploads/fotos
-
-      # Biblioteca de documentos
-      - ${VOL_DOCS}:/app/uploads/documentos
-
-      # Ficheiros GEDCOM de importação / exportação
-      - ${VOL_GEDCOM}:/app/uploads/gedcom
+    # Volumes de dados
+    # Por omissao os dados ficam dentro do contentor.
+    # Para persistir dados em pastas do servidor descomente as linhas
+    # abaixo e ajuste os caminhos conforme necessario.
+    # Depois reinicie com: docker compose up -d --build
+    #
+    # volumes:
+    #   # Base de dados JSON (registos genealogicos -- IMPORTANTE: fazer backups)
+    #   - /root/myLineage-data/JSON-DATA:/app/JSON-DATA
+    #
+    #   # Galeria de fotografias
+    #   - /root/myLineage-data/fotos:/app/uploads/fotos
+    #
+    #   # Biblioteca de documentos
+    #   - /root/myLineage-data/documentos:/app/uploads/documentos
+    #
+    #   # Ficheiros GEDCOM de importacao / exportacao
+    #   - /root/myLineage-data/gedcom:/app/uploads/gedcom
 
     environment:
       - NODE_ENV=production
@@ -526,39 +401,25 @@ services:
       start_period: 40s
 
     labels:
-      - "com.mylineage.version=2.0"
+      - "com.mylineage.version=2.1"
       - "com.mylineage.install-date=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
       - "com.mylineage.managed=true"
 COMPOSE_CONTENT
-    log "docker-compose.yml criado em $APP_DIR/docker-compose.yml"
+    info "docker-compose.yml criado em $APP_DIR/docker-compose.yml"
 }
 
-# ── PASSO 7b: Semear dados iniciais + adminPhone ─────────────────────────────
+# -- Configurar adminPhone nos dados iniciais ----------------------------------
 step_seed_data() {
-    log "=== PASSO 7b: Semear dados iniciais ==="
+    info "A configurar administrador nos dados iniciais..."
 
-    # Copiar ficheiros JSON de seed para o volume (apenas se ainda não existirem)
-    local src="$APP_DIR/JSON-DATA"
-    if [[ -d "$src" ]]; then
-        for f in "$src"/*.json; do
-            [[ -f "$f" ]] || continue
-            local dest="$VOL_DATA/$(basename "$f")"
-            if [[ ! -f "$dest" ]]; then
-                cp "$f" "$dest"
-                log "Copiado: $dest"
-            fi
-        done
-    fi
+    local settings="$APP_DIR/JSON-DATA/settings.json"
 
-    # Injectar adminPhone em settings.json
-    local settings="$VOL_DATA/settings.json"
     if [[ ! -f "$settings" ]]; then
         echo '{"adminPhone":"'"$ADMIN_PHONE"'"}' > "$settings"
         log "settings.json criado com adminPhone=$ADMIN_PHONE"
     else
-        # Usar python3 para atualizar o campo adminPhone
         python3 - <<PYEOF
-import json, sys
+import json
 path = "$settings"
 try:
     with open(path) as f:
@@ -568,181 +429,194 @@ except Exception:
 data['adminPhone'] = "$ADMIN_PHONE"
 with open(path, 'w') as f:
     json.dump(data, f, ensure_ascii=False, indent=2)
-print('adminPhone definido:', "$ADMIN_PHONE")
 PYEOF
         log "settings.json actualizado: adminPhone=$ADMIN_PHONE"
     fi
+    info "Administrador configurado: $ADMIN_PHONE"
 }
 
-# ── PASSO 8: Build e arranque ──────────────────────────────────────────────────
+# -- PASSO 5: Build e arranque -------------------------------------------------
 step_build_and_start() {
-    log "=== PASSO 7: Build e arranque Docker ==="
+    step "PASSO 5/6: Compilar imagem Docker e iniciar servicos"
+    info "ATENCAO: A compilacao da imagem Docker pode demorar varios minutos."
+    info "Aguarde -- o progresso do build e mostrado abaixo:"
+    echo ""
     cd "$APP_DIR"
-    docker compose build --no-cache                         >> "$LOG" 2>&1
-    docker compose up -d                                    >> "$LOG" 2>&1
-    log "Containers iniciados."
+    docker compose build --no-cache
+    echo ""
+    info "Build concluido. A iniciar contentor..."
+    docker compose up -d
+    info "Contentor iniciado."
 }
 
-# ── Aguardar serviço ficar disponível ──────────────────────────────────────────
+# -- PASSO 6: Aguardar servico -------------------------------------------------
 wait_for_service() {
-    log "A aguardar o serviço iniciar..."
+    step "PASSO 6/6: Verificar servico"
+    info "A aguardar o myLineage iniciar..."
     local waited=0
     local max=90
     while ! curl -sf "http://localhost:${APP_PORT}" > /dev/null 2>&1; do
         sleep 3
         waited=$((waited + 3))
+        printf "\r  A aguardar... %ds" "$waited"
         if (( waited >= max )); then
-            log "AVISO: Serviço não disponível após ${max}s (pode ainda estar a iniciar)."
+            echo ""
+            info "AVISO: Servico nao disponivel apos ${max}s (pode ainda estar a iniciar)."
             return 0
         fi
     done
-    log "Serviço disponível após ${waited}s."
+    echo ""
+    info "Servico disponivel apos ${waited}s."
 }
 
-# ── Obter IP do servidor ───────────────────────────────────────────────────────
+# -- Obter IP do servidor -------------------------------------------------------
 get_server_ip() {
     SERVER_IP=$(hostname -I 2>/dev/null | awk '{print $1}') || true
     [[ -z "$SERVER_IP" ]] && SERVER_IP="127.0.0.1"
 }
 
-# ── Ecrã final — Próximos Passos ───────────────────────────────────────────────
+# -- Ecra final ----------------------------------------------------------------
 show_next_steps() {
     get_server_ip
+    echo ""
+    echo "======================================================================"
+    echo "  INSTALACAO CONCLUIDA COM SUCESSO!"
+    echo "======================================================================"
+    echo ""
+    echo "  ACESSO AO myLineage"
+    echo "  --------------------------------------------------------------------"
+    echo "  Interface Web:  http://${SERVER_IP}:${APP_PORT}"
+    echo "  API REST:       http://${SERVER_IP}:${APP_PORT}/apis.html"
+    echo ""
+    echo "  PRIMEIRO LOGIN (Microsoft Authenticator)"
+    echo "  --------------------------------------------------------------------"
+    echo "  Administrador:  ${ADMIN_PHONE}"
+    echo ""
+    echo "  1. Abra a aplicacao no browser"
+    echo "  2. Introduza o numero de telemovel acima"
+    echo "  3. Leia o QR code com o Microsoft Authenticator"
+    echo "  4. Valide o codigo de 6 digitos"
+    echo ""
+    echo "  PORTAINER (Gestao Docker)"
+    echo "  --------------------------------------------------------------------"
+    echo "  Interface Web:  https://${SERVER_IP}:${PORTAINER_HTTPS_PORT}"
+    echo "  (1a vez: crie o utilizador administrador)"
+    echo ""
+    echo "  VOLUMES DE DADOS (configuracao opcional)"
+    echo "  --------------------------------------------------------------------"
+    echo "  Para persistir dados em pastas do servidor, edite:"
+    echo "    ${APP_DIR}/docker-compose.yml"
+    echo "  e descomente a seccao 'volumes'."
+    echo "  Depois reinicie:  docker compose -f ${APP_DIR}/docker-compose.yml up -d --build"
+    echo ""
+    echo "  COMANDOS UTEIS"
+    echo "  --------------------------------------------------------------------"
+    echo "  Ver logs:    docker logs mylineage -f"
+    echo "  Parar:       docker compose -f ${APP_DIR}/docker-compose.yml down"
+    echo "  Actualizar:  cd ${APP_DIR} && git pull && docker compose up -d --build"
+    echo "  Log install: ${LOG}"
+    echo ""
+    echo "======================================================================"
+    echo ""
+
     whiptail \
-        --backtitle "myLineage Installer  v2.0" \
-        --title "🎉  Instalação Concluída!" \
+        --backtitle "myLineage Installer  v2.1" \
+        --title "Instalacao Concluida" \
         --msgbox \
-"
-   A instalação foi concluída com sucesso!
+"A instalacao foi concluida com sucesso!
 
-  ╔══════════════════════════════════════════════════╗
-  ║  🌳  ACESSO AO myLineage                        ║
-  ╠══════════════════════════════════════════════════╣
-  ║  Interface Web (frontend):                       ║
-  ║    http://${SERVER_IP}:${APP_PORT}              ║
-  ║                                                  ║
-  ║  Referência das APIs REST:                       ║
-  ║    http://${SERVER_IP}:${APP_PORT}/apis.html    ║
-  ╠══════════════════════════════════════════════════╣
-  ║  🔐  PRIMEIRO LOGIN (Microsoft Authenticator)   ║
-  ╠══════════════════════════════════════════════════╣
-  ║  Administrador: ${ADMIN_PHONE}
-  ║                                                  ║
-  ║  1. Abra a aplicação no browser                  ║
-  ║  2. Introduza o telem. acima                     ║
-  ║  3. Leia o QR code com o Microsoft               ║
-  ║     Authenticator no telemóvel                   ║
-  ║  4. Valide o código de 6 dígitos                 ║
-  ╠══════════════════════════════════════════════════╣
-  ║  🐳  PORTAINER (Gestão Docker)                  ║
-  ╠══════════════════════════════════════════════════╣
-  ║  Interface Web:                                  ║
-  ║    https://${SERVER_IP}:${PORTAINER_HTTPS_PORT} ║
-  ║  (1ª vez: crie o utilizador administrador)       ║
-  ╠══════════════════════════════════════════════════╣
-  ║  📁  VOLUMES DE DADOS                           ║
-  ╠══════════════════════════════════════════════════╣
-  ║  Fotografias  →  ${VOL_FOTOS}
-  ║  Documentos   →  ${VOL_DOCS}
-  ║  GEDCOM       →  ${VOL_GEDCOM}
-  ║  Dados JSON   →  ${VOL_DATA}
-  ╠══════════════════════════════════════════════════╣
-  ║  📋  COMANDOS ÚTEIS                             ║
-  ╠══════════════════════════════════════════════════╣
-  ║  Ver logs em tempo real:                         ║
-  ║    docker logs mylineage -f                      ║
-  ║                                                  ║
-  ║  Parar a aplicação:                              ║
-  ║    docker compose -f ${APP_DIR}/docker-compose.yml down
-  ║                                                  ║
-  ║  Actualizar para nova versão:                    ║
-  ║    cd ${APP_DIR} && git pull                     ║
-  ║    docker compose up -d --build                  ║
-  ║                                                  ║
-  ║  Log de instalação completo:                     ║
-  ║    ${LOG}
-  ╚══════════════════════════════════════════════════╝
+  Interface Web:
+    http://${SERVER_IP}:${APP_PORT}
 
-  Prima OK para terminar." \
-        44 72
+  Portainer:
+    https://${SERVER_IP}:${PORTAINER_HTTPS_PORT}
+
+  Administrador: ${ADMIN_PHONE}
+
+  Para persistir dados em pastas do servidor,
+  edite o docker-compose.yml e descomente
+  a seccao 'volumes'.
+
+  Log completo:
+    ${LOG}" \
+        22 64
 }
 
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 #   PROGRAMA PRINCIPAL
-# ══════════════════════════════════════════════════════════════════════════════
+# ==============================================================================
 
 # Inicializar log
 : > "$LOG"
-log "myLineage Instalador v2.0 — $(date)"
-log "Repositório: $REPO_URL"
+log "myLineage Instalador v2.1 -- $(date)"
+log "Repositorio: $REPO_URL"
 
 # Verificar root
 check_root
 
-# Garantir que whiptail está disponível
+# Garantir que whiptail esta disponivel
 ensure_whiptail
 
 # Detectar SO
 detect_os
 
-# Ecrã de boas-vindas
+# Ecra de boas-vindas
 show_welcome
 
-# Confirmação
+# Confirmacao
 if ! confirm_install; then
     whiptail \
-        --backtitle "myLineage Installer  v2.0" \
-        --title "Instalação Cancelada" \
-        --msgbox "Instalação cancelada pelo utilizador.\n\nPode re-executar o instalador a qualquer momento:\n  sudo bash install.sh" \
+        --backtitle "myLineage Installer  v2.1" \
+        --title "Instalacao Cancelada" \
+        --msgbox "Instalacao cancelada pelo utilizador.
+
+Pode re-executar o instalador a qualquer momento:
+  sudo bash install.sh" \
         10 54
     exit 0
 fi
 
-# Recolher configurações
+# Recolher configuracoes (apenas porta e telemovel)
 ask_config
-ask_volumes
 
-log "Configuração: APP_DIR=$APP_DIR  PORT=$APP_PORT  ADMIN_PHONE=$ADMIN_PHONE"
-log "Volumes: FOTOS=$VOL_FOTOS  DOCS=$VOL_DOCS  GEDCOM=$VOL_GEDCOM  DATA=$VOL_DATA"
+log "Configuracao: APP_DIR=$APP_DIR  PORT=$APP_PORT  ADMIN_PHONE=$ADMIN_PHONE"
 
-# ─── Execução com barra de progresso ──────────────────────────────────────────
-gauge_open
+# -- Execucao com progresso no CLI ---------------------------------------------
+echo ""
+echo "======================================================================"
+echo "  myLineage -- Instalacao em curso"
+echo "  ATENCAO: Este processo e demorado. Por favor aguarde."
+echo "======================================================================"
+echo ""
 
-gauge_update 3  "[ 1 / 8 ]  A actualizar o sistema operativo..."
+progress 5  "A actualizar o sistema operativo..."
 step_update_system
 
-gauge_update 15 "[ 2 / 8 ]  A instalar Docker CE..."
+progress 20 "A instalar Docker CE..."
 step_install_docker
 
-gauge_update 35 "[ 3 / 8 ]  A instalar Portainer..."
+progress 38 "A instalar Portainer..."
 step_install_portainer
 
-gauge_update 48 "[ 4 / 8 ]  A criar directórios dos volumes..."
-step_create_volumes
-
-gauge_update 58 "[ 5 / 8 ]  A descarregar myLineage do GitHub..."
+progress 52 "A descarregar myLineage do GitHub..."
 step_clone_repo
 
-gauge_update 68 "[ 6 / 9 ]  A gerar Dockerfile e docker-compose.yml..."
+progress 62 "A preparar ficheiros de configuracao..."
 step_create_dockerfile
 step_create_compose
-
-gauge_update 73 "[ 7 / 9 ]  A semear dados e configurar administrador..."
 step_seed_data
 
-gauge_update 78 "[ 8 / 9 ]  A compilar a imagem Docker (pode demorar...)..."
+progress 72 "A compilar imagem Docker (processo demorado)..."
 step_build_and_start
 
-gauge_update 95 "[ 9 / 9 ]  A verificar se o serviço está disponível..."
+progress 95 "A verificar servico..."
 wait_for_service
 
-gauge_update 100 "  ✅  Instalação concluída com sucesso!"
-sleep 2
+progress 100 "Instalacao concluida!"
+echo ""
 
-gauge_close
-
-# Ecrã final
+# Ecra final
 show_next_steps
 
-log "=== Instalação concluída em $(date) ==="
+log "=== Instalacao concluida em $(date) ==="
 exit 0

@@ -23,7 +23,7 @@ FROM node:18-alpine AS runtime
 
 LABEL maintainer="myLineage"
 LABEL description="Aplicação de genealogia GEDCOM 7"
-LABEL version="2.0"
+LABEL version="2.1"
 
 WORKDIR /app
 
@@ -46,12 +46,8 @@ RUN mkdir -p \
     /app/uploads/documentos \
     /app/uploads/gedcom
 
-# Utilizador sem privilégios de root
-RUN addgroup -S mylineage && adduser -S mylineage -G mylineage \
-    && chown -R mylineage:mylineage /app
-
-USER mylineage
-
+# Nota: corre como root para compatibilidade com LXC em Proxmox
+# (em LXC o runc não consegue definir net.ipv4.ip_unprivileged_port_start)
 EXPOSE 3000
 
 # Health check — verifica se o servidor responde

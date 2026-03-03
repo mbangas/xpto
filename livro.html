@@ -161,6 +161,189 @@
       this.familyOrder = [];   // ordered family IDs for chapters
       this.personPageMap = {}; // personId → page index (filled in layout pass)
       this.pages = [];
+      this._usedHistNotes = new Set();
+      this._historicalNotes = {
+        PT: {
+          '1800-1849': [
+            // PT-1800-A
+            'Em 1807, a Família Real portuguesa fugiu para o Brasil quando Napoleão invadiu Lisboa, deixando o país sem rei e entregue ao General Junot. Entre 1807 e 1811, três invasões francesas devastaram aldeias, roubaram colheitas e separaram famílias. A moeda de réis desvalorizou e a miséria alastrou. Em 1820, a Revolução Liberal do Porto forçou o regresso de D. João VI do Brasil e originou a primeira constituição portuguesa. A disputa entre D. Pedro IV e D. Miguel pelo trono gerou as Guerras Liberais (1828–1834), que encheram estradas de refugiados e órfãos. Em 1836, o Decreto de Sá da Bandeira proibiu o tráfico de escravos nas colónias, passo simbólico de um país que procurava modernidade entre convulsões.',
+            // PT-1800-B
+            'O início do século XIX foi marcado pela instabilidade política e pela miséria rural. A fuga da Corte para o Brasil em 1807 abriu o comércio atlântico mas deixou Portugal dependente de Inglaterra pelo Tratado de 1810. O movimento do Vintismo (1820) reclamou uma monarquia constitucional, mas os anos seguintes trouxeram golpes e contragolpes. A morte de D. João VI em 1826 desencadeou a guerra civil entre liberais e absolutistas. A vitória liberal de D. Pedro IV, em 1834, aboliu as ordens religiosas e confiscou bens da Igreja, transformando propriedades e comunidades. As famílias rurais sentiam cada revolução como uma nova ameaça à terra e à sobrevivência.'
+          ],
+          '1850-1899': [
+            // PT-1850-A
+            'A Regeneração de 1851, liderada por Fontes Pereira de Melo, apostou nas obras públicas e no progresso. Em 1856 inaugurou-se a primeira linha de caminho de ferro portuguesa, entre Lisboa e o Carregado, encurtando distâncias e transformando o comércio. A moeda réis circulava num país ainda maioritariamente rural e analfabeto. Em 1890, o Ultimatum inglês obrigou Portugal a recuar em África, humilhando a nação e acelerando o declínio da monarquia. A crise financeira de 1891-92 faliu bancos e empobreceu famílias da classe média. Muitos portugueses embarcaram para o Brasil e os Estados Unidos à procura de trabalho, iniciando uma tradição de emigração que duraria gerações.',
+            // PT-1850-B
+            'Em meados do século XIX, Lisboa e Porto cresciam mas grande parte do país vivia em pobreza extrema. A emigração para o Brasil intensificou-se: nos anos 1880, mais de 20 000 portugueses partiam por ano. Em 1876 fundou-se o Partido Progressista, gerando um sistema de rotativismo político que paralisava reformas. Eça de Queirós escrevia sobre a hipocrisia e o atraso — Portugal debatia-se com a sua identidade. A Revolução do Porto de 31 de Janeiro de 1891 tentou implantar a República, mas falhou; os revoltosos pagaram com prisão e degredo. O povo continuava a pagar impostos pesados enquanto os políticos se alternavam no poder.'
+          ],
+          '1900-1949': [
+            // PT-1900-A
+            'A 1 de Fevereiro de 1908, o Rei D. Carlos e o Príncipe Luís Filipe foram assassinados no Terreiro do Paço, em Lisboa — o regicídio chocou a Europa. Em 5 de Outubro de 1910, a monarquia caiu e foi proclamada a República; o Hino A Portuguesa substituiu o hino real. Em 1911, o réis foi substituído pelo escudo como moeda nacional. Portugal entrou na 1.ª Guerra Mundial em 1916, enviando tropas para França e África; milhares morreram nas trincheiras de La Lys. A Gripe Espanhola de 1918 matou mais de 60 000 portugueses. Em 1933, António de Oliveira Salazar impôs o Estado Novo — uma ditadura que controlava a imprensa, proibia partidos e silenciava a oposição durante décadas.',
+            // PT-1900-B
+            'A instável 1.ª República portuguesa (1910–1926) conheceu 45 governos em 16 anos. Em 28 de Maio de 1926, um golpe militar pôs fim à república parlamentar. Salazar tornou-se presidente do Conselho em 1932 e manteve Portugal neutro na 2.ª Guerra Mundial, embora vendesse tungsténio (volfrâmio) a ambos os lados. A PIDE — polícia política — prendia e torturava opositores. O êxodo rural acelerou nos anos 40, enchendo as periferias de Lisboa e Porto de migrantes internos. A fome era frequente no Alentejo e no interior. As famílias guardavam silêncio sobre política por medo de retaliações.'
+          ],
+          '1950-1999': [
+            // PT-1950-A
+            'Em 1961, Portugal iniciou a Guerra Colonial em Angola, Guiné-Bissau e Moçambique — treze anos de conflito que mobilizaram centenas de milhares de jovens e custaram milhares de vidas. A 25 de Abril de 1974, uma revolução de cravos vermelhos derrubou a ditadura; soldados e povo abraçaram-se nas ruas de Lisboa. Salazar tinha caído da cadeira em 1968 e Caetano não conseguira salvar o regime. A descolonização trouxe 500 000 retornados que regressaram sem bens. O escudo sofreu inflação alta nos anos seguintes. Em 1986, Portugal entrou na Comunidade Económica Europeia, abrindo caminho à modernização e aos fundos estruturais.',
+            // PT-1950-B
+            'Nos anos 60, mais de um milhão de portugueses emigraram para França, Alemanha e Luxemburgo, fugindo da guerra colonial e da pobreza. As remessas dos emigrantes sustentaram muitas famílias no interior. Marcelo Caetano, sucessor de Salazar, tentou uma "primavera marcelista" sem sucesso real. Após o 25 de Abril de 1974, o PREC (Processo Revolucionário em Curso) trouxe nacionalizações, ocupações de terras e incerteza económica. Mário Soares liderou a consolidação democrática e foi o primeiro Presidente civil em décadas. Em 1998, Lisboa recebeu a Expo 98 sob o tema "Os Oceanos", sinal de uma Portugal renovado e confiante.'
+          ],
+          '2000-2099': [
+            // PT-2000-A
+            'A 1 de Janeiro de 2002, o escudo foi substituído pelo euro, encerrando séculos de moeda nacional. Em 2011, Portugal pediu resgate financeiro à Troika (FMI, BCE, CE) de 78 mil milhões de euros; seguiram-se anos de austeridade, cortes de salários e pensões, e emigração em massa — mais de 400 000 portugueses partiram entre 2011 e 2015. Os incêndios de Pedrógão Grande (2017) mataram 66 pessoas e devastaram o interior. Em 2020, a pandemia de COVID-19 forçou o Estado de Emergência e afectou gravemente o turismo, pilar da economia. A crise habitacional das décadas de 2010-2020 tornou as rendas inacessíveis pelas novas gerações.',
+            // PT-2000-B
+            'A entrada de Portugal no Euro em 2002 trouxe preços mais altos mas também taxas de juro baixas que alimentaram o crédito fácil. Em 2004, Portugal organizou o Campeonato Europeu de Futebol — Cristiano Ronaldo estreou-se na fase final aos 19 anos. Em 2005, José Sócrates ganhou as eleições com maioria absoluta prometendo modernização. Em 2008, a crise do subprime americano contaminou a Europa; os bancos portugueses ficaram fragilizados. O Banco Espírito Santo colapsou em 2014, no maior resgate bancário da história nacional. O turismo e as startups tecnológicas emergiram como novas esperanças na segunda metade da década.'
+          ]
+        },
+        ES: {
+          '1800-1849': [
+            // ES-1800-A
+            'Em 1808, Napoleão forçou Carlos IV e Fernando VII a abdicar, colocando o seu irmão José Bonaparte no trono de Espanha. O povo espanhol revoltou-se: a Guerra da Independência (1808–1814) foi feroz, com guerrilhas, massacres e cidades destruídas. Em 1812, as Cortes de Cádiz aprovaram a primeira constituição liberal espanhola — "La Pepa" — enquanto o país ardia em guerra. Restaurado no trono em 1814, Fernando VII aboliu imediatamente a constituição e perseguiu os liberais. A moeda corrente eram os reales de vellón; a economia estava arruinada pela guerra. Nas décadas seguintes, as colónias americanas (México, Argentina, Chile, Peru) tornaram-se independentes, encerrando o império continental.',
+            // ES-1800-B
+            'O regresso de Fernando VII em 1814 inaugurou uma época de repressão brutal: liberais eram presos, exilados ou executados. O trágico Triénio Liberal (1820–1823) viu uma constituição reimplantada, mas a intervenção dos Cem Mil Filhos de São Luís, a mando da Santa Aliança, restaurou o absolutismo. Quando Fernando VII morreu em 1833 sem herdeiro masculino, o seu irmão D. Miguel (em Espanha, D. Carlos) recusou a sucessão da filha Isabel II: nasceu a 1.ª Guerra Carlista (1833–1840), que dividiu regiões inteiras, nomeadamente o País Basco e a Catalunha. O clero, os camponeses do norte e os foros regionais alinharam com os carlistas; o exército e a burguesia com os liberais.'
+          ],
+          '1850-1899': [
+            // ES-1850-A
+            'Em 1868, a Revolução Gloriosa derrubou a Rainha Isabel II e introduziu a peseta como moeda nacional unificada. A instável monarquia de Amadeu I (1871–1873) deu lugar à 1.ª República Espanhola, que durou apenas 11 meses e teve quatro presidentes. Em 1874, a Restauração Borbónica trouxe Alfonso XII ao trono, iniciando um período de aparente estabilidade baseado no caciquismo político. Em 1898, o "Desastre del 98" foi uma humilhação nacional: Espanha perdeu Cuba, Porto Rico e as Filipinas para os Estados Unidos no Tratado de Paris, encerrando definitivamente o império colonial. Uma geração de intelectuais — a "Generación del 98" — questionou profundamente a identidade espanhola.',
+            // ES-1850-B
+            'Em meados do século XIX, Espanha vivia o Sexénio Democrático (1868–1874) — um período de liberdade de imprensa, sufrágio universal masculino e abolição da escravatura em Porto Rico. Mas a instabilidade era crónica: a 1.ª República Espanhola enfrentou conflitos cantonalistas onde cidades como Cartagena proclamaram a sua autonomia. O sistema da Restauração baseava-se na "turno pacífico" — conservadores e liberais alternavam-se no poder através de eleições fraudulentas controladas pelos caciques locais. A agricultura era o principal sustento, mas as secas e a concorrência americana empobreciam os jornaleiros andaluzes e extremenhos.'
+          ],
+          '1900-1949': [
+            // ES-1900-A
+            'Em Abril de 1931, Alfonso XIII abandonou Espanha sem abdicar e foi proclamada a 2.ª República. Em 1936, a vitória da Frente Popular nas eleições desencadeou um golpe militar liderado pelo General Francisco Franco; começou a Guerra Civil Espanhola (1936–1939). Em Abril de 1937, a aviação nazi bombardeou Guernica no País Basco, inspirando o celebrado quadro de Picasso. Mais de 500 000 pessoas morreram no conflito; centenas de milhares exilaram-se em França e México. Em 1939, Franco declarou a vitória e instaurou uma ditadura que duraria 36 anos. Os vencidos foram perseguidos, presos ou fuzilados — as cicatrizes dividiriam famílias por gerações.',
+            // ES-1900-B
+            'Os anos da autarquia franquista (1939–1959) foram de fome e chantagem política. A cartilha de racionamento alimentar vigorou até 1952. Espanha foi excluída do Plano Marshall e da ONU até 1955. A peseta estava desvalorizada e o mercado negro era omnipresente. Em 1959, o Plano de Estabilização e os Planos de Desenvolvimento abriram a economia ao exterior, sobretudo ao turismo europeu. A Igreja Católica apoiava o regime em troca de privilégios educativos e morais. Meio milhão de trabalhadores espanhóis emigraram para a França e Alemanha na década de 60, enviando remessas que sustentaram famílias inteiras.'
+          ],
+          '1950-1999': [
+            // ES-1950-A
+            'Os anos 60 foram o "milagre económico" espanhol: com a abertura ao turismo e os investimentos estrangeiros, o PIB cresceu a taxas de 7% ao ano. Frigoríficos, televisões e carros tornaram-se acessíveis à classe média. Mas a ditadura franquista reprimia duramente sindicatos e movimentos regionais; o ETA iniciou a luta armada em 1959. Em 1968, Franco declarou o estado de excepção. A morte de Franco a 20 de Novembro de 1975 abriu a Transição Democrática sob Juan Carlos I. Em 1977 realizaram-se as primeiras eleições livres em 41 anos; em 1978 foi aprovada a Constituição.',
+            // ES-1950-B
+            'Após a morte de Franco, a Espanha viveu os "Pactos de la Moncloa" (1977), acordo entre partidos para estabilizar a economia e a democracia. Em 1981, Adolfo Suárez demitiu-se e o Tenente-Coronel Tejero tentou um golpe de estado no Congresso — o 23-F falhou graças ao discurso firme de Juan Carlos I. Em 1982, o PSOE de Felipe González ganhou por maioria absoluta, modernizando o Estado. Em 1986, a Espanha entrou na Comunidade Europeia e na NATO. Em 1992, Barcelona sediou os Jogos Olímpicos e Sevilha a Expo 92 — ano de ouro da imagem espanhola no mundo. A peseta seria trocada pelo euro a 1 de Janeiro de 2002.'
+          ],
+          '2000-2099': [
+            // ES-2000-A
+            'A 11 de Março de 2004, dez bombas explodiram em comboios de Madrid matando 191 pessoas e ferindo mais de 1800 — o maior atentado terrorista da história europeia até então. O governo conservador de Aznar atribuiu inicialmente o ataque ao ETA, perdendo as eleições três dias depois. José Luis Rodríguez Zapatero venceu e retirou as tropas espanholas do Iraque. Em 2008, a bolha imobiliária rebentou: a Espanha tinha construído mais habitações por ano do que Alemanha, França e Reino Unido juntos. O desemprego disparou de 8% para 27% em cinco anos. O país pediu resgate bancário europeu de 100 mil milhões de euros em 2012.',
+            // ES-2000-B
+            'A crise de 2008 expôs as fragilidades do modelo espanhol: bancos como Bankia colapsaram com créditos imobiliários podres. O movimento dos Indignados (15-M, 2011) ocupou praças em todo o país, reclamando democracia real. O partido Podemos e Ciudadanos emergiram, quebrando o bipartidarismo histórico PP-PSOE. Em 2017, o referendo de independência da Catalunha criou a maior crise constitucional desde o 23-F; o governo aplicou o artigo 155, suspendendo a autonomia catalã. Em 2020, a COVID-19 matou mais de 80 000 espanhóis, dos mais altos rácios per capita da Europa nos primeiros meses.'
+          ]
+        },
+        WORLD: {
+          '1800-1849': [
+            // WORLD-1800-A
+            'As Guerras Napoleónicas (1803–1815) redesenharam os mapas da Europa e custaram a vida a mais de 3 milhões de pessoas. O Congresso de Viena (1815) restaurou fronteiras e monarquias, ignorando os anseios de povos que queriam nações. A Revolução Industrial inglesa mecanizava o trabalho — as crianças trabalhavam 12 horas por dia nas fábricas de Manchester. Entre 1810 e 1825, quase toda a América Latina tornou-se independente: Simón Bolívar e José de San Martín lideraram revoluções que apagaram três séculos de colonialismo ibérico. Em 1825, a locomotiva a vapor de George Stephenson viajou pela primeira vez entre Stockton e Darlington, inaugurando a era dos caminhos de ferro.',
+            // WORLD-1800-B
+            'A abolição do tráfico de escravos pelo Parlamento britânico (1807) foi um marco moral, mas a escravatura continuou nas Américas por décadas. Em 1815, o Vulcão Tambora (Indonésia) entrou em erupção e causou o "Ano sem Verão" de 1816 — colheitas falhadas, fome e epidemias em todo o hemisfério norte. As revoluções de 1830 e 1848 varreram a Europa: Parisian barricadas, repúblicas efémeras e a utopia socialista ganhavam voz. A "Primavera dos Povos" de 1848 viu insurreições simultâneas em Paris, Berlim, Viena, Praga e Budapeste, todas reprimidas. Karl Marx e Friedrich Engels publicaram o Manifesto Comunista em Fevereiro de 1848.'
+          ],
+          '1850-1899': [
+            // WORLD-1850-A
+            'A Guerra da Secessão americana (1861–1865) opôs Norte e Sul numa batalha sobre escravatura e soberania — 620 000 soldados morreram. Abraham Lincoln aboliu a escravatura em 1863 e foi assassinado em 1865. Em 1869, o Canal de Suez abriu uma nova rota marítima entre a Europa e a Ásia, transformando o comércio global. A Unificação da Itália (1861) e da Alemanha (1871) criaram dois novos Estados-nação que alteraram o equilíbrio europeu. Entre 1845 e 1852, a Grande Fome Irlandesa matou um milhão de pessoas e forçou dois milhões a emigrar — maioritariamente para os Estados Unidos.',
+            // WORLD-1850-B
+            'A 2.ª Revolução Industrial (1870–1900) trouxe electricidade, petróleo, automóvel e telefone. Thomas Edison patenteou a lâmpada em 1879; Henry Ford começaria a produção em série de automóveis em 1908. Entre 1880 e 1914, mais de 20 milhões de europeus emigraram para as Américas — italianos, polacos, judeus russos e portugueses encheram as cidades americanas. O imperialismo europeu partilhou África na Conferência de Berlim (1884–85), traçando fronteiras sem respeito pelas etnias e culturas locais. A descoberta do ouro na África do Sul (1886) desencadeou conflitos que culminariam na Guerra dos Bóeres (1899–1902).'
+          ],
+          '1900-1949': [
+            // WORLD-1900-A
+            'A 1.ª Guerra Mundial (1914–1918) matou mais de 20 milhões de pessoas e desintegrou quatro impérios: austro-húngaro, otomano, russo e alemão. A Revolução Russa de 1917 aboliu o Czar e instalou o bolchevismo — nascia a URSS em 1922. A Gripe Espanhola (1918–1919) infectou 500 milhões de pessoas e matou entre 50 e 100 milhões em todo o mundo. O Tratado de Versalhes (1919) humilhou a Alemanha com reparações colossais, alimentando o ressentimento que conduziria ao nazismo. A Grande Depressão de 1929 começou no "Black Tuesday" de Wall Street e espalhou miséria por todos os continentes: bancos fecharam, indústrias pararam, desempregados formaram filas da sopa.',
+            // WORLD-1900-B
+            'Hitler tornou-se Chanceler da Alemanha em Janeiro de 1933 e transformou a república de Weimar numa ditadura em meses. A 2.ª Guerra Mundial (1939–1945) foi o conflito mais mortífero da história: 70 a 85 milhões de mortos, incluindo seis milhões de Judeus no Holocausto. A bomba atómica lançada sobre Hiroshima (6 Agosto 1945) e Nagasaki (9 Agosto 1945) matou 200 000 pessoas e forçou a rendição do Japão. A Organização das Nações Unidas foi fundada em 1945 para evitar futuras guerras. A Declaração Universal dos Direitos Humanos foi adoptada em 1948. O mundo estava esgotado — mas também cheio de esperança numa nova ordem.'
+          ],
+          '1950-1999': [
+            // WORLD-1950-A
+            'A Guerra Fria dividia o mundo em dois blocos: os Estados Unidos e a URSS acumularam arsenais nucleares suficientes para destruir a Terra. A Guerra da Coreia (1950–1953) opôs comunismo e capitalismo numa península ensanguentada. Em 1957, a URSS lançou o Sputnik, o primeiro satélite artificial; em 1961, Yuri Gagarin foi o primeiro humano no espaço. A 20 de Julho de 1969, Neil Armstrong pisou a Lua. A crise do petróleo de 1973 (embargo árabe) quadruplicou o preço do combustível e mergulhou as economias ocidentais em recessão. A Queda do Muro de Berlim a 9 de Novembro de 1989 simbolizou o fim da Guerra Fria; a URSS dissolveu-se em 1991.',
+            // WORLD-1950-B
+            'A descolonização transformou o mundo nas décadas de 50 e 60: dezenas de novos países africanos e asiáticos emergiram. A Guerra do Vietname (1955–1975) matou mais de 3 milhões de vietnamitas e 58 000 soldados americanos. Martin Luther King liderou o movimento pelos direitos civis nos EUA; foi assassinado em 1968. Nelson Mandela foi preso em 1964 e só libertado em 1990 — o Apartheid sul-africano terminou em 1994. A internet nasceu como rede militar nos anos 70 e tornou-se pública nos anos 90. Em 1997, a clonagem da ovelha Dolly marcou uma nova era na biotecnologia. O mundo conectava-se e acelerava.'
+          ],
+          '2000-2099': [
+            // WORLD-2000-A
+            'A 11 de Setembro de 2001, ataques terroristas da Al-Qaeda destruíram as Torres Gémeas em Nova Iorque, matando 2 977 pessoas e desencadeando as Guerras do Afeganistão e do Iraque que durariam décadas. Em 2008, a falência do banco Lehman Brothers despoletou a maior crise financeira global desde 1929: o crédito hipotecário de alto risco americano contaminou bancos de todo o mundo. Em 2010, a Primavera Árabe derrubou ditadores na Tunísia, Egito e Líbia, mas o caos que se seguiu mergulhou a Síria numa guerra civil que deslocou 12 milhões de pessoas. Em 2016, o Brexit e a eleição de Trump sinalizaram a crise da globalização e o ressurgimento do populismo.',
+            // WORLD-2000-B
+            'Em Dezembro de 2019, um novo coronavírus surgiu em Wuhan, China. A pandemia de COVID-19 declarada em Março de 2020 pela OMS matou mais de 7 milhões de pessoas oficialmente registadas, paralisou economias e encerrou fronteiras. As vacinas desenvolvidas em tempo recorde salvaram centenas de milhões de vidas. A crise climática acelerou: os dez anos mais quentes da história registada ocorreram todos entre 2010 e 2024. Incêndios na Austrália (2019–20), inundações na Europa e secas em África empurram populações inteiras. A inteligência artificial generativa, a partir de 2023, começa a transformar o mercado de trabalho de forma imprevisível.'
+          ]
+        }
+      };
+    }
+
+    _yearRangeKey(year) {
+      if (!year) return '1900-1949';
+      if (year < 1850) return '1800-1849';
+      if (year < 1900) return '1850-1899';
+      if (year < 1950) return '1900-1949';
+      if (year < 2000) return '1950-1999';
+      return '2000-2099';
+    }
+
+    _detectRegionForFamily(fam) {
+      // Look for place strings in family and people events to find Portugal/Spain
+      const places = [];
+      const pushPlacesFromInd = (ind) => {
+        if (!ind || !ind.events) return;
+        ind.events.forEach(e => { if (e.place) places.push(String(e.place).toLowerCase()); });
+      };
+      ['husb','wife'].forEach(k => pushPlacesFromInd(this.individuals[fam[k]]));
+      (fam.children || []).forEach(cid => pushPlacesFromInd(this.individuals[cid]));
+
+      const allPlaces = places.join(' ');
+      if (/portugal|pt\b|lisboa|porto|leiria|coimbra|faro|braga|aveiro/.test(allPlaces)) return 'PT';
+      if (/espa(nha|ol)|españa|madrid|barcelona|sevilla|valencia|bilbao|zaragoza/.test(allPlaces)) return 'ES';
+      return 'WORLD';
+    }
+
+    _getHistoricalNoteForFamily(famId) {
+      const fam = this.families[famId];
+      if (!fam) return '';
+      // Gather birth/death years of family members
+      const years = [];
+      ['husb','wife'].forEach(k => {
+        const ind = this.individuals[fam[k]];
+        if (!ind || !ind.events) return;
+        ind.events.forEach(e => {
+          const y = parseYear(e.date);
+          if (y) years.push(y);
+        });
+      });
+      (fam.children || []).forEach(cid => {
+        const ind = this.individuals[cid];
+        if (!ind || !ind.events) return;
+        ind.events.forEach(e => { const y = parseYear(e.date); if (y) years.push(y); });
+      });
+
+      // Use median year as era representative
+      years.sort((a,b)=>a-b);
+      const mid = years.length ? years[Math.floor(years.length/2)] : null;
+      const rangeKey = this._yearRangeKey(mid);
+      const region = this._detectRegionForFamily(fam);
+
+      const bucket = (this._historicalNotes[region] && this._historicalNotes[region][rangeKey]) || [];
+      let note = '';
+      for (const n of bucket) {
+        if (!this._usedHistNotes.has(n)) { note = n; break; }
+      }
+      if (!note) {
+        // fallback: try any unused note in region
+        for (const rk in this._historicalNotes[region]) {
+          for (const n of this._historicalNotes[region][rk]) {
+            if (!this._usedHistNotes.has(n)) { note = n; break; }
+          }
+          if (note) break;
+        }
+      }
+      if (!note) {
+        // final fallback: any unused global note
+        for (const reg of Object.keys(this._historicalNotes)) {
+          for (const rk in this._historicalNotes[reg]) {
+            for (const n of this._historicalNotes[reg][rk]) {
+              if (!this._usedHistNotes.has(n)) { note = n; break; }
+            }
+            if (note) break;
+          }
+          if (note) break;
+        }
+      }
+      if (!note) {
+        // allow repetition if everything used
+        note = (bucket && bucket[0]) || '';
+      }
+      if (note) this._usedHistNotes.add(note);
+      return note;
     }
 
     /** Load all individuals and families into local maps */
@@ -387,7 +570,7 @@
         const gpCx = hX + BOX_W / 2;
         const gpX = Math.max(4, gpCx - BOX_W / 2);
         parts.push(this._svgBox(gpX, gpRowY, BOX_W, BOX_H, RX, esc(lbl), '', false));
-        parts.push(`<line x1="${gpCx}" y1="${gpRowY + BOX_H}" x2="${hX + BOX_W / 2}" y2="${coupleRowY}" stroke="#c8a96e60" stroke-width="1.5" stroke-dasharray="4,3"/>`);
+        parts.push(`<line x1="${gpCx}" y1="${gpRowY + BOX_H}" x2="${hX + BOX_W / 2}" y2="${coupleRowY}" stroke="#c8a96ecc" stroke-width="1.5" stroke-dasharray="4,3"/>`);
       }
       if (wife && wifeParFam) {
         const h = this.individuals[wifeParFam.husb];
@@ -396,7 +579,7 @@
         const gpCx = wX + BOX_W / 2;
         const gpX = Math.min(W - BOX_W - 4, gpCx - BOX_W / 2);
         parts.push(this._svgBox(gpX, gpRowY, BOX_W, BOX_H, RX, esc(lbl), '', false));
-        parts.push(`<line x1="${gpCx}" y1="${gpRowY + BOX_H}" x2="${wX + BOX_W / 2}" y2="${coupleRowY}" stroke="#c8a96e60" stroke-width="1.5" stroke-dasharray="4,3"/>`);
+        parts.push(`<line x1="${gpCx}" y1="${gpRowY + BOX_H}" x2="${wX + BOX_W / 2}" y2="${coupleRowY}" stroke="#c8a96ecc" stroke-width="1.5" stroke-dasharray="4,3"/>`);
       }
 
       // ── Couple boxes ───────────────────────────────────────────
@@ -408,7 +591,7 @@
       if (husb && wife) {
         const lineX1 = hX + BOX_W, lineX2 = wX;
         coupleConnCx = Math.round((lineX1 + lineX2) / 2);
-        parts.push(`<line x1="${lineX1}" y1="${coupleLineY}" x2="${lineX2}" y2="${coupleLineY}" stroke="#c8a96e" stroke-width="2"/>`);
+        parts.push(`<line x1="${lineX1}" y1="${coupleLineY}" x2="${lineX2}" y2="${coupleLineY}" stroke="#7a4e18" stroke-width="1.8"/>`);
         const marr = (fam.events || []).find(e => e.type === 'MARR');
         const ml = marr && marr.date ? esc(fmtDate(marr.date)) : '';
         if (ml) {
@@ -426,20 +609,20 @@
         const barCx    = Math.round((barLeft + barRight) / 2);
 
         // Vertical line from couple midpoint down to horizontal bar
-        parts.push(`<line x1="${coupleConnCx}" y1="${coupleLineY}" x2="${coupleConnCx}" y2="${barY}" stroke="#c8a96e80" stroke-width="1.5"/>`);
+        parts.push(`<line x1="${coupleConnCx}" y1="${coupleLineY}" x2="${coupleConnCx}" y2="${barY}" stroke="#7a4e18" stroke-width="1.2"/>`);
         // Horizontal jog to bar center if needed
         if (coupleConnCx !== barCx) {
-          parts.push(`<line x1="${coupleConnCx}" y1="${barY}" x2="${barCx}" y2="${barY}" stroke="#c8a96e80" stroke-width="1.5"/>`);
+          parts.push(`<line x1="${coupleConnCx}" y1="${barY}" x2="${barCx}" y2="${barY}" stroke="#7a4e18" stroke-width="1.2"/>`);
         }
         // Horizontal bar across all children
         if (numChildren > 1) {
-          parts.push(`<line x1="${barLeft}" y1="${barY}" x2="${barRight}" y2="${barY}" stroke="#c8a96e80" stroke-width="1.5"/>`);
+          parts.push(`<line x1="${barLeft}" y1="${barY}" x2="${barRight}" y2="${barY}" stroke="#7a4e18" stroke-width="1.2"/>`);
         }
         // Individual drops and child boxes
         children.forEach((child, i) => {
           const cxBox = childStartX + i * (BOX_W + COL_GAP);
           const mx = childMids[i];
-          parts.push(`<line x1="${mx}" y1="${barY}" x2="${mx}" y2="${childRowY}" stroke="#c8a96e80" stroke-width="1.5"/>`);
+          parts.push(`<line x1="${mx}" y1="${barY}" x2="${mx}" y2="${childRowY}" stroke="#7a4e18" stroke-width="1.2"/>`);
           parts.push(this._svgBox(cxBox, childRowY, BOX_W, BOX_H, RX, esc(displayName(child)), esc(lifeYears(child)), true));
         });
       }
@@ -450,7 +633,7 @@
     _svgBox(x, y, w, h, rx, name, years, showYears) {
       const shortName = name.length > 20 ? name.slice(0, 19) + '…' : name;
       const yearStr = showYears && years
-        ? `<text x="${x+w/2}" y="${y+h-7}" text-anchor="middle" font-size="9" fill="#a0806090">${years}</text>` : '';
+        ? `<text x="${x+w/2}" y="${y+h-7}" text-anchor="middle" font-size="9" fill="#7a4e18">${years}</text>` : '';
       const nameY = showYears && years ? y + h/2 - 1 : y + h/2 + 5;
       return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="none" stroke="#7a4e18" stroke-width="2"/>`
            + `<text x="${x+w/2}" y="${nameY}" text-anchor="middle" font-size="11" font-weight="500" fill="#3c2010">${shortName}</text>`
@@ -471,6 +654,7 @@
       const marrStr = marrEv ? `Casamento: ${fmtDate(marrEv.date)}${marrEv.place ? ', ' + marrEv.place : ''}` : '';
 
       const svg = this._buildFamilySvg(famId);
+      const histNote = this._getHistoricalNoteForFamily(famId);
 
       return {
         type: 'chapter-left',
@@ -482,7 +666,7 @@
   ${marrStr ? `<div class="chapter-years">${esc(marrStr)}</div>` : ''}
   <div class="chapter-divider"></div>
   <div class="tree-svg-wrap" style="flex:1;">${svg}</div>
-  ${childCount ? `<div style="font-size:12px;color:#7a3e1e;margin-top:8px;"><strong>${childCount}</strong> filho${childCount!==1?'s':''} registado${childCount!==1?'s':''}</div>` : ''}
+  ${histNote ? `<div class="history-note-wrap"><span class="hn-corner hn-tl"></span><span class="hn-corner hn-tr"></span><span class="hn-corner hn-bl"></span><span class="hn-corner hn-br"></span><div class="history-note">${esc(histNote)}</div></div>` : ''}
 </div>`
       };
     }
@@ -500,52 +684,60 @@
       // footnote index set for fast lookup by photo position (1-based)
       const fnSet = new Set(footnotes.map(f => f.idx));
 
-      // Helper: single photo element with given flex sizing + optional footnote superscript
+      // Helper: single photo element wrapped in vintage album style + optional footnote superscript
       const img = (src, style, photoIdx) => {
         const badge = fnSet.has(photoIdx)
           ? `<span class="bio-photo-fn-badge">${photoIdx}</span>` : '';
-        return `<div style="position:relative;width:100%;height:100%;">${badge}<img src="${esc2(src)}" alt="${esc2(name)}" class="bio-photo-mosaic-img" style="${style}" loading="lazy"/></div>`;
+        const rot = (Math.random() * 5 - 2.5).toFixed(1);
+        const z = photoIdx;
+        return `<div class="album-photo" style="--rot:${rot}deg;--z:${z};">` +
+          `<span class="album-corner tl"></span><span class="album-corner tr"></span>` +
+          `<span class="album-corner bl"></span><span class="album-corner br"></span>` +
+          `${badge}<img src="${esc2(src)}" alt="${esc2(name)}" class="bio-photo-mosaic-img" style="${style}" loading="lazy"/>` +
+          `</div>`;
       };
 
+      const imgStyle = 'width:100%;height:100%;object-fit:cover;';
+
       if (n === 1) {
-        return `<div class="bio-photo-mosaic bio-photo-mosaic-1">${img(photos[0], 'width:100%;height:100%;object-fit:contain;', 1)}</div>`;
+        return `<div class="bio-photo-mosaic bio-photo-mosaic-1">${img(photos[0], imgStyle, 1)}</div>`;
       }
       if (n === 2) {
         return `<div class="bio-photo-mosaic bio-photo-mosaic-2">
-          <div style="flex:1;display:flex;align-items:stretch;">${img(photos[0], 'width:100%;height:100%;object-fit:contain;', 1)}</div>
-          <div style="flex:1;display:flex;align-items:stretch;">${img(photos[1], 'width:100%;height:100%;object-fit:contain;', 2)}</div>
+          <div style="flex:1;display:flex;align-items:stretch;">${img(photos[0], imgStyle, 1)}</div>
+          <div style="flex:1;display:flex;align-items:stretch;">${img(photos[1], imgStyle, 2)}</div>
         </div>`;
       }
       if (n === 3) {
         return `<div class="bio-photo-mosaic bio-photo-mosaic-3">
-          <div style="flex:1.4;display:flex;align-items:stretch;">${img(photos[0], 'width:100%;height:100%;object-fit:contain;', 1)}</div>
-          <div style="flex:1;display:flex;flex-direction:column;gap:8px;">
-            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[1], 'width:100%;height:100%;object-fit:contain;', 2)}</div>
-            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[2], 'width:100%;height:100%;object-fit:contain;', 3)}</div>
+          <div style="flex:1.4;display:flex;align-items:stretch;">${img(photos[0], imgStyle, 1)}</div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
+            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[1], imgStyle, 2)}</div>
+            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[2], imgStyle, 3)}</div>
           </div>
         </div>`;
       }
       if (n === 4) {
         return `<div class="bio-photo-mosaic bio-photo-mosaic-4">
-          <div style="display:flex;gap:12px;flex:1;min-height:0;">
-            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[0], 'width:100%;height:100%;object-fit:contain;', 1)}</div>
-            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[1], 'width:100%;height:100%;object-fit:contain;', 2)}</div>
+          <div style="display:flex;gap:6px;flex:1;min-height:0;">
+            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[0], imgStyle, 1)}</div>
+            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[1], imgStyle, 2)}</div>
           </div>
-          <div style="display:flex;gap:12px;flex:1;min-height:0;">
-            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[2], 'width:100%;height:100%;object-fit:contain;', 3)}</div>
-            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[3], 'width:100%;height:100%;object-fit:contain;', 4)}</div>
+          <div style="display:flex;gap:6px;flex:1;min-height:0;">
+            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[2], imgStyle, 3)}</div>
+            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[3], imgStyle, 4)}</div>
           </div>
         </div>`;
       }
       // 5 or 6
       const first3 = photos.slice(0, 3);
       const rest   = photos.slice(3, 6);
-      const row2   = rest.map((p, ri) => `<div style="flex:1;display:flex;align-items:stretch;">${img(p,'width:100%;height:100%;object-fit:contain;', 4 + ri)}</div>`).join('');
+      const row2   = rest.map((p, ri) => `<div style="flex:1;display:flex;align-items:stretch;">${img(p, imgStyle, 4 + ri)}</div>`).join('');
       return `<div class="bio-photo-mosaic bio-photo-mosaic-5" style="flex-direction:column;">
-        <div style="display:flex;gap:12px;flex:1.4;min-height:0;">${first3.map((p,i) =>
-          `<div style="flex:1;display:flex;align-items:stretch;">${img(p,'width:100%;height:100%;object-fit:contain;', i+1)}</div>`
+        <div style="display:flex;gap:6px;flex:1.4;min-height:0;">${first3.map((p,i) =>
+          `<div style="flex:1;display:flex;align-items:stretch;">${img(p, imgStyle, i+1)}</div>`
         ).join('')}</div>
-        <div style="display:flex;gap:12px;flex:1;min-height:0;">${row2}</div>
+        <div style="display:flex;gap:6px;flex:1;min-height:0;">${row2}</div>
       </div>`;
     }
 
@@ -608,7 +800,7 @@
         const spouse = this.individuals[spouseId];
         if (spouse) {
           const marrEv = (sfam.events || []).find(e => e.type === 'MARR');
-          relations += `<div class="bio-relations"><strong>Cônjuge:</strong> ${esc(displayName(spouse))}${pgRef(spouseId)}${marrEv && marrEv.date ? ' <span style="color:#a08060;font-size:11px;">(' + esc(fmtDate(marrEv.date)) + ')</span>' : ''}</div>`;
+          relations += `<div class="bio-relations"><strong>Cônjuge:</strong> ${esc(displayName(spouse))}${pgRef(spouseId)}${marrEv && marrEv.date ? ' <span style="color:#5a3010;font-size:11px;">(' + esc(fmtDate(marrEv.date)) + ')</span>' : ''}</div>`;
         }
         const kids = (sfam.children || []).map(c => this.individuals[c]).filter(Boolean);
         if (kids.length) {

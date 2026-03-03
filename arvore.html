@@ -823,7 +823,8 @@
 
       document.getElementById('zoomInBtn').addEventListener('click',()=>_zoomViewBox(1/1.3));
       document.getElementById('openBookBtn').addEventListener('click', function() {
-        const personId = getFocusPersonId();
+        // Use the person currently active/rendered in the tree view
+        const personId = _getSelectedOrFocusId() || getFocusPersonId();
         const url = 'livro.html' + (personId ? '?person=' + encodeURIComponent(personId) : '');
         window.open(url, '_blank');
       });

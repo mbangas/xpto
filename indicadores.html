@@ -131,6 +131,70 @@
       .dash-refresh-btn:hover { background: rgba(82,148,226,0.22); }
       .dash-last-updated { font-size: 0.7rem; color: #3d4a61; }
 
+      /* Record / highlight cards ─────────────────────────────────── */
+      .rec-section-title {
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #9fa7b3;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 6px 14px 4px;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .rec-list {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+      .rec-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 7px 10px;
+        background: #111520;
+        border-radius: 4px;
+        border: 1px solid rgba(255,255,255,0.05);
+      }
+      .rec-avatar {
+        width: 32px; height: 32px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.85rem; font-weight: 700; color: #fff;
+        flex-shrink: 0;
+      }
+      .rec-name {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #d0d8e8;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .rec-detail {
+        font-size: 0.68rem;
+        color: #6b7a94;
+        margin-top: 1px;
+      }
+      .rec-value {
+        margin-left: auto;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #fff;
+        flex-shrink: 0;
+        text-align: right;
+        line-height: 1.2;
+      }
+      .rec-value-sub {
+        font-size: 0.62rem;
+        color: #6b7a94;
+        text-align: right;
+        margin-top: 1px;
+      }
+      .dash-row-4 { grid-template-columns: repeat(4, 1fr); }
+
       /* Responsive */
       @media (max-width: 1200px) {
         .dash-row-kpi      { grid-template-columns: repeat(3,1fr); }
@@ -141,7 +205,11 @@
         .dash-row-1-2,
         .dash-row-half,
         .dash-row-thirds,
-        .dash-row-5-7 { grid-template-columns: 1fr; }
+        .dash-row-5-7,
+        .dash-row-4 { grid-template-columns: 1fr; }
+      }
+      @media (max-width: 1200px) {
+        .dash-row-4 { grid-template-columns: repeat(2, 1fr); }
       }
     </style>
   </head>
@@ -313,6 +381,42 @@
               <div class="dash-panel-body" id="obitos-body">
                 <canvas id="chartObitos"></canvas>
               </div>
+            </div>
+          </div>
+
+          <!-- Row 6 · Pessoas em Destaque (oldest/youngest living) -->
+          <div class="dash-row dash-row-thirds">
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#f2cc0c"></span> Vivos mais velhos</div>
+              <div class="dash-panel-body"><div class="rec-list" id="rec-mais-velhos"><p class="no-data">A calcular…</p></div></div>
+            </div>
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#73bf69"></span> Vivos mais novos</div>
+              <div class="dash-panel-body"><div class="rec-list" id="rec-mais-novos"><p class="no-data">A calcular…</p></div></div>
+            </div>
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#b877d9"></span> Mais antigos da árvore</div>
+              <div class="dash-panel-body"><div class="rec-list" id="rec-mais-antigos"><p class="no-data">A calcular…</p></div></div>
+            </div>
+          </div>
+
+          <!-- Row 7 · Recordes de Casamento e Família -->
+          <div class="dash-row dash-row-4">
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#f2cc0c"></span> Casamento mais antigo</div>
+              <div class="dash-panel-body"><div class="rec-list" id="rec-marr-oldest"><p class="no-data">A calcular…</p></div></div>
+            </div>
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#5294e2"></span> Casamento mais recente</div>
+              <div class="dash-panel-body"><div class="rec-list" id="rec-marr-newest"><p class="no-data">A calcular…</p></div></div>
+            </div>
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#73bf69"></span> Família com mais filhos</div>
+              <div class="dash-panel-body"><div class="rec-list" id="rec-most-children"><p class="no-data">A calcular…</p></div></div>
+            </div>
+            <div class="dash-panel">
+              <div class="dash-panel-header"><span class="panel-dot" style="background:#ff9830"></span> Casamento mais longo (casal vivo)</div>
+              <div class="dash-panel-body"><div class="rec-list" id="rec-longest-marr"><p class="no-data">A calcular…</p></div></div>
             </div>
           </div>
 
@@ -669,6 +773,120 @@
           const obitosSubEl = document.getElementById('kpi-obitos-sub');
           if(obitosSubEl) obitosSubEl.textContent = deathYrs.length>0?'com data: '+deathYrs.length:'';
         }
+
+        // ── Destaques & Recordes ──────────────────────────────────────
+        (function(){
+          const todayYear = new Date().getFullYear();
+
+          // Build a quick ID → person map
+          const personMap = {};
+          pessoas.forEach(p => { personMap[p.id] = p; });
+
+          function isAlive(p)  { return !DB.getDeathEvent(p); }
+          function birthYear(p){ const ev = DB.getBirthEvent(p); return ev ? safeYear(ev.date) : null; }
+          function curAge(p)   { const by = birthYear(p); return by ? todayYear - by : null; }
+
+          // Render a styled record card
+          function recCard(name, detail, value, valueSub, color){
+            if(!name) return `<div class="rec-card"><span style="color:#3d4556;font-size:0.75rem;font-style:italic">Sem dados</span></div>`;
+            return `<div class="rec-card">
+              <div class="rec-avatar" style="background:${color}">${name.charAt(0).toUpperCase()}</div>
+              <div style="flex:1;min-width:0">
+                <div class="rec-name">${name}</div>
+                <div class="rec-detail">${detail}</div>
+              </div>
+              ${value ? `<div><div class="rec-value">${value}</div>${valueSub ? `<div class="rec-value-sub">${valueSub}</div>` : ''}</div>` : ''}
+            </div>`;
+          }
+
+          // Helper: display name for a family (husb & wife)
+          function famDisplayName(f){
+            const h = f.husb ? personMap[f.husb] : null;
+            const w = f.wife ? personMap[f.wife] : null;
+            const hn = h ? DB.getDisplayName(h) : '?';
+            const wn = w ? DB.getDisplayName(w) : '?';
+            return `${hn} & ${wn}`;
+          }
+
+          // ── 1 & 2. Oldest / youngest living (by sex) ─────────────────
+          const living = pessoas.filter(p => isAlive(p));
+          const livingAged = living.map(p => ({ p, age: curAge(p) })).filter(x => x.age !== null);
+
+          const oldM = livingAged.filter(x => x.p.sex==='M').sort((a,b)=>b.age-a.age)[0];
+          const oldF = livingAged.filter(x => x.p.sex==='F').sort((a,b)=>b.age-a.age)[0];
+          const yngM = livingAged.filter(x => x.p.sex==='M').sort((a,b)=>a.age-b.age)[0];
+          const yngF = livingAged.filter(x => x.p.sex==='F').sort((a,b)=>a.age-b.age)[0];
+
+          const elVelhos = document.getElementById('rec-mais-velhos');
+          if(elVelhos) elVelhos.innerHTML =
+            recCard(oldM ? DB.getDisplayName(oldM.p) : null, 'Homem vivo mais velho', oldM ? oldM.age+' anos' : '', oldM ? 'n. '+birthYear(oldM.p) : '', '#5294e2') +
+            recCard(oldF ? DB.getDisplayName(oldF.p) : null, 'Mulher viva mais velha', oldF ? oldF.age+' anos' : '', oldF ? 'n. '+birthYear(oldF.p) : '', '#ef799e');
+
+          const elNovos = document.getElementById('rec-mais-novos');
+          if(elNovos) elNovos.innerHTML =
+            recCard(yngM ? DB.getDisplayName(yngM.p) : null, 'Rapaz mais novo (vivo)', yngM ? yngM.age+' anos' : '', yngM ? 'n. '+birthYear(yngM.p) : '', '#5294e2') +
+            recCard(yngF ? DB.getDisplayName(yngF.p) : null, 'Rapariga mais nova (viva)', yngF ? yngF.age+' anos' : '', yngF ? 'n. '+birthYear(yngF.p) : '', '#ef799e');
+
+          // ── 7. Oldest in tree (any status) by earliest birth year ──
+          const treeAged = pessoas.map(p => ({ p, by: birthYear(p) })).filter(x => x.by !== null);
+          const antM = treeAged.filter(x => x.p.sex==='M').sort((a,b)=>a.by-b.by)[0];
+          const antF = treeAged.filter(x => x.p.sex==='F').sort((a,b)=>a.by-b.by)[0];
+
+          const elAntigos = document.getElementById('rec-mais-antigos');
+          if(elAntigos) elAntigos.innerHTML =
+            recCard(antM ? DB.getDisplayName(antM.p) : null, 'Homem mais antigo na árvore', antM ? antM.by.toString() : '', antM ? (isAlive(antM.p) ? 'vivo' : 'falecido') : '', '#b877d9') +
+            recCard(antF ? DB.getDisplayName(antF.p) : null, 'Mulher mais antiga na árvore', antF ? antF.by.toString() : '', antF ? (isAlive(antF.p) ? 'viva' : 'falecida') : '', '#b877d9');
+
+          // ── 3 & 4. Oldest / most recent marriage ─────────────────────
+          const marrFams = [];
+          families.forEach(f => {
+            const mev = (f.events||[]).find(e => e.type==='MARR');
+            if(mev && mev.date){ const yr = safeYear(mev.date); if(yr) marrFams.push({ f, yr, date: mev.date }); }
+          });
+          marrFams.sort((a,b) => a.yr - b.yr);
+          const oldestMarr = marrFams[0];
+          const newestMarr = marrFams[marrFams.length-1];
+
+          const elOldMarr = document.getElementById('rec-marr-oldest');
+          if(elOldMarr) elOldMarr.innerHTML = oldestMarr
+            ? recCard(famDisplayName(oldestMarr.f), 'Casamento registado', oldestMarr.yr.toString(), oldestMarr.f.id, '#f2cc0c')
+            : '<p class="no-data">Sem casamentos com data</p>';
+
+          const elNewMarr = document.getElementById('rec-marr-newest');
+          if(elNewMarr) elNewMarr.innerHTML = newestMarr
+            ? recCard(famDisplayName(newestMarr.f), 'Casamento registado', newestMarr.yr.toString(), newestMarr.f.id, '#5294e2')
+            : '<p class="no-data">Sem casamentos com data</p>';
+
+          // ── 5. Family with most children ─────────────────────────────
+          const mostChildFam = families.slice().sort((a,b)=>(b.children||[]).length-(a.children||[]).length)[0];
+          const elMostChild  = document.getElementById('rec-most-children');
+          if(elMostChild){
+            const cnt = mostChildFam ? (mostChildFam.children||[]).length : 0;
+            elMostChild.innerHTML = cnt > 0
+              ? recCard(famDisplayName(mostChildFam), 'Família com mais filhos', cnt+' filhos', mostChildFam.id, '#73bf69')
+              : '<p class="no-data">Sem filhos registados</p>';
+          }
+
+          // ── 6. Longest marriage (both spouses currently living) ───────
+          const livMarrs = [];
+          families.forEach(f => {
+            const h = f.husb ? personMap[f.husb] : null;
+            const w = f.wife ? personMap[f.wife] : null;
+            if(!h || !w || !isAlive(h) || !isAlive(w)) return;
+            const mev = (f.events||[]).find(e => e.type==='MARR');
+            if(!mev || !mev.date) return;
+            const yr = safeYear(mev.date);
+            if(!yr) return;
+            livMarrs.push({ f, yr, duration: todayYear - yr });
+          });
+          livMarrs.sort((a,b) => b.duration - a.duration);
+          const longest = livMarrs[0];
+          const elLongest = document.getElementById('rec-longest-marr');
+          if(elLongest) elLongest.innerHTML = longest
+            ? recCard(famDisplayName(longest.f), 'Casal vivo — casado desde '+longest.yr, longest.duration+' anos', longest.f.id, '#ff9830')
+            : '<p class="no-data">Sem casais vivos com data de casamento</p>';
+
+        })();
       }
 
       buildDashboard();

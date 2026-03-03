@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Background rounded square -->
+  <rect width="32" height="32" rx="7" fill="#161b22"/>
+  <!-- Tree trunk -->
+  <rect x="14.5" y="21" width="3" height="7" rx="1" fill="#4493f8"/>
+  <!-- Tree canopy layers (stylised deciduous/family tree) -->
+  <polygon points="16,3  8,14 24,14" fill="#4493f8"/>
+  <polygon points="16,9  7,20 25,20" fill="#4493f8"/>
+</svg>

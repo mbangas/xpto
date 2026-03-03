@@ -45,7 +45,9 @@ const activeUsers = users.filter(user => user.isActive);
 ```
 
 ## Error Handling
+
 Always handle errors gracefully and provide meaningful messages.
+
 
 ```javascript
 try {
@@ -54,10 +56,15 @@ const data = await fetchData();
   console.error('Failed to fetch data:', error);
 }
 ```
+
+
 ## Code Formatting
+
 - Use consistent indentation (e.g., 2 or 4 spaces)
 - Limit line length to 80-120 characters  
 - Use blank lines to separate logical sections of code
+
+
 ```javascript
 function calculateTotal(items) {
   let total = 0;
@@ -69,7 +76,10 @@ function calculateTotal(items) {
   return total;
 }
 ```
+
+
 ## Testing Standards
+
 - Write unit tests for all new features
 - Use descriptive test names  
 - Tests should cover edge cases and error conditions

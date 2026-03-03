@@ -32,6 +32,9 @@
       #familyChartWrap path.link{stroke:rgba(200,210,230,0.7) !important;stroke-width:1.5px !important;}
       #familyChartWrap .card-body-rect{rx:6;ry:6;}
       #familyChartWrap svg.main_svg text{font-size:12px;fill:#fff;}
+      /* Focus-person highlight when tree is rooted at a parent due to siblings */
+      #familyChartWrap g.card_cont.f3-focus-person .card-body-rect,
+      #familyChartWrap g.card_cont.f3-focus-person rect:first-of-type{stroke:var(--accent,#a3a3ff) !important;stroke-width:3px !important;}
     </style>
     <link rel="stylesheet" href="css/family-chart.css">
     <script src="remote-storage.js"></script>
@@ -595,6 +598,25 @@
           if(!startIndi||!validFcIds.has(startIndi)) startIndi=fcData[0].id;
           try{
             const F3=window.F3Lib;
+
+            // Determine the best root to render.  When the focus person has
+            // siblings (their parent has multiple children), we render the
+            // tree starting from the PARENT so that all siblings and their
+            // full descendant sub-trees are visible.  We still remember the
+            // original focus person so we can centre the viewport on them.
+            const focusDatumForSiblings=fcData.find(function(d){ return d.id===startIndi; });
+            let renderRoot=startIndi;
+            let visibleFocusId=startIndi; // person the viewport should centre on
+            if(focusDatumForSiblings && focusDatumForSiblings.rels.parents.length>0){
+              const parentId=focusDatumForSiblings.rels.parents[0];
+              const parentDatum=fcData.find(function(d){ return d.id===parentId; });
+              if(parentDatum && parentDatum.rels.children.length>1){
+                // Focus person has siblings → root at parent so siblings and
+                // their descendants all appear in the same tree.
+                renderRoot=parentId;
+              }
+            }
+
             f3ChartHandle=F3.createChart(fcWrap, fcData);
             const card=f3ChartHandle.setCardSvg();
             card.setCardDisplay([
@@ -611,7 +633,7 @@
             // We override the transform afterwards via double-rAF so it runs AFTER
             // any d3 transition frames that updateTree may have scheduled.
             f3ChartHandle
-              .updateMainId(startIndi)
+              .updateMainId(renderRoot)
               .updateTree({initial:true, tree_position:'main_to_middle'});
             requestAnimationFrame(function(){
               requestAnimationFrame(function(){
@@ -637,6 +659,19 @@
                     mainG.setAttribute('transform','translate('+nx+','+ny+') scale('+TARGET+')');
                     newSvg.__zoom={x:nx,y:ny,k:TARGET};
                   }
+                }
+                // When renderRoot differs from the original focus person (i.e. we
+                // rooted at a parent to expose siblings), highlight that person's card
+                // so the user can identify them at a glance.
+                if(renderRoot !== visibleFocusId){
+                  fcWrap.querySelectorAll('g.card_cont').forEach(function(gEl){
+                    const d=gEl.__data__;
+                    if(d && d.data && d.data.id===visibleFocusId){
+                      gEl.classList.add('f3-focus-person');
+                    } else {
+                      gEl.classList.remove('f3-focus-person');
+                    }
+                  });
                 }
               });
             });

@@ -154,6 +154,8 @@
       .hist-icon.cat-documentos { background: rgba(255,170,0,.12); color: #ffaa00; }
       .hist-icon.cat-geral      { background: var(--bg-surface-2); color: var(--text-secondary); }
       .hist-icon.cat-validacao  { background: var(--green-soft);   color: var(--green); }
+      .hist-icon.cat-login      { background: rgba(68,147,248,.12); color: #4493f8; }
+      .hist-chip.active.cat-login { background: rgba(68,147,248,.12); border-color: rgba(68,147,248,.35); color: #4493f8; }
 
       /* text */
       .hist-body { flex: 1; min-width: 0; }
@@ -261,6 +263,7 @@
               <span class="hist-chip cat-album"      data-cat="album">     <i class="mdi mdi-image-multiple"></i> Álbum</span>
               <span class="hist-chip cat-documentos" data-cat="documentos"><i class="mdi mdi-folder-open"></i> Documentos</span>
               <span class="hist-chip cat-geral"      data-cat="geral">     <i class="mdi mdi-information-outline"></i> Geral</span>
+              <span class="hist-chip cat-login"      data-cat="login">     <i class="mdi mdi-login"></i> Logins</span>
             </div>
           </div>
 
@@ -290,6 +293,7 @@
         album:      { icon: 'mdi-image-multiple',      label: 'Álbum' },
         documentos: { icon: 'mdi-folder-open',         label: 'Documentos' },
         validacao:  { icon: 'mdi-shield-check',        label: 'Validação' },
+        login:      { icon: 'mdi-login',               label: 'Logins' },
         geral:      { icon: 'mdi-information-outline', label: 'Geral' },
       };
 

@@ -388,6 +388,21 @@
     var person  = Auth.findPersonByPhone(_phone);
     var name    = person ? DB.getDisplayName(person) : _phone;
     Auth.setSession({ phone: _phone, name: name, isAdmin: isAdmin, personId: person ? person.id : null });
+
+    // Registar login no histórico
+    try {
+      var detail = _phone;
+      if (isAdmin) detail += ' · Administrador';
+      DB.addHistory({
+        ts:       new Date().toISOString(),
+        entity:   'Login',
+        action:   'Login: ' + name,
+        id:       _phone,
+        detail:   detail,
+        category: 'login'
+      });
+    } catch (e) { /* silent */ }
+
     var params  = new URLSearchParams(window.location.search);
     var from    = params.get('from');
     window.location.replace(from || 'index.html');

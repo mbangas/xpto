@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Mundo – myLineage</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
+    <script src="remote-storage.js"></script>
+    <script src="auth.js"></script>
+    <style>
+      /* ── Mundo page ────────────────────────────────────────────────── */
+      .mundo-content { background: #0a0b0f; }
+
+      .mundo-wrap {
+        padding: 0 20px 40px;
+        margin-top: 20px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      /* Map panel */
+      .mundo-map-panel {
+        background: #0d0e14;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 6px;
+        overflow: hidden;
+        position: relative;
+      }
+      .mundo-map-header {
+        padding: 9px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #9fa7b3;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .mundo-map-header-left { display: flex; align-items: center; gap: 8px; }
+
+      /* SVG map */
+      #world-svg-container {
+        width: 100%;
+        position: relative;
+        background: #080a0f;
+      }
+      #world-svg {
+        width: 100%;
+        height: 100%;
+        display: block;
+        cursor: grab;
+      }
+      #world-svg:active { cursor: grabbing; }
+
+      .country-path {
+        stroke: rgba(255,255,255,0.25);
+        stroke-width: 0.4;
+        transition: opacity 0.15s;
+      }
+      .country-path:hover {
+        stroke: rgba(255,255,255,0.7);
+        stroke-width: 0.9;
+        opacity: 0.85;
+      }
+      .country-path.zero {
+        fill: #12151e;
+      }
+
+      /* Graticules */
+      .graticule {
+        fill: none;
+        stroke: rgba(255,255,255,0.04);
+        stroke-width: 0.3;
+      }
+      .sphere {
+        fill: #080a0f;
+      }
+
+      /* Tooltip */
+      #map-tooltip {
+        position: fixed;
+        background: #1a1d27;
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 5px;
+        padding: 8px 12px;
+        font-size: 0.78rem;
+        color: #d0d8e8;
+        pointer-events: none;
+        display: none;
+        z-index: 9999;
+        white-space: nowrap;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      }
+      #map-tooltip .tt-name {
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: #fff;
+        margin-bottom: 2px;
+      }
+      #map-tooltip .tt-count {
+        font-size: 0.75rem;
+        color: #9fa7b3;
+      }
+      #map-tooltip .tt-count span {
+        color: var(--accent-color, #5294e2);
+        font-weight: 700;
+      }
+
+      /* Legend */
+      .mundo-legend {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.68rem;
+        color: #6b7a94;
+      }
+      .legend-gradient {
+        width: 120px;
+        height: 8px;
+        border-radius: 4px;
+        background: linear-gradient(to right, #12151e, #1e4a8f, #2b6dd4, #5294e2, #7bb3f0, #b0d4ff);
+      }
+      .legend-label { font-weight: 600; color: #9fa7b3; }
+
+      /* Bottom stats row */
+      .mundo-stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 10px;
+      }
+      .mundo-stat {
+        background: #1a1d27;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 5px;
+        padding: 12px 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .mundo-stat-val {
+        font-size: 1.8rem;
+        font-weight: 700;
+        color: #fff;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+      }
+      .mundo-stat-lbl {
+        font-size: 0.68rem;
+        color: #6b7a94;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-top: 3px;
+      }
+
+      /* Country leaderboard */
+      .mundo-leaderboard {
+        background: #1a1d27;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .mundo-lb-header {
+        padding: 9px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #9fa7b3;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .mundo-lb-list {
+        padding: 8px 0;
+        max-height: 260px;
+        overflow-y: auto;
+      }
+      .mundo-lb-list::-webkit-scrollbar { width: 4px; }
+      .mundo-lb-list::-webkit-scrollbar-track { background: transparent; }
+      .mundo-lb-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+
+      .lb-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 16px;
+        transition: background 0.12s;
+      }
+      .lb-row:hover { background: rgba(255,255,255,0.03); }
+      .lb-rank {
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #4a5568;
+        width: 18px;
+        text-align: right;
+        flex-shrink: 0;
+      }
+      .lb-bar-wrap {
+        flex: 1;
+        background: rgba(255,255,255,0.04);
+        border-radius: 2px;
+        height: 4px;
+        overflow: hidden;
+      }
+      .lb-bar { height: 4px; border-radius: 2px; background: #5294e2; }
+      .lb-country { font-size: 0.78rem; color: #c8d0de; min-width: 130px; }
+      .lb-count {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: #fff;
+        min-width: 32px;
+        text-align: right;
+        flex-shrink: 0;
+      }
+
+      /* Map controls */
+      .map-controls {
+        display: flex;
+        gap: 4px;
+      }
+      .map-ctrl-btn {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 3px;
+        color: #9fa7b3;
+        cursor: pointer;
+        width: 26px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        transition: background 0.15s;
+      }
+      .map-ctrl-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+      /* Event type filter chips */
+      .filter-chips {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        align-items: center;
+        font-size: 0.72rem;
+      }
+      .filter-chip {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 12px;
+        color: #9fa7b3;
+        cursor: pointer;
+        padding: 3px 10px;
+        transition: all 0.15s;
+        user-select: none;
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.03em;
+      }
+      .filter-chip:hover { background: rgba(82,148,226,0.15); border-color: rgba(82,148,226,0.4); color: #c0d4f5; }
+      .filter-chip.active { background: rgba(82,148,226,0.2); border-color: rgba(82,148,226,0.6); color: #7bb3f0; }
+
+      /* Bottom grid */
+      .mundo-bottom {
+        display: grid;
+        grid-template-columns: 1fr 2fr;
+        gap: 10px;
+      }
+      @media (max-width: 860px) {
+        .mundo-bottom { grid-template-columns: 1fr; }
+      }
+
+      /* Loading state */
+      .map-loading {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #080a0f;
+        z-index: 10;
+        color: #4a5568;
+        font-size: 0.8rem;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .map-loading .spin {
+        width: 28px; height: 28px;
+        border: 3px solid rgba(82,148,226,0.15);
+        border-top-color: #5294e2;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a href="index.html" class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></a>
+        <nav>
+          <a href="app.html"><i class="mdi mdi-account-multiple" aria-hidden="true"></i>Cadastro</a>
+          <a href="indicadores.html"><i class="mdi mdi-chart-bar" aria-hidden="true"></i>Indicadores</a>
+          <a href="mundo.html" class="active"><i class="mdi mdi-earth" aria-hidden="true"></i>Mundo</a>
+          <a href="arvore.html"><i class="mdi mdi-sitemap" aria-hidden="true"></i>Árvore</a>
+          <a href="gedcom.html"><i class="mdi mdi-dna" aria-hidden="true"></i>GEDCOM</a>
+          <a href="album.html"><i class="mdi mdi-image-multiple" aria-hidden="true"></i>Álbum</a>
+          <a href="documentos.html"><i class="mdi mdi-folder-open" aria-hidden="true"></i>Documentos</a>
+          <a href="validacao.html"><i class="mdi mdi-shield-check" aria-hidden="true"></i>Validação</a>
+          <a href="historico.html"><i class="mdi mdi-history" aria-hidden="true"></i>Histórico</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="apis.html"><i class="mdi mdi-api" aria-hidden="true"></i>APIs</a>
+          <a href="configuracao.html"><i class="mdi mdi-cog" aria-hidden="true"></i>Definições</a>
+        </div>
+      </aside>
+
+      <main class="content mundo-content">
+        <!-- Topbar -->
+        <div class="topbar">
+          <div style="display:flex;align-items:center;gap:14px">
+            <h1 style="margin:0">Distribuição Mundial</h1>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="filter-chips" id="filter-chips">
+              <span style="font-size:0.68rem;color:#6b7a94;font-weight:600;margin-right:2px;">Eventos:</span>
+              <span class="filter-chip active" data-type="BIRT">Nascimento</span>
+              <span class="filter-chip active" data-type="DEAT">Óbito</span>
+              <span class="filter-chip active" data-type="RESI">Residência</span>
+              <span class="filter-chip active" data-type="other">Outros</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="mundo-wrap">
+
+          <!-- KPI row -->
+          <div class="mundo-stats-row" id="mundo-kpis">
+            <div class="mundo-stat">
+              <div class="mundo-stat-val" id="kpi-total-places">—</div>
+              <div class="mundo-stat-lbl">Localizações com país identificado</div>
+            </div>
+            <div class="mundo-stat">
+              <div class="mundo-stat-val" id="kpi-countries">—</div>
+              <div class="mundo-stat-lbl">Países distintos</div>
+            </div>
+            <div class="mundo-stat">
+              <div class="mundo-stat-val" id="kpi-top-country">—</div>
+              <div class="mundo-stat-lbl">País com mais pessoas</div>
+            </div>
+            <div class="mundo-stat">
+              <div class="mundo-stat-val" id="kpi-no-place">—</div>
+              <div class="mundo-stat-lbl">Localizações sem país</div>
+            </div>
+          </div>
+
+          <!-- Map -->
+          <div class="mundo-map-panel">
+            <div class="mundo-map-header">
+              <div class="mundo-map-header-left">
+                <i class="mdi mdi-earth" aria-hidden="true"></i>
+                <span>Mapa de calor — pessoas por país</span>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px">
+                <div class="mundo-legend">
+                  <span class="legend-label">0</span>
+                  <div class="legend-gradient" id="legend-gradient"></div>
+                  <span class="legend-label" id="legend-max">—</span>
+                </div>
+                <div class="map-controls">
+                  <button class="map-ctrl-btn" id="btn-zoom-in" title="Zoom +"><i class="mdi mdi-plus"></i></button>
+                  <button class="map-ctrl-btn" id="btn-zoom-out" title="Zoom −"><i class="mdi mdi-minus"></i></button>
+                  <button class="map-ctrl-btn" id="btn-zoom-reset" title="Centrar"><i class="mdi mdi-fit-to-screen"></i></button>
+                </div>
+              </div>
+            </div>
+            <div id="world-svg-container" style="height: 500px;">
+              <div class="map-loading" id="map-loading">
+                <div class="spin"></div>
+                <span>A carregar mapa…</span>
+              </div>
+              <svg id="world-svg"></svg>
+            </div>
+          </div>
+
+          <!-- Bottom section -->
+          <div class="mundo-bottom">
+
+            <!-- Leaderboard -->
+            <div class="mundo-leaderboard">
+              <div class="mundo-lb-header">
+                <i class="mdi mdi-trophy-outline" aria-hidden="true"></i>
+                Top países
+              </div>
+              <div class="mundo-lb-list" id="lb-list">
+                <div style="padding:20px;text-align:center;color:#4a5568;font-size:0.75rem;">A carregar…</div>
+              </div>
+            </div>
+
+            <!-- Place list -->
+            <div class="mundo-leaderboard">
+              <div class="mundo-lb-header">
+                <i class="mdi mdi-map-marker-multiple" aria-hidden="true"></i>
+                Localidades mais frequentes
+              </div>
+              <div class="mundo-lb-list" id="place-list">
+                <div style="padding:20px;text-align:center;color:#4a5568;font-size:0.75rem;">A carregar…</div>
+              </div>
+            </div>
+
+          </div>
+
+        </div><!-- /.mundo-wrap -->
+      </main>
+    </div><!-- /.app-shell -->
+
+    <!-- Tooltip -->
+    <div id="map-tooltip">
+      <div class="tt-name" id="tt-name"></div>
+      <div class="tt-count" id="tt-count"></div>
+    </div>
+
+    <!-- D3 + TopoJSON -->
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+
+    <script>
+    (function () {
+      'use strict';
+
+      // ── Country name normalisation → ISO 3166-1 numeric ───────────────
+      // Maps common text strings (as they appear in GEDCOM place fields, in
+      // Portuguese or English) to the numeric codes used in world-atlas.
+      const NAME_TO_ISO = {
+        // Iberian peninsula & main Portuguese-speaking world
+        'portugal': 620, 'pt': 620,
+        'brasil': 76, 'brazil': 76, 'br': 76,
+        'angola': 24, 'ao': 24,
+        'moçambique': 508, 'mozambique': 508, 'mz': 508,
+        'cabo verde': 132, 'cape verde': 132, 'cv': 132,
+        'guiné-bissau': 624, 'guinea-bissau': 624, 'gw': 624,
+        'são tomé e príncipe': 678, 'sao tome and principe': 678, 'st': 678,
+        'timor-leste': 626, 'east timor': 626, 'tl': 626,
+        'macau': 446, 'macao': 446,
+        'espanha': 724, 'spain': 724, 'es': 724,
+        // Europe
+        'alemanha': 276, 'germany': 276, 'de': 276,
+        'frança': 250, 'france': 250, 'fr': 250,
+        'reino unido': 826, 'united kingdom': 826, 'uk': 826,
+        'grã-bretanha': 826, 'great britain': 826, 'gb': 826,
+        'itália': 380, 'italy': 380, 'it': 380,
+        'holanda': 528, 'países baixos': 528, 'netherlands': 528, 'nl': 528,
+        'bélgica': 56, 'belgium': 56, 'be': 56,
+        'suíça': 756, 'switzerland': 756, 'ch': 756,
+        'áustria': 40, 'austria': 40, 'at': 40,
+        'suécia': 752, 'sweden': 752, 'se': 752,
+        'noruega': 578, 'norway': 578, 'no': 578,
+        'dinamarca': 208, 'denmark': 208, 'dk': 208,
+        'finlândia': 246, 'finland': 246, 'fi': 246,
+        'polónia': 616, 'poland': 616, 'pl': 616,
+        'república checa': 203, 'czech republic': 203, 'czechia': 203, 'cz': 203,
+        'hungria': 348, 'hungary': 348, 'hu': 348,
+        'roménia': 642, 'romania': 642, 'ro': 642,
+        'grécia': 300, 'greece': 300, 'gr': 300,
+        'irlanda': 372, 'ireland': 372, 'ie': 372,
+        'luxemburgo': 442, 'luxembourg': 442, 'lu': 442,
+        'rússia': 643, 'russia': 643, 'ru': 643,
+        'ucrânia': 804, 'ukraine': 804, 'ua': 804,
+        // Americas
+        'estados unidos': 840, 'usa': 840, 'united states': 840, 'us': 840,
+        'canadá': 124, 'canada': 124, 'ca': 124,
+        'argentina': 32, 'ar': 32,
+        'chile': 152, 'cl': 152,
+        'peru': 604, 'pe': 604,
+        'colômbia': 170, 'colombia': 170, 'co': 170,
+        'venezuela': 862, 've': 862,
+        'uruguai': 858, 'uruguay': 858, 'uy': 858,
+        'paraguai': 600, 'paraguay': 600, 'py': 600,
+        'bolívia': 68, 'bolivia': 68, 'bo': 68,
+        'equador': 218, 'ecuador': 218, 'ec': 218,
+        'méxico': 484, 'mexico': 484, 'mx': 484,
+        'venezuela': 862, 'venezuela': 862,
+        // Africa
+        'áfrica do sul': 710, 'south africa': 710, 'za': 710,
+        'marrocos': 504, 'morocco': 504, 'ma': 504,
+        'egito': 818, 'egypt': 818, 'eg': 818,
+        'nigéria': 566, 'nigeria': 566, 'ng': 566,
+        'quénia': 404, 'kenya': 404, 'ke': 404,
+        'etiópia': 231, 'ethiopia': 231, 'et': 231,
+        'ghana': 288, 'gh': 288,
+        'senegal': 686, 'sn': 686,
+        // Asia & Oceania
+        'china': 156, 'cn': 156,
+        'india': 356, 'índia': 356, 'in': 356,
+        'japão': 392, 'japan': 392, 'jp': 392,
+        'coreia do sul': 410, 'south korea': 410, 'kr': 410,
+        'austrália': 36, 'australia': 36, 'au': 36,
+        'nova zelândia': 554, 'new zealand': 554, 'nz': 554,
+        'indonésia': 360, 'indonesia': 360, 'id': 360,
+        'vietname': 704, 'vietnam': 704, 'vn': 704,
+        'tailândia': 764, 'thailand': 764, 'th': 764,
+        'singapura': 702, 'singapore': 702, 'sg': 702,
+      };
+
+      /**
+       * Extracts a probable country name from a GEDCOM place string.
+       * Place strings follow the pattern "locality, region, country" so we
+       * take the last non-empty token after splitting by comma.
+       * @param {string} place
+       * @returns {string|null}
+       */
+      function extractCountry(place) {
+        if (!place || typeof place !== 'string') return null;
+        const parts = place.split(',').map(p => p.trim()).filter(Boolean);
+        if (parts.length === 0) return null;
+        return parts[parts.length - 1];
+      }
+
+      /**
+       * Normalises a country string and returns its ISO numeric code, or null.
+       * @param {string} countryStr
+       * @returns {number|null}
+       */
+      function countryToIso(countryStr) {
+        if (!countryStr) return null;
+        const key = countryStr.toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // strip diacritics
+          .trim();
+        // Direct lookup
+        const direct = NAME_TO_ISO[countryStr.toLowerCase().trim()];
+        if (direct) return direct;
+        // Diacritic-stripped lookup
+        for (const [k, v] of Object.entries(NAME_TO_ISO)) {
+          const normK = k.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+          if (normK === key) return v;
+        }
+        return null;
+      }
+
+      // ── Active filter state ────────────────────────────────────────────
+      const activeFilters = new Set(['BIRT', 'DEAT', 'RESI', 'other']);
+      let cachedIndividuals = null;
+
+      // ── Build country counts from individual events ───────────────────
+      function buildCountryCounts() {
+        const DB = window.GedcomDB;
+        if (!cachedIndividuals) {
+          cachedIndividuals = DB.getIndividuals();
+        }
+        const individuals = cachedIndividuals;
+
+        // countryName → count
+        const countryCount = {};
+        // raw place → count
+        const placeCount = {};
+        let withCountry = 0;
+        let withoutCountry = 0;
+
+        individuals.forEach(person => {
+          const events = person.events || [];
+          events.forEach(ev => {
+            if (!ev.place) return;
+            const place = ev.place.trim();
+            if (!place) return;
+
+            // Filter by event type
+            const evType = (ev.type || '').toUpperCase();
+            const isKnown = ['BIRT', 'DEAT', 'RESI'].includes(evType);
+            const filterKey = isKnown ? evType : 'other';
+            if (!activeFilters.has(filterKey)) return;
+
+            // Place count
+            placeCount[place] = (placeCount[place] || 0) + 1;
+
+            // Country extraction
+            const countryStr = extractCountry(place);
+            if (!countryStr) { withoutCountry++; return; }
+
+            const normKey = countryStr.toLowerCase().trim();
+            if (countryCount[normKey] === undefined) {
+              countryCount[normKey] = { label: countryStr, count: 0 };
+            }
+            countryCount[normKey].count++;
+            withCountry++;
+          });
+        });
+
+        // Build isoCount map: numeric → count
+        const isoCount = {};
+        // Also build named list
+        const namedList = [];
+        let unmapped = 0;
+
+        Object.entries(countryCount).forEach(([k, v]) => {
+          const iso = countryToIso(v.label);
+          if (iso !== null) {
+            isoCount[iso] = (isoCount[iso] || 0) + v.count;
+            namedList.push({ name: v.label, iso, count: v.count });
+          } else {
+            unmapped += v.count;
+          }
+        });
+
+        // Consolidate namedList by ISO (merge duplicates)
+        const isoLabels = {};
+        namedList.forEach(entry => {
+          if (!isoLabels[entry.iso]) isoLabels[entry.iso] = { name: entry.name, count: 0 };
+          isoLabels[entry.iso].count += entry.count;
+        });
+        const ranked = Object.values(isoLabels).sort((a, b) => b.count - a.count);
+
+        // Sort raw places
+        const sortedPlaces = Object.entries(placeCount)
+          .map(([p, c]) => ({ place: p, count: c }))
+          .sort((a, b) => b.count - a.count);
+
+        return { isoCount, ranked, withCountry, withoutCountry, sortedPlaces };
+      }
+
+      // ── D3 rendering ──────────────────────────────────────────────────
+      let svg, g, projection, path, zoom;
+      let worldData = null;
+      let isoCountGlobal = {};
+
+      function getColorScale(isoCount) {
+        const values = Object.values(isoCount);
+        if (values.length === 0) return () => '#12151e';
+        const maxVal = d3.max(values);
+        // Blue heatmap on dark background
+        return d3.scaleSequential()
+          .domain([0, maxVal])
+          .interpolator(t => {
+            if (t === 0) return '#12151e';
+            // Interpolate from dark-blue to bright-blue
+            return d3.interpolateRgb('#1e3a6e', '#7bb3f0')(Math.pow(t, 0.45));
+          });
+      }
+
+      function initMap(container) {
+        const W = container.clientWidth || 900;
+        const H = container.clientHeight || 500;
+
+        svg = d3.select('#world-svg')
+          .attr('viewBox', `0 0 ${W} ${H}`)
+          .attr('preserveAspectRatio', 'xMidYMid meet');
+
+        projection = d3.geoNaturalEarth1()
+          .scale(W / 6.2)
+          .translate([W / 2, H / 2]);
+
+        path = d3.geoPath(projection);
+
+        // Zoom behaviour
+        zoom = d3.zoom()
+          .scaleExtent([0.8, 12])
+          .on('zoom', (event) => {
+            g.attr('transform', event.transform);
+          });
+        svg.call(zoom);
+
+        g = svg.append('g');
+
+        // Ocean sphere
+        g.append('path')
+          .datum({ type: 'Sphere' })
+          .attr('class', 'sphere')
+          .attr('d', path);
+
+        // Graticule
+        g.append('path')
+          .datum(d3.geoGraticule()())
+          .attr('class', 'graticule')
+          .attr('d', path);
+      }
+
+      function renderCountries(isoCount) {
+        if (!worldData || !g) return;
+        const countries = topojson.feature(worldData, worldData.objects.countries);
+        const colorScale = getColorScale(isoCount);
+        const maxVal = Math.max(...Object.values(isoCount), 1);
+
+        // Update legend max
+        document.getElementById('legend-max').textContent = maxVal;
+
+        g.selectAll('.country-path').remove();
+
+        const tooltip = document.getElementById('map-tooltip');
+        const ttName  = document.getElementById('tt-name');
+        const ttCount = document.getElementById('tt-count');
+
+        g.selectAll('.country-path')
+          .data(countries.features)
+          .enter()
+          .append('path')
+          .attr('class', d => {
+            const cnt = isoCount[+d.id] || 0;
+            return 'country-path' + (cnt === 0 ? ' zero' : '');
+          })
+          .attr('d', path)
+          .attr('fill', d => {
+            const cnt = isoCount[+d.id] || 0;
+            return colorScale(cnt);
+          })
+          .on('mousemove', function (event, d) {
+            const cnt = isoCount[+d.id] || 0;
+            const name = d.properties.name || 'Desconhecido';
+            ttName.textContent = name;
+            ttCount.innerHTML = cnt > 0
+              ? `<span>${cnt}</span> ${cnt === 1 ? 'pessoa' : 'pessoas'}`
+              : 'Sem dados';
+            tooltip.style.display = 'block';
+            tooltip.style.left = (event.clientX + 14) + 'px';
+            tooltip.style.top  = (event.clientY - 36) + 'px';
+          })
+          .on('mouseleave', function () {
+            tooltip.style.display = 'none';
+          });
+      }
+
+      function updateLeaderboard(ranked) {
+        const list = document.getElementById('lb-list');
+        if (ranked.length === 0) {
+          list.innerHTML = '<div style="padding:20px;text-align:center;color:#4a5568;font-size:0.75rem;">Sem dados de localização encontrados.</div>';
+          return;
+        }
+        const maxCount = ranked[0].count;
+        list.innerHTML = ranked.slice(0, 30).map((item, i) => {
+          const barPct = Math.round((item.count / maxCount) * 100);
+          return `<div class="lb-row">
+            <span class="lb-rank">${i + 1}</span>
+            <span class="lb-country">${item.name}</span>
+            <div class="lb-bar-wrap"><div class="lb-bar" style="width:${barPct}%"></div></div>
+            <span class="lb-count">${item.count}</span>
+          </div>`;
+        }).join('');
+      }
+
+      function updatePlaceList(sortedPlaces) {
+        const list = document.getElementById('place-list');
+        if (sortedPlaces.length === 0) {
+          list.innerHTML = '<div style="padding:20px;text-align:center;color:#4a5568;font-size:0.75rem;">Sem dados de localização encontrados.</div>';
+          return;
+        }
+        const maxCount = sortedPlaces[0].count;
+        list.innerHTML = sortedPlaces.slice(0, 40).map((item, i) => {
+          const barPct = Math.round((item.count / maxCount) * 100);
+          return `<div class="lb-row">
+            <span class="lb-rank">${i + 1}</span>
+            <span class="lb-country" style="min-width:200px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${item.place}">${item.place}</span>
+            <div class="lb-bar-wrap"><div class="lb-bar" style="width:${barPct}%;background:#73bf69"></div></div>
+            <span class="lb-count">${item.count}</span>
+          </div>`;
+        }).join('');
+      }
+
+      function updateKpis(data) {
+        document.getElementById('kpi-total-places').textContent = data.withCountry;
+        document.getElementById('kpi-countries').textContent = data.ranked.length;
+        document.getElementById('kpi-top-country').textContent =
+          data.ranked.length > 0 ? data.ranked[0].name : '—';
+        document.getElementById('kpi-no-place').textContent = data.withoutCountry;
+      }
+
+      function refresh() {
+        try {
+          const data = buildCountryCounts();
+          isoCountGlobal = data.isoCount;
+          renderCountries(isoCountGlobal);
+          updateLeaderboard(data.ranked);
+          updatePlaceList(data.sortedPlaces);
+          updateKpis(data);
+        } catch (err) {
+          console.error('Mundo: error building data:', err);
+        }
+      }
+
+      // ── Filter chips ──────────────────────────────────────────────────
+      document.getElementById('filter-chips').addEventListener('click', function (e) {
+        const chip = e.target.closest('.filter-chip');
+        if (!chip) return;
+        const type = chip.dataset.type;
+        if (activeFilters.has(type)) {
+          // Keep at least one filter active
+          if (activeFilters.size > 1) {
+            activeFilters.delete(type);
+            chip.classList.remove('active');
+          }
+        } else {
+          activeFilters.add(type);
+          chip.classList.add('active');
+        }
+        refresh();
+      });
+
+      // ── Zoom controls ─────────────────────────────────────────────────
+      document.getElementById('btn-zoom-in').addEventListener('click', () => {
+        svg.transition().duration(300).call(zoom.scaleBy, 1.6);
+      });
+      document.getElementById('btn-zoom-out').addEventListener('click', () => {
+        svg.transition().duration(300).call(zoom.scaleBy, 0.625);
+      });
+      document.getElementById('btn-zoom-reset').addEventListener('click', () => {
+        svg.transition().duration(400).call(zoom.transform, d3.zoomIdentity);
+      });
+
+      // ── Bootstrap ─────────────────────────────────────────────────────
+      async function bootstrap() {
+        const container = document.getElementById('world-svg-container');
+        initMap(container);
+
+        // Load world atlas TopoJSON
+        try {
+          const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+          worldData = await res.json();
+        } catch (err) {
+          console.error('Mundo: failed to load world atlas:', err);
+          document.getElementById('map-loading').innerHTML =
+            '<span style="color:#f25757">Erro ao carregar mapa. Verifique a ligação à internet.</span>';
+          return;
+        }
+
+        document.getElementById('map-loading').style.display = 'none';
+        refresh();
+      }
+
+      // Wait for DB to be ready
+      if (window.GedcomDB) {
+        bootstrap();
+      } else {
+        window.addEventListener('gedcomdb-ready', bootstrap);
+        // Fallback: try after short delay
+        setTimeout(() => {
+          if (window.GedcomDB) bootstrap();
+        }, 1200);
+      }
+
+      // Handle window resize
+      let resizeTimer;
+      window.addEventListener('resize', () => {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(() => {
+          const container = document.getElementById('world-svg-container');
+          if (!container || !worldData) return;
+          d3.select('#world-svg').selectAll('*').remove();
+          g = null;
+          initMap(container);
+          renderCountries(isoCountGlobal);
+        }, 300);
+      });
+
+    })();
+    </script>
+    <script src="history-logger.js"></script>
+  </body>
+</html>

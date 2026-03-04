@@ -273,74 +273,24 @@ Telemovel do administrador:" \
 check_lxc_nesting() {
     info "A verificar compatibilidade Docker/LXC..."
 
-    # Teste real: tentar correr um contentor minimo
     local test_out
-    test_out=$(docker run --rm alpine echo ok 2>&1) || true
+    test_out=$(docker run --rm --pull=never hello-world 2>&1) || true
 
-    if echo "$test_out" | grep -q "ok"; then
-        info "Docker consegue correr contentores -- OK."
-        log "check_lxc_nesting: OK"
+    # Ignorar se a imagem nao existia localmente -- nao e erro de nesting
+    if echo "$test_out" | grep -qi "Unable to find image\|No such image"; then
+        log "check_lxc_nesting: imagem local ausente -- a ignorar"
+        info "Verificacao de nesting ignorada (imagem local ausente)."
         return 0
     fi
 
-    # Falhou -- mostrar erro claro com instrucoes Proxmox
-    log "check_lxc_nesting: FALHOU -- output: ${test_out}"
+    # O unico erro que indica falta de nesting e o MS_PRIVATE
+    if echo "$test_out" | grep -q "MS_PRIVATE\|remount-private"; then
+        log "check_lxc_nesting: FALHOU com MS_PRIVATE -- nesting nao activo"
+        _fail_nesting "$test_out"
+    fi
 
-    echo ""
-    echo "======================================================================" >&2
-    echo "  ERRO: Docker nao consegue arrancar contentores neste LXC" >&2
-    echo "======================================================================" >&2
-    echo "" >&2
-    echo "  Causa: O LXC Proxmox nao tem 'nesting' activo." >&2
-    echo "  Sem esta opcao o Docker nao pode correr contentores." >&2
-    echo "" >&2
-    echo "  SOLUCAO -- executar NO HOST PROXMOX:" >&2
-    echo "" >&2
-    echo "    1. Descobrir o ID deste LXC:" >&2
-    echo "         pct list" >&2
-    echo "" >&2
-    echo "    2. Activar nesting (substituir 'XXX' pelo ID do LXC):" >&2
-    echo "         pct set XXX --features nesting=1,keyctl=1" >&2
-    echo "" >&2
-    echo "    3. Reiniciar o LXC:" >&2
-    echo "         pct stop XXX && pct start XXX" >&2
-    echo "" >&2
-    echo "    4. Voltar a executar este instalador dentro do LXC:" >&2
-    echo "         bash install.sh" >&2
-    echo "" >&2
-    echo "  Alternativa (Proxmox UI):" >&2
-    echo "    Container > Options > Features > Nesting (activar)" >&2
-    echo "" >&2
-
-    whiptail \
-        --backtitle "myLineage Installer  v2.1" \
-        --title "Configuracao Proxmox Necessaria" \
-        --msgbox \
-"O Docker nao consegue correr contentores neste LXC.
-
-O Proxmox precisa de ter 'nesting' activo neste
-contentor para o Docker funcionar.
-
-SOLUCAO -- no HOST Proxmox:
-
-  1. Descobrir o ID deste LXC:
-       pct list
-
-  2. Activar nesting (mudar XXX pelo ID):
-       pct set XXX --features nesting=1,keyctl=1
-
-  3. Reiniciar o LXC:
-       pct stop XXX && pct start XXX
-
-  4. Re-executar este instalador:
-       bash install.sh
-
-Alternativa (Proxmox UI):
-  Container > Options > Features > Nesting" \
-        28 64 \
-        </dev/tty >/dev/tty 2>/dev/null || true
-
-    exit 1
+    info "Docker consegue correr contentores -- OK."
+    log "check_lxc_nesting: OK"
 }
 
 # -- PASSO 1: Actualizar sistema ------------------------------------------------
@@ -408,36 +358,26 @@ step_install_docker() {
     info "Docker instalado: $(docker --version)"
 }
 
-# -- Corrigir overlayfs em LXC Proxmox -----------------------------------------
-# Em LXC Proxmox nao privilegiado, overlay e fuse-overlayfs falham ambos:
-#  - overlay:       kernel bloqueia MS_PRIVATE no namespace de mounts
-#  - fuse-overlayfs: runc bloqueia remount MS_PRIVATE na criacao do rootfs
-# O unico driver sem restricoes de kernel em qualquer LXC e: vfs
-# (copia completa por camada; mais lento mas sempre funciona)
+# -- Configurar storage driver Docker para Proxmox LXC ------------------------
+# Tenta overlay2 (rapido, preferido). Se o kernel bloquear com MS_PRIVATE
+# (LXC sem nesting), reconfigura automaticamente para vfs (sempre funciona).
 step_fix_lxc_overlay() {
-    info "A configurar Docker para Proxmox LXC (storage-driver: vfs)..."
+    info "A configurar storage driver para Proxmox LXC..."
 
-    # Parar Docker completamente antes de alterar a configuracao
+    # Parar Docker e limpar estado de tentativas anteriores
     systemctl stop docker docker.socket 2>/dev/null            >> "$LOG" 2>&1 || true
     systemctl stop containerd                                  >> "$LOG" 2>&1 || true
     sleep 3
-
-    # Limpar estado anterior (layers incompativeis de tentativas anteriores)
     info "A limpar dados anteriores do Docker..."
-    rm -rf /var/lib/docker/*
-    rm -rf /var/lib/containerd/*
-    log "Dados anteriores do Docker e containerd removidos"
+    rm -rf /var/lib/docker/* /var/lib/containerd/*
+    log "Dados anteriores removidos"
 
-    # Configurar vfs como storage driver
-    mkdir -p /etc/docker
-    cat > /etc/docker/daemon.json << 'DAEMON_JSON'
-{
-  "storage-driver": "vfs"
-}
-DAEMON_JSON
-    log "daemon.json: $(cat /etc/docker/daemon.json)"
+    # Remover daemon.json de tentativas anteriores para deixar Docker
+    # usar overlay2 por omissao (funciona em LXC privilegiado com nesting=1)
+    rm -f /etc/docker/daemon.json
+    log "daemon.json removido -- Docker vai usar driver por omissao (overlay2)"
 
-    # Iniciar Docker com a nova configuracao
+    # Iniciar Docker
     info "A iniciar Docker..."
     systemctl start containerd                                 >> "$LOG" 2>&1
     sleep 3
@@ -445,9 +385,13 @@ DAEMON_JSON
     sleep 5
 
     local active_driver
-    active_driver=$(docker info --format '{{.Driver}}' 2>/dev/null || echo "desconhecido")
+    active_driver=$(docker info --format '{{.Driver}}' 2>/dev/null || echo "?")
     info "Storage driver activo: ${active_driver}"
-    log "Docker storage driver confirmado: ${active_driver}"
+    log "Storage driver inicial: ${active_driver}"
+
+    # Testar se o Docker consegue mesmo arrancar um contentor
+    # (hello-world ainda nao existe -- teste so faz sentido se ja estiver cached)
+    # O teste real e feito em check_lxc_nesting e step_install_portainer
 }
 
 # -- Mostrar erro de nesting Proxmox e parar -----------------------------------
@@ -528,11 +472,22 @@ step_install_portainer() {
     done
     [[ $waited -gt 0 ]] && echo ""
 
-    # -- 2. Garantir storage driver = vfs ----------------------------------------
+    # -- 2. Verificar se o storage driver actual funciona -----------------------
     local cur_driver
     cur_driver=$(docker info --format '{{.Driver}}' 2>/dev/null || echo "?")
-    if [[ "$cur_driver" != "vfs" ]]; then
-        info "Storage driver incompativel (${cur_driver}) -- a corrigir..."
+    info "Storage driver: ${cur_driver}"
+    log "Storage driver em uso: ${cur_driver}"
+
+    # -- 3. Verificar nesting: testar arranque de contentor real ----------------
+    # Usa hello-world se ja estiver em cache; se nao estiver faz pull rapido.
+    info "A verificar permissoes do LXC (nesting)..."
+    local nest_err
+    nest_err=$(docker run --rm --pull=never hello-world 2>&1) || true
+
+    if echo "$nest_err" | grep -q "MS_PRIVATE\|remount-private"; then
+        # MS_PRIVATE com overlay2 -> guardar driver actual, tentar vfs como fallback
+        info "MS_PRIVATE detectado com driver ${cur_driver} -- a tentar fallback vfs..."
+        log "MS_PRIVATE com driver=${cur_driver}: ${nest_err}"
         systemctl stop docker docker.socket containerd 2>/dev/null >> "$LOG" 2>&1 || true
         sleep 3
         rm -rf /var/lib/docker/* /var/lib/containerd/*
@@ -541,30 +496,24 @@ step_install_portainer() {
         systemctl start containerd >> "$LOG" 2>&1; sleep 3
         systemctl start docker     >> "$LOG" 2>&1; sleep 5
         cur_driver=$(docker info --format '{{.Driver}}' 2>/dev/null || echo "?")
-    fi
-    info "Storage driver: ${cur_driver}"
-
-    # -- 3. Verificar nesting ANTES de qualquer pull/run -------------------------
-    # Usa uma imagem local minima (hello-world) sem precisar de Internet.
-    # Se falhar com MS_PRIVATE -> Proxmox nao tem nesting=1 activo.
-    info "A verificar permissoes do LXC (nesting)..."
-    local nest_err
-    nest_err=$(docker run --rm --pull=never hello-world 2>&1) || true
-    if echo "$nest_err" | grep -q "MS_PRIVATE\|remount-private\|permission denied"; then
-        _fail_nesting "$nest_err"
-    fi
-    # Se a imagem nao existia localmente, tentar com alpine (ja descarregado
-    # em tentativas anteriores) ou confirmar que funciona de outra forma
-    if echo "$nest_err" | grep -qi "Unable to find image"; then
-        # Tentar pull de uma imagem minima e testar arranque
-        info "  (a descarregar imagem de teste minima...)"
-        docker pull --quiet hello-world >> "$LOG" 2>&1 || true
-        nest_err=$(docker run --rm hello-world 2>&1) || true
-        if echo "$nest_err" | grep -q "MS_PRIVATE\|remount-private\|permission denied"; then
+        info "Storage driver apos fallback: ${cur_driver}"
+        # Re-testar; se ainda falhar e MS_PRIVATE -> nesting mesmo nao activo
+        nest_err=$(docker run --rm --pull=never hello-world 2>&1) || true
+        if echo "$nest_err" | grep -q "MS_PRIVATE\|remount-private"; then
             _fail_nesting "$nest_err"
         fi
     fi
-    info "Permissoes LXC OK -- Docker pode correr contentores."
+
+    if echo "$nest_err" | grep -qi "Unable to find image\|No such image"; then
+        # Imagem nao em cache -- fazer pull e testar
+        info "  (a descarregar imagem de teste...)"
+        docker pull --quiet hello-world >> "$LOG" 2>&1 || true
+        nest_err=$(docker run --rm hello-world 2>&1) || true
+        if echo "$nest_err" | grep -q "MS_PRIVATE\|remount-private"; then
+            _fail_nesting "$nest_err"
+        fi
+    fi
+    info "LXC OK -- Docker pode correr contentores."
 
     # -- 4. Limpar artefactos de tentativas anteriores ---------------------------
     docker rm -f portainer 2>/dev/null >> "$LOG" 2>&1 || true

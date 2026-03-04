@@ -332,88 +332,45 @@ step_install_docker() {
 }
 
 # -- Corrigir overlayfs em LXC Proxmox -----------------------------------------
-# Em contentores LXC nao privilegiados, overlay nao e permitido.
-# Estrategia:
-#   1. Tentar activar /dev/fuse e usar fuse-overlayfs (rapido, preferido)
-#   2. Se /dev/fuse nao estiver acessivel: usar vfs (sempre funciona, mais lento)
-# Aplicado sempre (este instalador destina-se a LXC Proxmox).
+# Em LXC Proxmox nao privilegiado, overlay e fuse-overlayfs falham ambos:
+#  - overlay:       kernel bloqueia MS_PRIVATE no namespace de mounts
+#  - fuse-overlayfs: runc bloqueia remount MS_PRIVATE na criacao do rootfs
+# O unico driver sem restricoes de kernel em qualquer LXC e: vfs
+# (copia completa por camada; mais lento mas sempre funciona)
 step_fix_lxc_overlay() {
-    info "A detectar storage driver compativel com Proxmox LXC..."
+    info "A configurar Docker para Proxmox LXC (storage-driver: vfs)..."
 
     # Parar Docker completamente antes de alterar a configuracao
-    info "A parar Docker..."
     systemctl stop docker docker.socket 2>/dev/null            >> "$LOG" 2>&1 || true
     systemctl stop containerd                                  >> "$LOG" 2>&1 || true
     sleep 3
 
-    # Limpar estado anterior (snapshots overlayfs incompativeis de tentativas anteriores)
+    # Limpar estado anterior (layers incompativeis de tentativas anteriores)
     info "A limpar dados anteriores do Docker..."
     rm -rf /var/lib/docker/*
     rm -rf /var/lib/containerd/*
     log "Dados anteriores do Docker e containerd removidos"
 
-    # -- Tentar activar FUSE ----------------------------------------------------
-    local storage_driver="vfs"   # default seguro
-
-    # Tentar carregar modulo fuse
-    modprobe fuse >> "$LOG" 2>&1 || true
-
-    # Criar /dev/fuse se nao existir (necessario em alguns LXC)
-    if [[ ! -c /dev/fuse ]]; then
-        mknod /dev/fuse c 10 229 >> "$LOG" 2>&1 || true
-        chmod 666 /dev/fuse 2>/dev/null || true
-    fi
-
-    # Verificar se /dev/fuse esta acessivel e funcional
-    if [[ -c /dev/fuse ]]; then
-        apt-get install -y -qq fuse-overlayfs                  >> "$LOG" 2>&1
-        # Teste rapido: tentar montar com fuse-overlayfs num dir temporario
-        local _tdir
-        _tdir=$(mktemp -d)
-        mkdir -p "${_tdir}/upper" "${_tdir}/work" "${_tdir}/lower" "${_tdir}/merged"
-        if fuse-overlayfs \
-            -o "lowerdir=${_tdir}/lower,upperdir=${_tdir}/upper,workdir=${_tdir}/work" \
-            "${_tdir}/merged" >> "$LOG" 2>&1; then
-            fusermount -u "${_tdir}/merged" 2>/dev/null || true
-            storage_driver="fuse-overlayfs"
-            info "fuse-overlayfs funcional -- a usar fuse-overlayfs."
-        else
-            info "fuse-overlayfs nao funcional neste LXC -- a usar vfs."
-        fi
-        rm -rf "${_tdir}"
-    else
-        info "/dev/fuse nao disponivel -- a usar vfs."
-    fi
-
-    log "Storage driver escolhido: ${storage_driver}"
-
-    # -- Escrever daemon.json com o driver escolhido ----------------------------
-    info "A configurar /etc/docker/daemon.json (driver: ${storage_driver})..."
+    # Configurar vfs como storage driver
     mkdir -p /etc/docker
-    cat > /etc/docker/daemon.json << DAEMON_JSON
+    cat > /etc/docker/daemon.json << 'DAEMON_JSON'
 {
-  "storage-driver": "${storage_driver}"
+  "storage-driver": "vfs"
 }
 DAEMON_JSON
+    log "daemon.json: $(cat /etc/docker/daemon.json)"
 
-    # -- Iniciar Docker com a nova configuracao ---------------------------------
-    info "A iniciar Docker com driver ${storage_driver}..."
+    # Iniciar Docker com a nova configuracao
+    info "A iniciar Docker..."
     systemctl start containerd                                 >> "$LOG" 2>&1
     sleep 3
     systemctl start docker                                     >> "$LOG" 2>&1
     sleep 5
 
-    # Confirmar driver activo
     local active_driver
     active_driver=$(docker info --format '{{.Driver}}' 2>/dev/null || echo "desconhecido")
     info "Storage driver activo: ${active_driver}"
     log "Docker storage driver confirmado: ${active_driver}"
-
-    if [[ "$active_driver" != "$storage_driver" ]]; then
-        log "AVISO: driver esperado=${storage_driver} activo=${active_driver}"
-    fi
-
-    info "Docker pronto para Proxmox LXC."
 }
 
 # -- PASSO 3: Instalar Portainer ------------------------------------------------

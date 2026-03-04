@@ -753,76 +753,55 @@ get_server_ip() {
 show_next_steps() {
     get_server_ip
 
-    # Guardar resumo num ficheiro persistente (sempre consultavel depois)
     local SUMMARY="/root/mylineage-access.txt"
-    cat > "$SUMMARY" << SUMMARY_EOF
-======================================================================
-  myLineage -- RESUMO DE ACESSO
-  Instalado em: $(date)
-======================================================================
 
-  myLineage  -->  http://${SERVER_IP}:${APP_PORT}
-  Portainer  -->  https://${SERVER_IP}:${PORTAINER_HTTPS_PORT}
-
-  Administrador: ${ADMIN_PHONE}
-
-  PRIMEIRO LOGIN:
-    1. Abra http://${SERVER_IP}:${APP_PORT} no browser
-    2. Introduza o numero de telemovel acima
-    3. Leia o QR code com o Microsoft Authenticator
-    4. Valide o codigo de 6 digitos
-
-  COMANDOS UTEIS:
-    Ver logs:     docker logs mylineage -f
-    Parar:        docker compose -f ${APP_DIR}/docker-compose.yml down
-    Actualizar:   cd ${APP_DIR} && git pull && docker compose up -d --build
-    Log install:  ${LOG}
-
-  Este ficheiro: ${SUMMARY}
-======================================================================
-SUMMARY_EOF
+    # Escrever ficheiro de resumo linha a linha (sem heredoc -- mais robusto)
+    printf '======================================================================\n'       > "$SUMMARY"
+    printf '  myLineage -- RESUMO DE ACESSO\n'                                             >> "$SUMMARY"
+    printf '  Instalado em: %s\n' "$(date)"                                                >> "$SUMMARY"
+    printf '======================================================================\n'       >> "$SUMMARY"
+    printf '\n'                                                                             >> "$SUMMARY"
+    printf '  myLineage  -->  http://%s:%s\n'  "$SERVER_IP" "$APP_PORT"                   >> "$SUMMARY"
+    printf '  Portainer  -->  https://%s:%s\n' "$SERVER_IP" "$PORTAINER_HTTPS_PORT"       >> "$SUMMARY"
+    printf '\n'                                                                             >> "$SUMMARY"
+    printf '  Administrador: %s\n' "$ADMIN_PHONE"                                         >> "$SUMMARY"
+    printf '\n'                                                                             >> "$SUMMARY"
+    printf '  PRIMEIRO LOGIN:\n'                                                           >> "$SUMMARY"
+    printf '    1. Abra http://%s:%s no browser\n' "$SERVER_IP" "$APP_PORT"               >> "$SUMMARY"
+    printf '    2. Introduza o numero de telemovel acima\n'                                >> "$SUMMARY"
+    printf '    3. Leia o QR code com o Microsoft Authenticator\n'                        >> "$SUMMARY"
+    printf '    4. Valide o codigo de 6 digitos\n'                                        >> "$SUMMARY"
+    printf '\n'                                                                             >> "$SUMMARY"
+    printf '  COMANDOS UTEIS:\n'                                                           >> "$SUMMARY"
+    printf '    Ver logs:    docker logs mylineage -f\n'                                   >> "$SUMMARY"
+    printf '    Parar:       docker compose -f %s/docker-compose.yml down\n' "$APP_DIR"   >> "$SUMMARY"
+    printf '    Actualizar:  cd %s && git pull && docker compose up -d --build\n' "$APP_DIR" >> "$SUMMARY"
+    printf '    Log install: %s\n' "$LOG"                                                  >> "$SUMMARY"
+    printf '\n'                                                                             >> "$SUMMARY"
+    printf '======================================================================\n'       >> "$SUMMARY"
     log "Resumo de acesso guardado em: ${SUMMARY}"
 
-    # Imprimir directamente para /dev/tty -- sempre visivel independentemente
-    # de redirecionamentos de stdout/stderr no terminal do Proxmox/SSH
-    {
-        echo ""
-        echo "======================================================================"
-        echo "  myLineage -- INSTALACAO CONCLUIDA!"
-        echo "======================================================================"
-        echo ""
-        echo "  myLineage  -->  http://${SERVER_IP}:${APP_PORT}"
-        echo "  Portainer  -->  https://${SERVER_IP}:${PORTAINER_HTTPS_PORT}"
-        echo ""
-        echo "  Administrador: ${ADMIN_PHONE}"
-        echo ""
-        echo "  PRIMEIRO LOGIN:"
-        echo "    1. Abra http://${SERVER_IP}:${APP_PORT} no browser"
-        echo "    2. Introduza o numero de telemovel acima"
-        echo "    3. Leia o QR code com o Microsoft Authenticator"
-        echo "    4. Valide o codigo de 6 digitos"
-        echo ""
-        echo "  (Este resumo foi guardado em: ${SUMMARY})"
-        echo ""
-        echo "======================================================================"
-        echo ""
-    } > /dev/tty 2>/dev/null || {
-        # /dev/tty nao disponivel -- imprimir para stdout como fallback
-        echo ""
-        echo "======================================================================"
-        echo "  myLineage -- INSTALACAO CONCLUIDA!"
-        echo "======================================================================"
-        echo ""
-        echo "  myLineage  -->  http://${SERVER_IP}:${APP_PORT}"
-        echo "  Portainer  -->  https://${SERVER_IP}:${PORTAINER_HTTPS_PORT}"
-        echo ""
-        echo "  Administrador: ${ADMIN_PHONE}"
-        echo ""
-        echo "  (Este resumo foi guardado em: ${SUMMARY})"
-        echo ""
-        echo "======================================================================"
-        echo ""
-    }
+    # Imprimir no terminal
+    printf '\n'
+    printf '======================================================================\n'
+    printf '  myLineage -- INSTALACAO CONCLUIDA!\n'
+    printf '======================================================================\n'
+    printf '\n'
+    printf '  myLineage  -->  http://%s:%s\n'  "$SERVER_IP" "$APP_PORT"
+    printf '  Portainer  -->  https://%s:%s\n' "$SERVER_IP" "$PORTAINER_HTTPS_PORT"
+    printf '\n'
+    printf '  Administrador: %s\n' "$ADMIN_PHONE"
+    printf '\n'
+    printf '  PRIMEIRO LOGIN:\n'
+    printf '    1. Abra http://%s:%s no browser\n' "$SERVER_IP" "$APP_PORT"
+    printf '    2. Introduza o numero de telemovel acima\n'
+    printf '    3. Leia o QR code com o Microsoft Authenticator\n'
+    printf '    4. Valide o codigo de 6 digitos\n'
+    printf '\n'
+    printf '  (Este resumo foi guardado em: %s)\n' "$SUMMARY"
+    printf '\n'
+    printf '======================================================================\n'
+    printf '\n'
 }
 
 # ==============================================================================

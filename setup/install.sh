@@ -32,15 +32,66 @@ OS_VER=""
 OS_NAME=""
 SERVER_IP=""
 
+_CURRENT_STEP="(inicializacao)"
+
 # -- Utilitarios de log ---------------------------------------------------------
 log()  { echo "[$(date '+%H:%M:%S')] $*" >> "$LOG"; }
 info() { echo "  --> $*"; log "$*"; }
 step() {
+    _CURRENT_STEP="$*"
     echo ""
     echo "======================================================================"
     echo "  $*"
     echo "======================================================================"
     log "$*"
+}
+
+# -- Tratamento de erros -------------------------------------------------------
+handle_error() {
+    local exit_code=$?
+    local line_num=${1:-"?"}
+
+    echo ""
+    echo "======================================================================"
+    echo "  ERRO DURANTE A INSTALACAO"
+    echo "======================================================================"
+    echo ""
+    echo "  Passo  : ${_CURRENT_STEP}"
+    echo "  Linha  : ${line_num}"
+    echo "  Codigo : ${exit_code}"
+    echo "  Log    : ${LOG}"
+    echo ""
+    echo "  Ultimas mensagens de erro:"
+    echo "  ------------------------------------------------------------------"
+    tail -20 "$LOG" 2>/dev/null | sed 's/^/    /' || true
+    echo ""
+    log "ERRO: passo=[${_CURRENT_STEP}] linha=${line_num} codigo=${exit_code}"
+
+    if command -v whiptail &>/dev/null; then
+        whiptail \
+            --backtitle "myLineage Installer  v2.1" \
+            --title "Erro na Instalacao" \
+            --msgbox \
+"Ocorreu um erro durante a instalacao.
+
+  Passo  : ${_CURRENT_STEP}
+  Codigo : ${exit_code}
+
+Consulte o log para mais detalhes:
+  ${LOG}
+
+Verifique:
+  - Ligacao a Internet activa
+  - Espaco em disco suficiente
+  - Docker em execucao
+    (systemctl status docker)
+
+Pode re-executar o instalador:
+  sudo bash install.sh" \
+            24 64
+    fi
+
+    exit "${exit_code}"
 }
 
 # -- Progresso no CLI -----------------------------------------------------------
@@ -271,6 +322,24 @@ step_install_docker() {
 # -- PASSO 3: Instalar Portainer ------------------------------------------------
 step_install_portainer() {
     step "PASSO 3/6: Instalar Portainer"
+
+    # Aguardar o daemon do Docker estar operacional (pode demorar apos instalacao)
+    info "A aguardar servico Docker ficar operacional..."
+    local waited=0
+    local max=60
+    while ! docker info &>/dev/null; do
+        sleep 2
+        waited=$((waited + 2))
+        printf "\r  A aguardar Docker... %ds" "$waited"
+        if (( waited >= max )); then
+            echo ""
+            echo "  ERRO: O servico Docker nao ficou disponivel apos ${max}s."
+            log "ERRO: Docker daemon nao disponivel apos ${max}s"
+            return 1
+        fi
+    done
+    [[ $waited -gt 0 ]] && echo ""
+    info "Docker operacional."
 
     if docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^portainer$"; then
         info "Portainer ja esta instalado."
@@ -590,6 +659,9 @@ echo "  myLineage -- Instalacao em curso"
 echo "  ATENCAO: Este processo e demorado. Por favor aguarde."
 echo "======================================================================"
 echo ""
+
+# Activar tratamento de erros a partir daqui (whiptail ja garantido)
+trap 'handle_error $LINENO' ERR
 
 progress 5  "A actualizar o sistema operativo..."
 step_update_system

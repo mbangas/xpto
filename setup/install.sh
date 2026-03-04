@@ -332,86 +332,63 @@ step_install_docker() {
 }
 
 # -- Corrigir overlayfs em LXC Proxmox -----------------------------------------
-# Em contentores LXC nao privilegiados, o kernel nao permite montar overlay.
-# A solucao e configurar o containerd para usar fuse-overlayfs como snapshotter.
+# Em contentores LXC nao privilegiados, o kernel nao permite overlay.
+# Docker 24+ lanca o seu proprio processo containerd interno que ignora
+# /etc/containerd/config.toml. A unica forma fiavel de alterar o storage
+# driver do Docker e atraves de /etc/docker/daemon.json.
 # Aplicado sempre (este instalador destina-se a LXC Proxmox).
 step_fix_lxc_overlay() {
-    info "A configurar fuse-overlayfs (compatibilidade Proxmox LXC)..."
+    info "A configurar storage driver para Proxmox LXC..."
 
     # Instalar fuse-overlayfs
     apt-get install -y -qq fuse-overlayfs                      >> "$LOG" 2>&1
     info "fuse-overlayfs instalado."
 
-    # OBRIGATORIO: parar Docker e containerd antes de limpar o estado
-    # e antes de aplicar a nova configuracao.
-    # Se nao parar, o containerd mantem snapshots antigos criados com
-    # overlayfs que sao incompativeis com fuse-overlayfs.
-    info "A parar Docker e containerd..."
+    # Parar Docker completamente antes de alterar a configuracao
+    info "A parar Docker..."
     systemctl stop docker docker.socket 2>/dev/null            >> "$LOG" 2>&1 || true
     systemctl stop containerd                                  >> "$LOG" 2>&1 || true
     sleep 3
 
-    # Limpar TODOS os dados do containerd (snapshots overlayfs incompativeis,
-    # layers de imagens parcialmente descarregadas, etc.)
-    info "A limpar estado anterior do containerd..."
+    # Limpar estado anterior do Docker e containerd.
+    # Tentativas anteriores criaram snapshots overlayfs incompativeis
+    # que continuariam a ser reutilizados mesmo apos mudar o driver.
+    info "A limpar dados anteriores do Docker..."
+    rm -rf /var/lib/docker/*
     rm -rf /var/lib/containerd/*
-    log "Estado do containerd limpo: /var/lib/containerd/*"
+    log "Dados anteriores do Docker e containerd removidos"
 
-    # Gerar configuracao base do containerd
-    mkdir -p /etc/containerd
-    # Iniciar containerd temporariamente para gerar config default
-    containerd &
-    local cpid=$!
-    sleep 3
-    kill $cpid 2>/dev/null || true
-    sleep 2
-    containerd config default > /etc/containerd/config.toml 2>> "$LOG" || true
+    # Configurar Docker para usar fuse-overlayfs como storage driver.
+    # NOTA: Docker 24+ usa o seu proprio containerd interno -- este
+    # ficheiro e a unica forma correcta de configurar o storage driver.
+    info "A configurar /etc/docker/daemon.json..."
+    mkdir -p /etc/docker
+    cat > /etc/docker/daemon.json << 'DAEMON_JSON'
+{
+  "storage-driver": "fuse-overlayfs"
+}
+DAEMON_JSON
+    log "daemon.json criado: $(cat /etc/docker/daemon.json)"
 
-    # Verificar que o ficheiro foi gerado e tem conteudo
-    if [[ ! -s /etc/containerd/config.toml ]]; then
-        log "AVISO: containerd config default falhou -- a criar config minima"
-        # Config minima que funciona em LXC com fuse-overlayfs
-        cat > /etc/containerd/config.toml << 'CONTAINERD_CONF'
-version = 2
-
-[plugins."io.containerd.grpc.v1.cri".containerd]
-  snapshotter = "fuse-overlayfs"
-  default_runtime_name = "runc"
-
-  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-    runtime_type = "io.containerd.runc.v2"
-
-    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
-      SystemdCgroup = true
-
-[proxy_plugins.fuse-overlayfs]
-  type = "snapshot"
-  address = "/run/containerd-fuse-overlayfs.sock"
-CONTAINERD_CONF
-    else
-        # Substituir snapshotter overlayfs -> fuse-overlayfs (todas as ocorrencias)
-        sed -i \
-            's|snapshotter = "overlayfs"|snapshotter = "fuse-overlayfs"|g' \
-            /etc/containerd/config.toml
-
-        # Confirmar que foi alterado
-        local snap
-        snap=$(grep -m1 'snapshotter' /etc/containerd/config.toml 2>/dev/null || echo "nao encontrado")
-        log "containerd snapshotter activo: ${snap}"
-        info "Snapshotter configurado: ${snap}"
-    fi
-
-    # Iniciar containerd com a nova configuracao
-    info "A iniciar containerd com fuse-overlayfs..."
+    # Iniciar Docker com a nova configuracao
+    info "A iniciar Docker com fuse-overlayfs..."
     systemctl start containerd                                 >> "$LOG" 2>&1
-    sleep 5
-
-    # Iniciar Docker
-    info "A iniciar Docker..."
+    sleep 3
     systemctl start docker                                     >> "$LOG" 2>&1
     sleep 5
 
-    info "fuse-overlayfs activo -- Docker pronto."
+    # Confirmar storage driver activo
+    local driver
+    driver=$(docker info --format '{{.Driver}}' 2>/dev/null || echo "desconhecido")
+    info "Storage driver activo: ${driver}"
+    log "Docker storage driver: ${driver}"
+
+    if [[ "$driver" != "fuse-overlayfs" ]]; then
+        echo "  AVISO: driver esperado=fuse-overlayfs actual=${driver}" >&2
+        log "AVISO: storage driver inesperado: ${driver}"
+    fi
+
+    info "Docker pronto para Proxmox LXC."
 }
 
 # -- PASSO 3: Instalar Portainer ------------------------------------------------

@@ -342,41 +342,73 @@ step_fix_lxc_overlay() {
     apt-get install -y -qq fuse-overlayfs                      >> "$LOG" 2>&1
     info "fuse-overlayfs instalado."
 
+    # OBRIGATORIO: parar Docker e containerd antes de limpar o estado
+    # e antes de aplicar a nova configuracao.
+    # Se nao parar, o containerd mantem snapshots antigos criados com
+    # overlayfs que sao incompativeis com fuse-overlayfs.
+    info "A parar Docker e containerd..."
+    systemctl stop docker docker.socket 2>/dev/null            >> "$LOG" 2>&1 || true
+    systemctl stop containerd                                  >> "$LOG" 2>&1 || true
+    sleep 3
+
+    # Limpar TODOS os dados do containerd (snapshots overlayfs incompativeis,
+    # layers de imagens parcialmente descarregadas, etc.)
+    info "A limpar estado anterior do containerd..."
+    rm -rf /var/lib/containerd/*
+    log "Estado do containerd limpo: /var/lib/containerd/*"
+
     # Gerar configuracao base do containerd
     mkdir -p /etc/containerd
-    containerd config default > /etc/containerd/config.toml 2>> "$LOG"
+    # Iniciar containerd temporariamente para gerar config default
+    containerd &
+    local cpid=$!
+    sleep 3
+    kill $cpid 2>/dev/null || true
+    sleep 2
+    containerd config default > /etc/containerd/config.toml 2>> "$LOG" || true
 
-    # Verificar que o ficheiro foi gerado
+    # Verificar que o ficheiro foi gerado e tem conteudo
     if [[ ! -s /etc/containerd/config.toml ]]; then
-        echo "  AVISO: containerd config default falhou -- a tentar metodo alternativo..." >&2
-        log "AVISO: containerd config default falhou"
-        # Metodo alternativo: criar config minima directamente
+        log "AVISO: containerd config default falhou -- a criar config minima"
+        # Config minima que funciona em LXC com fuse-overlayfs
         cat > /etc/containerd/config.toml << 'CONTAINERD_CONF'
 version = 2
 
 [plugins."io.containerd.grpc.v1.cri".containerd]
   snapshotter = "fuse-overlayfs"
+  default_runtime_name = "runc"
+
+  [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
+    runtime_type = "io.containerd.runc.v2"
+
+    [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc.options]
+      SystemdCgroup = true
 
 [proxy_plugins.fuse-overlayfs]
   type = "snapshot"
   address = "/run/containerd-fuse-overlayfs.sock"
 CONTAINERD_CONF
     else
-        # Substituir snapshotter overlayfs -> fuse-overlayfs
+        # Substituir snapshotter overlayfs -> fuse-overlayfs (todas as ocorrencias)
         sed -i \
             's|snapshotter = "overlayfs"|snapshotter = "fuse-overlayfs"|g' \
             /etc/containerd/config.toml
+
+        # Confirmar que foi alterado
+        local snap
+        snap=$(grep -m1 'snapshotter' /etc/containerd/config.toml 2>/dev/null || echo "nao encontrado")
+        log "containerd snapshotter activo: ${snap}"
+        info "Snapshotter configurado: ${snap}"
     fi
 
-    log "containerd config actualizado: $(grep snapshotter /etc/containerd/config.toml | head -1)"
-
-    # Reiniciar containerd e Docker para aplicar a nova configuracao
-    info "A reiniciar containerd..."
-    systemctl restart containerd                               >> "$LOG" 2>&1
+    # Iniciar containerd com a nova configuracao
+    info "A iniciar containerd com fuse-overlayfs..."
+    systemctl start containerd                                 >> "$LOG" 2>&1
     sleep 5
 
-    info "A reiniciar Docker..."
-    systemctl restart docker                                   >> "$LOG" 2>&1
+    # Iniciar Docker
+    info "A iniciar Docker..."
+    systemctl start docker                                     >> "$LOG" 2>&1
     sleep 5
 
     info "fuse-overlayfs activo -- Docker pronto."

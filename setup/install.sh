@@ -343,6 +343,8 @@ Alternativa (Proxmox UI):
     exit 1
 }
 
+# -- PASSO 1: Actualizar sistema ------------------------------------------------
+step_update_system() {
     step "PASSO 1/6: Actualizar sistema operativo"
     export DEBIAN_FRONTEND=noninteractive
     info "A executar apt-get update..."

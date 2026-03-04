@@ -48,50 +48,62 @@ step() {
 
 # -- Tratamento de erros -------------------------------------------------------
 handle_error() {
-    local exit_code=$?
-    local line_num=${1:-"?"}
+    # Desactivar o trap imediatamente para evitar recursao
+    trap '' ERR
 
-    echo ""
-    echo "======================================================================"
-    echo "  ERRO DURANTE A INSTALACAO"
-    echo "======================================================================"
-    echo ""
-    echo "  Passo  : ${_CURRENT_STEP}"
-    echo "  Linha  : ${line_num}"
-    echo "  Codigo : ${exit_code}"
-    echo "  Log    : ${LOG}"
-    echo ""
-    echo "  Ultimas mensagens de erro:"
-    echo "  ------------------------------------------------------------------"
-    tail -20 "$LOG" 2>/dev/null | sed 's/^/    /' || true
-    echo ""
-    log "ERRO: passo=[${_CURRENT_STEP}] linha=${line_num} codigo=${exit_code}"
+    # Guardar o codigo de saida ANTES de qualquer outro comando
+    local _ec=$?
+    local _ln=${1:-"?"}
 
-    if command -v whiptail &>/dev/null; then
+    echo "" >&2
+    echo "======================================================================" >&2
+    echo "  ERRO DURANTE A INSTALACAO" >&2
+    echo "======================================================================" >&2
+    echo "" >&2
+    echo "  Passo  : ${_CURRENT_STEP}" >&2
+    echo "  Linha  : ${_ln}" >&2
+    echo "  Codigo : ${_ec}" >&2
+    echo "  Log    : ${LOG}" >&2
+    echo "" >&2
+    echo "  Ultimas linhas do log:" >&2
+    echo "  ------------------------------------------------------------------" >&2
+    tail -20 "${LOG}" 2>/dev/null | sed 's/^/    /' >&2 || true
+    echo "" >&2
+
+    # Escrever no log sem falhar
+    echo "[$(date '+%H:%M:%S')] ERRO: passo=[${_CURRENT_STEP}] linha=${_ln} codigo=${_ec}" >> "${LOG}" 2>/dev/null || true
+
+    # Janela whiptail -- forcada para o terminal (/dev/tty) para funcionar
+    # mesmo quando stdout/stderr estao redireccionados
+    if command -v whiptail &>/dev/null && [[ -t 0 ]] || [[ -e /dev/tty ]]; then
         whiptail \
             --backtitle "myLineage Installer  v2.1" \
-            --title "Erro na Instalacao" \
+            --title "!! ERRO NA INSTALACAO !!" \
             --msgbox \
 "Ocorreu um erro durante a instalacao.
 
   Passo  : ${_CURRENT_STEP}
-  Codigo : ${exit_code}
+  Codigo : ${_ec}
 
-Consulte o log para mais detalhes:
+Ultimas linhas do log:
+$(tail -8 "${LOG}" 2>/dev/null | sed 's/^/  /' || true)
+
+Log completo:
   ${LOG}
 
 Verifique:
   - Ligacao a Internet activa
   - Espaco em disco suficiente
-  - Docker em execucao
-    (systemctl status docker)
+  - Docker em execucao:
+    systemctl status docker
 
-Pode re-executar o instalador:
+Pode re-executar:
   sudo bash install.sh" \
-            24 64
+            28 68 \
+            </dev/tty >/dev/tty 2>/dev/null || true
     fi
 
-    exit "${exit_code}"
+    exit "${_ec}"
 }
 
 # -- Progresso no CLI -----------------------------------------------------------
@@ -347,16 +359,25 @@ step_install_portainer() {
     fi
 
     info "A criar volume do Portainer..."
-    docker volume create portainer_data                     >> "$LOG" 2>&1
+    docker volume create portainer_data 2>&1 | tee -a "$LOG"
 
     info "A iniciar contentor Portainer..."
+    # Mostrar erros no terminal E gravar no log (tee -a captura ambos)
     docker run -d \
         --name portainer \
         --restart=always \
         --network host \
         -v /var/run/docker.sock:/var/run/docker.sock \
         -v portainer_data:/data \
-        portainer/portainer-ce:latest                       >> "$LOG" 2>&1
+        portainer/portainer-ce:latest \
+        2>&1 | tee -a "$LOG"
+
+    # tee devolve sempre 0; verificar se o contentor foi criado
+    if ! docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^portainer$"; then
+        echo "  ERRO: O contentor Portainer nao foi criado." >&2
+        log "ERRO: contentor portainer nao encontrado apos docker run"
+        return 1
+    fi
 
     info "Portainer instalado (porta HTTPS: ${PORTAINER_HTTPS_PORT})"
 }

@@ -749,59 +749,20 @@ get_server_ip() {
     [[ -z "$SERVER_IP" ]] && SERVER_IP="127.0.0.1"
 }
 
-# -- Ecra final ----------------------------------------------------------------
-show_next_steps() {
-    get_server_ip
+# -- Instalar script de actualizacao ------------------------------------------
+_install_update_script() {
+    local src="$APP_DIR/setup/update.sh"
+    local dest="/usr/local/bin/mylineage-update"
 
-    local SUMMARY="/root/mylineage-access.txt"
-
-    # Escrever ficheiro de resumo linha a linha (sem heredoc -- mais robusto)
-    printf '======================================================================\n'       > "$SUMMARY"
-    printf '  myLineage -- RESUMO DE ACESSO\n'                                             >> "$SUMMARY"
-    printf '  Instalado em: %s\n' "$(date)"                                                >> "$SUMMARY"
-    printf '======================================================================\n'       >> "$SUMMARY"
-    printf '\n'                                                                             >> "$SUMMARY"
-    printf '  myLineage  -->  http://%s:%s\n'  "$SERVER_IP" "$APP_PORT"                   >> "$SUMMARY"
-    printf '  Portainer  -->  https://%s:%s\n' "$SERVER_IP" "$PORTAINER_HTTPS_PORT"       >> "$SUMMARY"
-    printf '\n'                                                                             >> "$SUMMARY"
-    printf '  Administrador: %s\n' "$ADMIN_PHONE"                                         >> "$SUMMARY"
-    printf '\n'                                                                             >> "$SUMMARY"
-    printf '  PRIMEIRO LOGIN:\n'                                                           >> "$SUMMARY"
-    printf '    1. Abra http://%s:%s no browser\n' "$SERVER_IP" "$APP_PORT"               >> "$SUMMARY"
-    printf '    2. Introduza o numero de telemovel acima\n'                                >> "$SUMMARY"
-    printf '    3. Leia o QR code com o Microsoft Authenticator\n'                        >> "$SUMMARY"
-    printf '    4. Valide o codigo de 6 digitos\n'                                        >> "$SUMMARY"
-    printf '\n'                                                                             >> "$SUMMARY"
-    printf '  COMANDOS UTEIS:\n'                                                           >> "$SUMMARY"
-    printf '    Ver logs:    docker logs mylineage -f\n'                                   >> "$SUMMARY"
-    printf '    Parar:       docker compose -f %s/docker-compose.yml down\n' "$APP_DIR"   >> "$SUMMARY"
-    printf '    Actualizar:  cd %s && git pull && docker compose up -d --build\n' "$APP_DIR" >> "$SUMMARY"
-    printf '    Log install: %s\n' "$LOG"                                                  >> "$SUMMARY"
-    printf '\n'                                                                             >> "$SUMMARY"
-    printf '======================================================================\n'       >> "$SUMMARY"
-    log "Resumo de acesso guardado em: ${SUMMARY}"
-
-    # Imprimir no terminal
-    printf '\n'
-    printf '======================================================================\n'
-    printf '  myLineage -- INSTALACAO CONCLUIDA!\n'
-    printf '======================================================================\n'
-    printf '\n'
-    printf '  myLineage  -->  http://%s:%s\n'  "$SERVER_IP" "$APP_PORT"
-    printf '  Portainer  -->  https://%s:%s\n' "$SERVER_IP" "$PORTAINER_HTTPS_PORT"
-    printf '\n'
-    printf '  Administrador: %s\n' "$ADMIN_PHONE"
-    printf '\n'
-    printf '  PRIMEIRO LOGIN:\n'
-    printf '    1. Abra http://%s:%s no browser\n' "$SERVER_IP" "$APP_PORT"
-    printf '    2. Introduza o numero de telemovel acima\n'
-    printf '    3. Leia o QR code com o Microsoft Authenticator\n'
-    printf '    4. Valide o codigo de 6 digitos\n'
-    printf '\n'
-    printf '  (Este resumo foi guardado em: %s)\n' "$SUMMARY"
-    printf '\n'
-    printf '======================================================================\n'
-    printf '\n'
+    if [[ -f "$src" ]]; then
+        cp "$src" "$dest"
+        chmod +x "$dest"
+        log "Script de actualizacao instalado em: ${dest}"
+        info "Script de actualizacao instalado: mylineage-update"
+    else
+        log "AVISO: $src nao encontrado -- script de actualizacao nao instalado"
+        info "AVISO: update.sh nao encontrado em $src"
+    fi
 }
 
 # ==============================================================================
@@ -884,10 +845,53 @@ progress 95 "A verificar servico..."
 wait_for_service
 
 progress 100 "Instalacao concluida!"
-echo ""
 
-# Ecra final
-show_next_steps
+# Desactivar trap de erros -- a partir daqui so output final, nada critico
+trap '' ERR
+
+# Instalar script de actualizacao
+_install_update_script
+
+# Obter IP (inline -- sem depender de funcao com set -e activo)
+_FINAL_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+[[ -z "$_FINAL_IP" ]] && _FINAL_IP="127.0.0.1"
+_SUMMARY="/root/mylineage-access.txt"
+
+# Escrever ficheiro de resumo
+printf '======================================================================\n'       > "$_SUMMARY"
+printf '  myLineage -- RESUMO DE ACESSO\n'                                             >> "$_SUMMARY"
+printf '  Instalado em: %s\n' "$(date)"                                                >> "$_SUMMARY"
+printf '======================================================================\n'       >> "$_SUMMARY"
+printf '\n'                                                                             >> "$_SUMMARY"
+printf '  myLineage  -->  http://%s:%s\n'  "$_FINAL_IP" "$APP_PORT"                   >> "$_SUMMARY"
+printf '  Portainer  -->  https://%s:%s\n' "$_FINAL_IP" "$PORTAINER_HTTPS_PORT"       >> "$_SUMMARY"
+printf '\n'                                                                             >> "$_SUMMARY"
+printf '  Administrador: %s\n' "$ADMIN_PHONE"                                         >> "$_SUMMARY"
+printf '\n'                                                                             >> "$_SUMMARY"
+printf '  COMANDOS UTEIS:\n'                                                           >> "$_SUMMARY"
+printf '    Actualizar:  mylineage-update\n'                                           >> "$_SUMMARY"
+printf '    Ver logs:    docker logs mylineage -f\n'                                   >> "$_SUMMARY"
+printf '    Parar:       docker compose -f %s/docker-compose.yml down\n' "$APP_DIR"   >> "$_SUMMARY"
+printf '    Log install: %s\n' "$LOG"                                                  >> "$_SUMMARY"
+printf '\n'                                                                             >> "$_SUMMARY"
+printf '======================================================================\n'       >> "$_SUMMARY"
+
+# Imprimir no terminal
+printf '\n'
+printf '======================================================================\n'
+printf '  myLineage -- INSTALACAO CONCLUIDA!\n'
+printf '======================================================================\n'
+printf '\n'
+printf '  myLineage  -->  http://%s:%s\n'  "$_FINAL_IP" "$APP_PORT"
+printf '  Portainer  -->  https://%s:%s\n' "$_FINAL_IP" "$PORTAINER_HTTPS_PORT"
+printf '\n'
+printf '  Administrador: %s\n' "$ADMIN_PHONE"
+printf '\n'
+printf '  Para actualizar no futuro: mylineage-update\n'
+printf '  (Resumo guardado em: %s)\n' "$_SUMMARY"
+printf '\n'
+printf '======================================================================\n'
+printf '\n'
 
 log "=== Instalacao concluida em $(date) ==="
 exit 0

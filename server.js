@@ -99,6 +99,17 @@ function defaultSubmitter() {
   return { id:'',type:'SUBM', name:'', address:{addr:'',city:'',state:'',postal:'',country:''}, phone:'', email:'', web:'', language:'', notes:[], createdAt:'', updatedAt:'', deletedAt:null };
 }
 
+/* ── Cache status (must be before /api/multimedia entity router) ─────── */
+app.get('/api/multimedia/cache-status', (req, res) => {
+  try {
+    const mm = readCollection('multimedia');
+    const all     = Object.values(mm).filter(m => !m.deletedAt && m.files && m.files[0]);
+    const cached  = all.filter(m => !/^https?:\/\//i.test(m.files[0].file || '')).length;
+    const pending = all.length - cached;
+    res.json({ total: all.length, cached, pending, running: _cacheRunning });
+  } catch(e) { res.status(500).json({ error: String(e) }); }
+});
+
 /* ── Mount entity CRUD routes ────────────────────────────────────────── */
 app.use('/api/individuals',  entityRoutes('individuals','I',defaultIndividual));
 app.use('/api/families',     entityRoutes('families','F',defaultFamily));
@@ -286,16 +297,7 @@ async function cacheExternalImages(multimedia) {
   } finally { _cacheRunning = false; }
 }
 
-/* ── Cache status ────────────────────────────────────────────────────────── */
-app.get('/api/multimedia/cache-status', (req, res) => {
-  try {
-    const mm = readCollection('multimedia');
-    const all     = Object.values(mm).filter(m => !m.deletedAt && m.files && m.files[0]);
-    const cached  = all.filter(m => !/^https?:\/\//i.test(m.files[0].file || '')).length;
-    const pending = all.length - cached;
-    res.json({ total: all.length, cached, pending, running: _cacheRunning });
-  } catch(e) { res.status(500).json({ error: String(e) }); }
-});
+
 
 /* ── GEDCOM Import ───────────────────────────────────────────────────────────── */
 app.post('/api/gedcom/import', express.text({ type: '*/*', limit: '50mb' }), (req, res) => {

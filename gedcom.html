@@ -326,6 +326,217 @@
             </a>
           </div>
 
+          <!-- ── GEDCOM entity–relation diagram ─────────────────────── -->
+          <div style="margin-top:28px;">
+
+            <div class="gedcom-info-header">
+              <div class="header-icon"><i class="mdi mdi-graph-outline" aria-hidden="true"></i></div>
+              <div>
+                <h2>Modelo de entidades GEDCOM</h2>
+                <p>Representação gráfica das entidades do padrão e das suas relações</p>
+              </div>
+            </div>
+
+            <div class="gedcom-how" style="padding:20px 20px 16px;">
+              <h3><i class="mdi mdi-vector-polygon" aria-hidden="true"></i> Diagrama entidade–relação</h3>
+
+              <svg viewBox="0 0 760 515" xmlns="http://www.w3.org/2000/svg"
+                   style="width:100%;display:block;margin-bottom:6px;"
+                   role="img"
+                   aria-label="Diagrama GEDCOM: HEAD referencia SUBM; INDI e FAM são as entidades principais ligadas entre si e a SOUR, NOTE, OBJE; SOUR referencia REPO">
+
+                <defs>
+                  <marker id="gma" markerWidth="8" markerHeight="6"
+                          refX="7" refY="3" orient="auto">
+                    <polygon points="0 0,8 3,0 6" fill="rgba(255,255,255,0.25)"/>
+                  </marker>
+                  <marker id="gma-r" markerWidth="8" markerHeight="6"
+                          refX="1" refY="3" orient="auto">
+                    <polygon points="8 0,0 3,8 6" fill="rgba(255,255,255,0.25)"/>
+                  </marker>
+                </defs>
+
+                <!-- ══ Structural connections (solid) ══════════════════ -->
+                <g fill="none" stroke="rgba(255,255,255,0.22)" stroke-width="1.5">
+                  <!-- HEAD ─→ SUBM -->
+                  <line x1="424" y1="48" x2="503" y2="48" marker-end="url(#gma)"/>
+                  <!-- HEAD ─→ INDI -->
+                  <line x1="293" y1="75" x2="176" y2="173" marker-end="url(#gma)"/>
+                  <!-- HEAD ─→ FAM -->
+                  <line x1="398" y1="75" x2="507" y2="173" marker-end="url(#gma)"/>
+                  <!-- INDI ↔ FAM (bidirectional) -->
+                  <line x1="204" y1="200" x2="468" y2="200"
+                        marker-start="url(#gma-r)" marker-end="url(#gma)"/>
+                  <!-- INDI ─→ SOUR (vertical) -->
+                  <line x1="125" y1="228" x2="125" y2="333" marker-end="url(#gma)"/>
+                  <!-- SOUR ─→ REPO (vertical) -->
+                  <line x1="125" y1="388" x2="125" y2="443" marker-end="url(#gma)"/>
+                </g>
+
+                <!-- ══ Reference connections (dashed) ═════════════════ -->
+                <g fill="none" stroke="rgba(255,255,255,0.14)" stroke-width="1.5"
+                   stroke-dasharray="5,4">
+                  <!-- INDI ─→ NOTE (curve, approaches from left) -->
+                  <path d="M 200,226 C 220,305 248,343 268,356" marker-end="url(#gma)"/>
+                  <!-- FAM ─→ NOTE (curve, approaches from right) -->
+                  <path d="M 514,226 C 492,305 443,343 423,356" marker-end="url(#gma)"/>
+                  <!-- FAM ─→ OBJE (vertical) -->
+                  <line x1="565" y1="228" x2="565" y2="333" marker-end="url(#gma)"/>
+                  <!-- SOUR ─→ NOTE (horizontal) -->
+                  <line x1="204" y1="360" x2="268" y2="360" marker-end="url(#gma)"/>
+                </g>
+
+                <!-- ══ Connection labels ═══════════════════════════════ -->
+                <g font-family="'Inter','Segoe UI',Arial,sans-serif"
+                   font-size="9.5" fill="rgba(139,148,158,0.9)">
+                  <!-- HEAD→SUBM -->
+                  <text x="463" y="43" text-anchor="middle">SUBM</text>
+                  <!-- HEAD→INDI -->
+                  <text x="216" y="117" text-anchor="middle">contém</text>
+                  <!-- HEAD→FAM -->
+                  <text x="455" y="117" text-anchor="middle">contém</text>
+                  <!-- INDI↔FAM -->
+                  <text x="335" y="192" text-anchor="middle" font-size="8.5">FAMS · FAMC  ↔  HUSB · WIFE · CHIL</text>
+                  <!-- INDI→SOUR -->
+                  <text x="102" y="282" text-anchor="middle">cit.</text>
+                  <!-- INDI→NOTE -->
+                  <text x="187" y="296">ref.</text>
+                  <!-- FAM→NOTE -->
+                  <text x="451" y="296">ref.</text>
+                  <!-- FAM→OBJE -->
+                  <text x="577" y="282">ref.</text>
+                  <!-- SOUR→REPO -->
+                  <text x="102" y="417" text-anchor="middle">local</text>
+                  <!-- SOUR→NOTE -->
+                  <text x="229" y="354">ref.</text>
+                </g>
+
+                <!-- ══ Entity nodes ════════════════════════════════════ -->
+
+                <!-- HEAD -->
+                <rect x="268" y="21" width="155" height="54" rx="8"
+                      fill="rgba(68,147,248,0.12)" stroke="#4493f8" stroke-width="1.5"/>
+                <text x="345" y="44" text-anchor="middle"
+                      font-family="'Inter','Segoe UI',Arial,sans-serif"
+                      font-size="12.5" font-weight="700" fill="#4493f8">Cabeçalho</text>
+                <text x="345" y="63" text-anchor="middle"
+                      font-family="'SFMono-Regular','Cascadia Code','Consolas',monospace"
+                      font-size="9.5" fill="#4493f8" opacity="0.8">HEAD</text>
+
+                <!-- SUBM -->
+                <rect x="503" y="21" width="155" height="54" rx="8"
+                      fill="rgba(139,148,158,0.10)" stroke="#8b949e" stroke-width="1.5"/>
+                <text x="580" y="44" text-anchor="middle"
+                      font-family="'Inter','Segoe UI',Arial,sans-serif"
+                      font-size="12.5" font-weight="700" fill="#8b949e">Submetente</text>
+                <text x="580" y="63" text-anchor="middle"
+                      font-family="'SFMono-Regular','Cascadia Code','Consolas',monospace"
+                      font-size="9.5" fill="#8b949e" opacity="0.8">SUBM</text>
+
+                <!-- INDI (primary entity) -->
+                <rect x="48" y="173" width="155" height="54" rx="8"
+                      fill="rgba(68,147,248,0.16)" stroke="#4493f8" stroke-width="2"/>
+                <text x="125" y="197" text-anchor="middle"
+                      font-family="'Inter','Segoe UI',Arial,sans-serif"
+                      font-size="13" font-weight="700" fill="#4493f8">Indivíduo</text>
+                <text x="125" y="216" text-anchor="middle"
+                      font-family="'SFMono-Regular','Cascadia Code','Consolas',monospace"
+                      font-size="9.5" fill="#4493f8" opacity="0.8">INDI</text>
+
+                <!-- FAM (primary entity) -->
+                <rect x="468" y="173" width="155" height="54" rx="8"
+                      fill="rgba(63,185,80,0.16)" stroke="#3fb950" stroke-width="2"/>
+                <text x="545" y="197" text-anchor="middle"
+                      font-family="'Inter','Segoe UI',Arial,sans-serif"
+                      font-size="13" font-weight="700" fill="#3fb950">Família</text>
+                <text x="545" y="216" text-anchor="middle"
+                      font-family="'SFMono-Regular','Cascadia Code','Consolas',monospace"
+                      font-size="9.5" fill="#3fb950" opacity="0.8">FAM</text>
+
+                <!-- SOUR -->
+                <rect x="48" y="333" width="155" height="54" rx="8"
+                      fill="rgba(188,140,255,0.12)" stroke="#bc8cff" stroke-width="1.5"/>
+                <text x="125" y="355" text-anchor="middle"
+                      font-family="'Inter','Segoe UI',Arial,sans-serif"
+                      font-size="12.5" font-weight="700" fill="#bc8cff">Fonte</text>
+                <text x="125" y="374" text-anchor="middle"
+                      font-family="'SFMono-Regular','Cascadia Code','Consolas',monospace"
+                      font-size="9.5" fill="#bc8cff" opacity="0.8">SOUR</text>
+
+                <!-- NOTE -->
+                <rect x="268" y="333" width="155" height="54" rx="8"
+                      fill="rgba(210,153,34,0.12)" stroke="#d29922" stroke-width="1.5"/>
+                <text x="345" y="355" text-anchor="middle"
+                      font-family="'Inter','Segoe UI',Arial,sans-serif"
+                      font-size="12.5" font-weight="700" fill="#d29922">Nota</text>
+                <text x="345" y="374" text-anchor="middle"
+                      font-family="'SFMono-Regular','Cascadia Code','Consolas',monospace"
+                      font-size="9.5" fill="#d29922" opacity="0.8">NOTE</text>
+
+                <!-- OBJE -->
+                <rect x="488" y="333" width="155" height="54" rx="8"
+                      fill="rgba(45,201,180,0.12)" stroke="#2dc9b4" stroke-width="1.5"/>
+                <text x="565" y="355" text-anchor="middle"
+                      font-family="'Inter','Segoe UI',Arial,sans-serif"
+                      font-size="12.5" font-weight="700" fill="#2dc9b4">Multimédia</text>
+                <text x="565" y="374" text-anchor="middle"
+                      font-family="'SFMono-Regular','Cascadia Code','Consolas',monospace"
+                      font-size="9.5" fill="#2dc9b4" opacity="0.8">OBJE</text>
+
+                <!-- REPO -->
+                <rect x="48" y="443" width="155" height="54" rx="8"
+                      fill="rgba(248,81,73,0.12)" stroke="#f85149" stroke-width="1.5"/>
+                <text x="125" y="465" text-anchor="middle"
+                      font-family="'Inter','Segoe UI',Arial,sans-serif"
+                      font-size="12.5" font-weight="700" fill="#f85149">Repositório</text>
+                <text x="125" y="484" text-anchor="middle"
+                      font-family="'SFMono-Regular','Cascadia Code','Consolas',monospace"
+                      font-size="9.5" fill="#f85149" opacity="0.8">REPO</text>
+
+              </svg>
+
+              <!-- Diagram legend -->
+              <div style="display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start;
+                          border-top:1px solid var(--border-subtle);padding-top:14px;">
+                <div style="display:flex;align-items:center;gap:8px;
+                            font-size:0.78rem;color:var(--text-secondary);">
+                  <span style="display:inline-block;width:28px;height:1.5px;
+                               background:rgba(255,255,255,0.28);flex-shrink:0;"></span>
+                  Relação estrutural
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;
+                            font-size:0.78rem;color:var(--text-secondary);">
+                  <span style="display:inline-block;width:28px;height:0;flex-shrink:0;
+                               border-top:1.5px dashed rgba(255,255,255,0.22);"></span>
+                  Referência por tag
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;
+                            font-size:0.78rem;color:var(--text-secondary);">
+                  <span style="display:inline-block;width:28px;height:1.5px;
+                               background:rgba(255,255,255,0.28);flex-shrink:0;
+                               position:relative;">
+                    <span style="position:absolute;left:-2px;top:-4px;font-size:9px;
+                                 color:rgba(255,255,255,0.4);">◄</span>
+                    <span style="position:absolute;right:-2px;top:-4px;font-size:9px;
+                                 color:rgba(255,255,255,0.4);">►</span>
+                  </span>
+                  Ligação bidirecional (INDI ↔ FAM)
+                </div>
+                <p style="margin:0;font-size:0.78rem;color:var(--text-secondary);max-width:440px;">
+                  <i class="mdi mdi-information-outline" aria-hidden="true"></i>
+                  <strong style="color:var(--text-main);">INDI</strong> e
+                  <strong style="color:var(--text-main);">FAM</strong>
+                  podem ambos referenciar
+                  <strong style="color:var(--text-main);">SOUR</strong>,
+                  <strong style="color:var(--text-main);">NOTE</strong> e
+                  <strong style="color:var(--text-main);">OBJE</strong>
+                  através de citações de fontes, notas e ligações a multimédia.
+                </p>
+              </div>
+            </div>
+
+          </div>
+
         </section>
 
       </main>

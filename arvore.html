@@ -254,36 +254,20 @@
         const famById = {};
         allFams.forEach(function(f){ famById[f.id] = f; });
 
-        // Expand "junction" families: any family in famSet whose parents (husb/wife)
-        // are NOT already in indiSet.  This happens when the BFS crossed through a
-        // sibling-link family (Father and Uncle share the same famc family) without
-        // visiting the parents.  We must add those parents so the chart has a proper
-        // root and can expand downward to BOTH endpoints.
-        const extraFams = new Set();   // families that carry the new parents
-        famSet.forEach(function(fid) {
-          const fam = famById[fid];
-          if (!fam) return;
-          const pathChildren = (fam.children || []).filter(function(c){ return indiSet.has(c); });
-          // If 2+ siblings of the path share this family, its parents are the common ancestor
-          if (pathChildren.length >= 2) {
-            if (fam.husb && !indiSet.has(fam.husb)) { indiSet.add(fam.husb); extraFams.add(fid); }
-            if (fam.wife && !indiSet.has(fam.wife)) { indiSet.add(fam.wife); extraFams.add(fid); }
-          }
-        });
-        // Include missing spouses from every family on the path so they appear
-        // with their real names instead of a virtual "—" placeholder node.
+        // Expand every family in famSet: add any parent (husb/wife) that is not yet
+        // in indiSet.  This is needed for two cases:
+        //   1. "Junction" (sibling-path): the BFS crossed a shared famc family without
+        //      visiting the parents (2+ children in path, parents = common ancestor).
+        //   2. "In-law" paths: the BFS crossed a fams family via a spouse link, so one
+        //      spouse is on the path but the other parent is not yet included.  We must
+        //      add all parents so the chart can root at the true common ancestor and
+        //      render the full connecting sub-tree.
         const validIndiIdSet = new Set(allIndis.map(function(i){ return i.id; }));
         famSet.forEach(function(fid) {
           const fam = famById[fid];
           if (!fam) return;
-          if (fam.husb && validIndiIdSet.has(fam.husb) && indiSet.has(fam.husb) &&
-              fam.wife && validIndiIdSet.has(fam.wife) && !indiSet.has(fam.wife)) {
-            indiSet.add(fam.wife);
-          }
-          if (fam.wife && validIndiIdSet.has(fam.wife) && indiSet.has(fam.wife) &&
-              fam.husb && validIndiIdSet.has(fam.husb) && !indiSet.has(fam.husb)) {
-            indiSet.add(fam.husb);
-          }
+          if (fam.husb && validIndiIdSet.has(fam.husb) && !indiSet.has(fam.husb)) indiSet.add(fam.husb);
+          if (fam.wife && validIndiIdSet.has(fam.wife) && !indiSet.has(fam.wife)) indiSet.add(fam.wife);
         });
 
         // Also include the parent's own parents-family (famc) so the chart connects
@@ -296,7 +280,12 @@
           famcArr.forEach(function(fid) { /* intentionally not added — keep scope tight */ });
         });
 
-        // Now find the startId: a person in indiSet who is not a child in any famSet family
+        // Now find the startId: the best root for the sub-tree that shows the
+        // full connecting path.  Among individuals NOT listed as children in any
+        // path-family (i.e. potential roots), prefer the true common ancestor —
+        // the person who is a parent in the family with the MOST path-children.
+        // This ensures in-law paths root at the grandparent (branching node)
+        // rather than at a "filler spouse" who was only added for completeness.
         const childrenInPath = new Set();
         famSet.forEach(function(fid) {
           const fam = famById[fid];
@@ -304,10 +293,28 @@
           (fam.children || []).forEach(function(cid){ if (indiSet.has(cid)) childrenInPath.add(cid); });
         });
         let startId = null;
+        let fallbackStartId = null;
+        let bestScore = -1;
         for (const pid of indiSet) {
-          if (!childrenInPath.has(pid)) { startId = pid; break; }
+          if (childrenInPath.has(pid)) continue;
+          if (pid === fromId) {
+            if (!fallbackStartId) fallbackStartId = pid;
+            continue;
+          }
+          // Score: how many path-children does this person parent across all path-families?
+          var score = 0;
+          famSet.forEach(function(fid) {
+            var fam = famById[fid];
+            if (!fam) return;
+            if (fam.husb === pid || fam.wife === pid) {
+              (fam.children || []).forEach(function(cid) {
+                if (indiSet.has(cid)) score++;
+              });
+            }
+          });
+          if (score > bestScore) { bestScore = score; startId = pid; }
         }
-        if (!startId) startId = Array.from(indiSet)[0];
+        if (!startId) startId = fallbackStartId || Array.from(indiSet)[0];
         return { indiSet: indiSet, famSet: famSet, startId: startId };
       }
 

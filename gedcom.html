@@ -235,9 +235,9 @@
 
             <div class="import-log" id="importLog"></div>
 
-            <div id="importHistoryContainer" style="margin-top:18px;">
-              <h3 style="margin:0 0 8px 0;font-size:1rem;">Histórico de importações (últimos 5)</h3>
-              <div id="importHistory" style="color:var(--text-secondary);font-size:0.95rem;"></div>
+            <div id="importHistoryContainer" style="margin-top:24px;">
+              <h3 style="margin:0 0 12px;font-size:0.875rem;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.05em;">Histórico de importações (últimos 5)</h3>
+              <div class="table-panel" id="importHistory"></div>
             </div>
           </div>
 
@@ -598,9 +598,9 @@
             return `${pad(d.getDate())}-${pad(d.getMonth()+1)}-${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
           } catch(e) { return iso || ''; }
         }
-        let html = '<table style="width:100%;border-collapse:collapse;font-size:0.95rem;"><thead><tr style="text-align:left;color:var(--text-secondary)"><th>Quando</th><th>Ficheiro</th><th>Pessoas</th><th>Famílias</th></tr></thead><tbody>';
+        let html = '<table><thead><tr><th>Quando</th><th>Ficheiro</th><th style="text-align:right;">Pessoas</th><th style="text-align:right;">Famílias</th></tr></thead><tbody>';
         hist.forEach(row => {
-          html += `<tr><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${fmtWhen(row.when)}</td><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${row.fileName || ''}</td><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${row.individuals || 0}</td><td style="padding:6px 8px;border-top:1px solid rgba(0,0,0,0.06);">${row.families || 0}</td></tr>`;
+          html += `<tr><td>${fmtWhen(row.when)}</td><td>${row.fileName || ''}</td><td style="text-align:right;">${row.individuals || 0}</td><td style="text-align:right;">${row.families || 0}</td></tr>`;
         });
         html += '</tbody></table>';
         container.innerHTML = html;

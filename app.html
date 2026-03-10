@@ -68,6 +68,7 @@
                   <th>Nascimento</th>
                   <th>Idade</th>
                   <th>Parentesco</th>
+                  <th>Apelido</th>
                   <th style="text-align:right;">Acções</th>
                 </tr>
               </thead>
@@ -234,7 +235,9 @@
                </div>`
             :'<span style="color:var(--text-disabled);font-size:0.82rem;">—</span>';
           const relHTML=relMap.has(indi.id)?_relBadgeHtml(relMap.get(indi.id),_focusedId,indi.id):'<span style="color:var(--text-disabled);font-size:0.8rem;">—</span>';
-          tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:10px;"><div style="width:28px;height:28px;border-radius:50%;background:${avatarBg};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;color:#fff;font-weight:600;">${avatarChar}</div><a href="#" class="person-link" data-id="${indi.id}" style="font-weight:500;">${name}</a></div></td><td style="color:var(--text-secondary);font-size:0.82rem;font-variant-numeric:tabular-nums;">${birthYear||'—'}</td><td>${ageHTML}</td><td>${relHTML}</td><td style="text-align:right;" class="actions"><button data-id="${indi.id}" class="tree-focus icon-btn" title="Ver na Árvore"><i class="mdi mdi-sitemap"></i></button></td>`;
+          const surnameRaw=DB.getSurname(indi);
+          const surnameSearchHTML=surnameRaw?`<button class="surname-research-btn icon-btn" data-surname="${_esc(surnameRaw)}" title="Pesquisar história do apelido ${_esc(surnameRaw)}"><i class="mdi mdi-book-search-outline" style="font-size:1.1rem;"></i></button>`:'<span style="color:var(--text-disabled);font-size:0.82rem;">—</span>';
+          tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:10px;"><div style="width:28px;height:28px;border-radius:50%;background:${avatarBg};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;color:#fff;font-weight:600;">${avatarChar}</div><a href="#" class="person-link" data-id="${indi.id}" style="font-weight:500;">${name}</a></div></td><td style="color:var(--text-secondary);font-size:0.82rem;font-variant-numeric:tabular-nums;">${birthYear||'—'}</td><td>${ageHTML}</td><td>${relHTML}</td><td style="text-align:center;">${surnameSearchHTML}</td><td style="text-align:right;" class="actions"><button data-id="${indi.id}" class="tree-focus icon-btn" title="Ver na Árvore"><i class="mdi mdi-sitemap"></i></button></td>`;
           tbody.appendChild(tr);
         });
         renderPagination(totalPages);
@@ -1180,6 +1183,110 @@
 
     })();
     </script>
+    <!-- ── Surname Research Modal ── -->
+    <div id="surnameResearchOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:900;transition:opacity .2s;" onclick="closeSurnameModal()"></div>
+    <div id="surnameResearchModal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:92%;max-width:640px;max-height:85vh;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);box-shadow:0 20px 60px rgba(0,0,0,0.5);z-index:910;overflow:hidden;display:flex;flex-direction:column;">
+      <div style="padding:16px 20px;border-bottom:1px solid var(--border-subtle);display:flex;align-items:center;justify-content:space-between;flex-shrink:0;">
+        <h2 id="surnameModalTitle" style="margin:0;font-size:1.05rem;font-weight:700;display:flex;align-items:center;gap:8px;"><i class="mdi mdi-book-search-outline" style="color:var(--blue);"></i> Pesquisa de Apelido</h2>
+        <button onclick="closeSurnameModal()" class="btn btn-ghost btn-sm" style="padding:2px 6px;" aria-label="Fechar"><i class="mdi mdi-close"></i></button>
+      </div>
+      <div id="surnameModalBody" style="padding:20px;overflow-y:auto;flex:1;">
+        <div style="text-align:center;padding:40px 0;color:var(--text-secondary);"><i class="mdi mdi-loading mdi-spin" style="font-size:2rem;"></i><p>A pesquisar...</p></div>
+      </div>
+    </div>
+
+    <script>
+    /* ── Surname Research Feature ─────────────────────────────────────── */
+    (function(){
+      'use strict';
+
+      /** Open the surname research modal */
+      window.openSurnameResearch = async function(surname) {
+        if (!surname) return;
+        const overlay = document.getElementById('surnameResearchOverlay');
+        const modal = document.getElementById('surnameResearchModal');
+        const title = document.getElementById('surnameModalTitle');
+        const body = document.getElementById('surnameModalBody');
+
+        title.innerHTML = '<i class="mdi mdi-book-search-outline" style="color:var(--blue);"></i> Apelido: ' + _escSR(surname);
+        body.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--text-secondary);"><i class="mdi mdi-loading mdi-spin" style="font-size:2rem;"></i><p>A pesquisar informações sobre o apelido <strong>' + _escSR(surname) + '</strong>...</p></div>';
+        overlay.style.display = 'block';
+        modal.style.display = 'flex';
+
+        try {
+          const resp = await fetch('/api/surname-research/' + encodeURIComponent(surname));
+          if (!resp.ok) throw new Error('Erro ' + resp.status);
+          const data = await resp.json();
+          _renderSurnameResults(data, body);
+        } catch (err) {
+          body.innerHTML = '<div style="text-align:center;padding:30px 0;color:var(--red);"><i class="mdi mdi-alert-circle-outline" style="font-size:2rem;"></i><p>Erro ao pesquisar: ' + _escSR(err.message) + '</p></div>';
+        }
+      };
+
+      /** Close the modal */
+      window.closeSurnameModal = function() {
+        document.getElementById('surnameResearchOverlay').style.display = 'none';
+        document.getElementById('surnameResearchModal').style.display = 'none';
+      };
+
+      /** Escape HTML */
+      function _escSR(s) { return String(s || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+      /** Render the research results */
+      function _renderSurnameResults(data, container) {
+        let html = '';
+
+        // Coat of arms
+        if (data.coatOfArmsUrl) {
+          html += '<div style="text-align:center;margin-bottom:20px;">';
+          html += '<div style="display:inline-block;padding:16px;background:rgba(255,255,255,0.05);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);">';
+          html += '<img src="' + _escSR(data.coatOfArmsUrl) + '" alt="Brasão — ' + _escSR(data.surname) + '" style="max-height:200px;max-width:100%;object-fit:contain;" onerror="this.parentElement.style.display=\'none\'"/>';
+          html += '<div style="margin-top:8px;font-size:0.78rem;color:var(--text-secondary);font-weight:600;">Brasão de Armas</div>';
+          html += '</div></div>';
+        }
+
+        // History
+        html += '<div style="margin-bottom:20px;">';
+        html += '<h3 style="font-size:0.9rem;font-weight:700;color:var(--text-main);margin:0 0 10px;display:flex;align-items:center;gap:6px;"><i class="mdi mdi-history" style="color:var(--blue);"></i> História Genealógica</h3>';
+        html += '<div style="font-size:0.88rem;color:var(--text-secondary);line-height:1.65;text-align:justify;">' + _escSR(data.history) + '</div>';
+        html += '</div>';
+
+        // Sources (footnotes)
+        if (data.sources && data.sources.length) {
+          html += '<hr style="border:none;border-top:1px solid var(--border-subtle);margin:16px 0;"/>';
+          html += '<div style="font-size:0.75rem;color:var(--text-disabled);">';
+          html += '<div style="font-weight:700;margin-bottom:6px;text-transform:uppercase;letter-spacing:0.05em;"><i class="mdi mdi-footnote" style="margin-right:4px;"></i>Fontes</div>';
+          html += '<ol style="margin:0;padding-left:18px;">';
+          data.sources.forEach(function(src) {
+            html += '<li style="margin-bottom:4px;">';
+            html += '<strong>' + _escSR(src.name) + '</strong>';
+            if (src.article) html += ' — <em>' + _escSR(src.article) + '</em>';
+            if (src.url) html += ' — <a href="' + _escSR(src.url) + '" target="_blank" rel="noopener noreferrer" style="color:var(--blue);text-decoration:underline;">' + _escSR(src.url) + '</a>';
+            html += '</li>';
+          });
+          html += '</ol></div>';
+        }
+
+        container.innerHTML = html;
+      }
+
+      // Delegate click on surname research buttons
+      document.getElementById('peopleTable').addEventListener('click', function(e) {
+        const btn = e.target.closest && e.target.closest('.surname-research-btn');
+        if (!btn) return;
+        e.preventDefault();
+        e.stopPropagation();
+        var surname = btn.getAttribute('data-surname');
+        if (surname) openSurnameResearch(surname);
+      });
+
+      // Close modal on Escape key
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeSurnameModal();
+      });
+    })();
+    </script>
+
     <script src="photo-lightbox.js"></script>
     <script src="history-logger.js"></script>
   </body>

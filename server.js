@@ -361,6 +361,133 @@ if (process.env.ADMIN_PHONE) {
   } catch (e) { console.error('Aviso: não foi possível inicializar adminPhone:', e.message); }
 }
 
+/* ── Surname genealogical research (Wikipedia + Wikidata) ────────────── */
+app.get('/api/surname-research/:surname', async (req, res) => {
+  const surname = (req.params.surname || '').trim();
+  if (!surname) return res.status(400).json({ error: 'Surname is required' });
+
+  const results = { surname, history: '', coatOfArmsUrl: '', sources: [] };
+
+  /**
+   * Fetch JSON from a URL (internal helper).
+   * Uses the built-in https/http modules already imported.
+   */
+  function fetchJson(url) {
+    return new Promise((resolve, reject) => {
+      const mod = url.startsWith('https') ? https : http;
+      const reqObj = mod.get(url, { timeout: 12000, headers: { 'User-Agent': 'myLineage/2.0 (genealogy app)' } }, resp => {
+        if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
+          return fetchJson(resp.headers.location).then(resolve).catch(reject);
+        }
+        if (resp.statusCode !== 200) { resp.resume(); return resolve(null); }
+        const chunks = [];
+        resp.on('data', c => chunks.push(c));
+        resp.on('end', () => {
+          try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
+          catch (e) { resolve(null); }
+        });
+        resp.on('error', () => resolve(null));
+      });
+      reqObj.on('error', () => resolve(null));
+      reqObj.on('timeout', () => { reqObj.destroy(); resolve(null); });
+    });
+  }
+
+  try {
+    // 1) Try Portuguese Wikipedia first, then English
+    const encodedSurname = encodeURIComponent(surname);
+    const wikiLangs = [
+      { lang: 'pt', searchTerms: [`${surname} (apelido)`, `Família ${surname}`, surname] },
+      { lang: 'en', searchTerms: [`${surname} (surname)`, `${surname} family`, surname] }
+    ];
+
+    let wikiExtract = '';
+    let wikiTitle = '';
+    let wikiLang = '';
+    let wikiUrl = '';
+
+    for (const { lang, searchTerms } of wikiLangs) {
+      if (wikiExtract) break;
+      for (const term of searchTerms) {
+        const searchUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`;
+        const data = await fetchJson(searchUrl);
+        if (data && data.extract && data.extract.length > 80) {
+          wikiExtract = data.extract;
+          wikiTitle = data.title || term;
+          wikiLang = lang;
+          wikiUrl = data.content_urls && data.content_urls.desktop ? data.content_urls.desktop.page : `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(wikiTitle)}`;
+          break;
+        }
+      }
+    }
+
+    if (wikiExtract) {
+      results.history = wikiExtract;
+      results.sources.push({
+        name: `Wikipedia (${wikiLang.toUpperCase()})`,
+        url: wikiUrl,
+        article: wikiTitle
+      });
+    }
+
+    // 2) Search for coat of arms via Wikidata
+    const wdSearchUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodedSurname}+family&language=en&format=json&limit=5`;
+    const wdSearch = await fetchJson(wdSearchUrl);
+    let coaUrl = '';
+
+    if (wdSearch && wdSearch.search && wdSearch.search.length) {
+      for (const item of wdSearch.search) {
+        if (coaUrl) break;
+        const entityUrl = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${item.id}&props=claims&format=json`;
+        const entityData = await fetchJson(entityUrl);
+        if (!entityData || !entityData.entities || !entityData.entities[item.id]) continue;
+        const claims = entityData.entities[item.id].claims || {};
+        // P94 = coat of arms image
+        const coaClaims = claims['P94'] || claims['P18'] || [];
+        if (coaClaims.length) {
+          const fileName = coaClaims[0].mainsnak && coaClaims[0].mainsnak.datavalue && coaClaims[0].mainsnak.datavalue.value;
+          if (fileName) {
+            coaUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=300`;
+            results.sources.push({
+              name: 'Wikidata / Wikimedia Commons',
+              url: `https://www.wikidata.org/wiki/${item.id}`,
+              article: item.label || surname
+            });
+          }
+        }
+      }
+    }
+
+    // 3) Fallback: search Wikimedia Commons directly for coat of arms
+    if (!coaUrl) {
+      const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodedSurname}+coat+of+arms&srnamespace=6&srlimit=3&format=json`;
+      const commonsData = await fetchJson(commonsUrl);
+      if (commonsData && commonsData.query && commonsData.query.search && commonsData.query.search.length) {
+        const file = commonsData.query.search[0];
+        const fileTitle = file.title; // e.g. "File:CoatOfArms.svg"
+        coaUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileTitle.replace('File:', ''))}?width=300`;
+        results.sources.push({
+          name: 'Wikimedia Commons',
+          url: `https://commons.wikimedia.org/wiki/${encodeURIComponent(fileTitle)}`,
+          article: fileTitle
+        });
+      }
+    }
+
+    results.coatOfArmsUrl = coaUrl;
+
+    // 4) If no history found, add a note
+    if (!results.history) {
+      results.history = `Não foram encontradas informações genealógicas detalhadas sobre o apelido "${surname}" nas fontes consultadas. Recomenda-se consultar arquivos históricos locais, registos paroquiais ou bases de dados especializadas em genealogia.`;
+    }
+
+    res.json(results);
+  } catch (e) {
+    console.error('[surname-research] Error:', e.message);
+    res.status(500).json({ error: 'Erro ao pesquisar o apelido: ' + e.message });
+  }
+});
+
 /* ── Start ───────────────────────────────────────────────────────────── */
 if (require.main === module) {
   app.listen(PORT, () => { console.log(`myLineage GEDCOM 7 server on http://localhost:${PORT}`); });

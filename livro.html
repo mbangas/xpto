@@ -1380,6 +1380,81 @@
       });
     }
 
+    /** Build the Photo Gallery section: all unique photos, full-size, upright,
+     *  with a caption listing every identified person and the photo notes. */
+    _renderPhotoGallery() {
+      const DB = this.DB;
+      const allPhotos = [];
+      const seenMids = new Set();
+
+      // Collect every unique multimedia item that has an image src
+      Object.values(this.individuals).forEach(ind => {
+        if (!ind || !ind.multimediaRefs) return;
+        ind.multimediaRefs.forEach(mid => {
+          if (seenMids.has(mid)) return;
+          const mm = DB.getMultimediaItem ? DB.getMultimediaItem(mid) : null;
+          if (!mm) return;
+          const src = mm.dataUrl || (mm.files && mm.files[0] && mm.files[0].file) || '';
+          if (!src) return;
+          seenMids.add(mid);
+
+          // All persons identified in this photo (from mm.tags)
+          const taggedPersonNames = (mm.tags || [])
+            .filter(t => t.personId)
+            .map(t => {
+              const p = this.individuals[t.personId];
+              return p ? displayName(p) : null;
+            })
+            .filter(Boolean);
+
+          // Notes text
+          const noteText = mm.notes && mm.notes.length
+            ? mm.notes.map(n => resolveNote(DB, n)).filter(Boolean).join(' ') : '';
+
+          allPhotos.push({ src, taggedPersonNames, noteText });
+        });
+      });
+
+      if (!allPhotos.length) return [];
+
+      const pages = [];
+      const PHOTOS_PER_PAGE = 2;
+
+      for (let start = 0; start < allPhotos.length; start += PHOTOS_PER_PAGE) {
+        const slice = allPhotos.slice(start, start + PHOTOS_PER_PAGE);
+        const isFirst = start === 0;
+        const title = isFirst ? 'Galeria de Fotografias' : 'Galeria de Fotografias (cont.)';
+
+        const photoCells = slice.map(photo => {
+          const personList = photo.taggedPersonNames.join(', ');
+          const altText = personList || 'Fotografia';
+          return `<div class="gallery-photo-cell">
+  <div class="gallery-photo-frame">
+    <span class="album-corner tl"></span><span class="album-corner tr"></span>
+    <span class="album-corner bl"></span><span class="album-corner br"></span>
+    <img src="${esc(photo.src)}" alt="${esc(altText)}" class="gallery-photo-img" loading="lazy">
+  </div>
+  <div class="gallery-photo-caption">
+    ${personList ? `<div class="gallery-caption-people">${esc(personList)}</div>` : ''}
+    ${photo.noteText ? `<div class="gallery-caption-note">${esc(photo.noteText)}</div>` : ''}
+  </div>
+</div>`;
+        }).join('');
+
+        pages.push({
+          type: 'gallery',
+          title,
+          ref: isFirst ? 'gallery' : undefined,
+          html: `<div class="livro-page-inner page-gallery">
+  <div class="section-title">${esc(title)}</div>
+  <div class="gallery-grid">${photoCells}</div>
+</div>`
+        });
+      }
+
+      return pages;
+    }
+
     buildPages() {
       this._loadData();
       this.traverseAllGenerations(this.rootId);
@@ -1511,6 +1586,10 @@
             pushBioPages(cid, famId);
         });
       });
+
+      // ── Photo Gallery (all photos, full-size, upright, with captions) ──
+      const galleryPages = this._renderPhotoGallery();
+      galleryPages.forEach(p => pages.push({ ...p, cssClass: 'page-gallery' }));
 
       // ── Layout pass: assign page numbers ──────────────────────
       pages.forEach((p, i) => {

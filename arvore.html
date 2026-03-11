@@ -76,10 +76,21 @@
             <button id="resetFocusBtn" class="btn btn-ghost btn-sm" title="Resetar foco para a pessoa configurada">
               <i class="mdi mdi-crosshairs-gps" aria-hidden="true"></i> Reset foco
             </button>
+            <button id="createFirstPersonBtn" class="btn btn-sm" style="display:none;" title="Criar a primeira pessoa da árvore genealógica">
+              <i class="mdi mdi-account-plus" aria-hidden="true"></i> Criar primeira pessoa
+            </button>
           </div>
         </div>
 
         <div class="tree-canvas-wrap">
+          <!-- Empty state: shown when no individuals exist -->
+          <div id="emptyStateTree" style="display:none;flex-direction:column;align-items:center;justify-content:center;min-height:340px;gap:20px;text-align:center;">
+            <i class="mdi mdi-file-tree-outline" style="font-size:4.5rem;color:var(--text-disabled);opacity:0.4;line-height:1;"></i>
+            <div>
+              <h2 style="margin:0 0 8px;font-size:1.15rem;color:var(--text-secondary);">A sua árvore está vazia</h2>
+              <p style="margin:0;color:var(--text-disabled);font-size:0.9rem;">Comece por adicionar a primeira pessoa à sua genealogia.</p>
+            </div>
+          </div>
           <div class="chart-toolbar">
             <div class="chart-type-btns" id="chartTypeBtns">
               <button class="chart-type-btn" data-type="hourglass">Hourglass</button>
@@ -570,7 +581,25 @@
         _applyViewBox();
       }
 
+      function _updateEmptyState() {
+        var hasData = DB.getIndividuals().length > 0;
+        document.getElementById('openBookBtn').style.display = hasData ? '' : 'none';
+        document.getElementById('resetFocusBtn').style.display = hasData ? '' : 'none';
+        document.getElementById('createFirstPersonBtn').style.display = hasData ? 'none' : '';
+        var emptyEl = document.getElementById('emptyStateTree');
+        if (emptyEl) emptyEl.style.display = hasData ? 'none' : 'flex';
+        var toolbarEl = document.querySelector('.chart-toolbar');
+        if (toolbarEl) toolbarEl.style.display = hasData ? '' : 'none';
+        var topolaEl = document.getElementById('topolaWrap');
+        if (topolaEl) topolaEl.style.display = hasData ? '' : 'none';
+        var fcEl = document.getElementById('familyChartWrap');
+        if (fcEl && !hasData) fcEl.style.display = 'none';
+        var legendEl = document.querySelector('.legend');
+        if (legendEl) legendEl.style.display = hasData ? '' : 'none';
+      }
+
       function renderChart(startIndi, preserveView){
+        if (!DB.getIndividuals().length) { _updateEmptyState(); return; }
         const selectedType=getChartType();
 
         /* ── Donatso Family Chart ──────────────────────────────────────── */
@@ -902,6 +931,7 @@
           renderChart(personId);
         },
         afterSave: function(savedId) {
+          _updateEmptyState();
           populateFocusSelect(savedId);
           refreshChartInPlace();
         },
@@ -909,6 +939,7 @@
           var currentFocus = _getSelectedOrFocusId();
           var stillValid = DB.getIndividuals().find(function(i) { return i.id === currentFocus; });
           var newFocus = stillValid ? currentFocus : (DB.getIndividuals()[0] || {}).id || null;
+          _updateEmptyState();
           populateFocusSelect(newFocus);
           refreshChartInPlace();
         }
@@ -1598,6 +1629,13 @@
     </script>
     <script src="photo-lightbox.js"></script>
     <script src="edit-person-drawer.js"></script>
+    <script>
+      (function() {
+        document.getElementById('createFirstPersonBtn').addEventListener('click', function() {
+          window.openDrawer('create', null);
+        });
+      })();
+    </script>
     <script src="history-logger.js"></script>
   </body>
 </html>

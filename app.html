@@ -41,6 +41,11 @@
       <main class="content">
         <div class="topbar">
           <div style="display:flex;align-items:center;gap:12px"><h1>Cadastro</h1></div>
+          <div>
+            <button id="createFirstPersonBtn" class="btn btn-sm" style="display:none;" title="Criar a primeira pessoa da genealogia">
+              <i class="mdi mdi-account-plus" aria-hidden="true"></i> Criar primeira pessoa
+            </button>
+          </div>
         </div>
         <div style="padding:24px;display:flex;flex-direction:column;gap:16px;">
 
@@ -208,6 +213,8 @@
         if(summaryEl){
           const total=DB.getIndividuals(false).filter(i=>!i.deletedAt).length;
           summaryEl.textContent=filtered.length===0?'Sem registos':`${filtered.length} ${filtered.length===1?'pessoa':'pessoas'}${filtered.length!==total?' (filtrado de '+total+' no total)':''}`;
+          const cbt=document.getElementById('createFirstPersonBtn');
+          if(cbt) cbt.style.display=total===0?'':'none';
         }
         const totalPages=Math.max(1,Math.ceil(filtered.length/PAGE_SIZE));
         if(currentPage>totalPages) currentPage=totalPages;
@@ -1401,6 +1408,9 @@
         var editId = p.get('edit');
         if (editId) window.openDrawer('edit', editId);
       })();
+      document.getElementById('createFirstPersonBtn').addEventListener('click', function() {
+        window.openDrawer('create', null);
+      });
     </script>
     <script src="history-logger.js"></script>
   </body>

@@ -1,5 +1,11 @@
 [
   {
+    "ts": "2026-03-11T03:46:01.349Z",
+    "action": "GEDCOM exportado",
+    "detail": "myLineage_export_2026-03-11.ged (615582 bytes)",
+    "category": "gedcom"
+  },
+  {
     "ts": "2026-03-11T03:05:09.964Z",
     "action": "GEDCOM importado — 3504 registos",
     "detail": "GEDCOM 2026-03-09.ged: 1859 pessoas, 782 famílias",

@@ -10,6 +10,8 @@
     <script src="remote-storage.js"></script>
     <script src="auth.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7.9.0/dist/d3.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
     <style>
       /* ── Grafana-style Dashboard ─────────────────────────────────────── */
       .dash-content { background: #0f1117; }
@@ -212,6 +214,252 @@
       @media (max-width: 1200px) {
         .dash-row-4 { grid-template-columns: repeat(2, 1fr); }
       }
+
+      /* ── Rede de Ligações por Família ──────────────────────────────── */
+      .rede-grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 24px;
+      }
+      .rede-member-section {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .rede-section-label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--rede-clr, #5294e2);
+        padding-bottom: 4px;
+      }
+      .rede-main-card, .rede-sub-card {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .rede-avatar {
+        width: 38px; height: 38px;
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 0.95rem; font-weight: 700; color: #fff;
+        flex-shrink: 0;
+      }
+      .rede-avatar-sm { width: 28px; height: 28px; font-size: 0.78rem; }
+      .rede-person-name {
+        font-size: 0.82rem; font-weight: 600; color: #d0d8e8;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .rede-count {
+        margin-left: auto;
+        font-size: 1.05rem; font-weight: 700; color: #fff;
+        flex-shrink: 0; min-width: 44px; text-align: right;
+      }
+      .rede-count-sm { font-size: 0.85rem; }
+      .rede-bar-track {
+        height: 6px; background: rgba(255,255,255,0.07); border-radius: 999px;
+        margin-top: 4px; width: 100%;
+      }
+      .rede-bar-sub-track {
+        height: 4px; background: rgba(255,255,255,0.07); border-radius: 999px;
+        margin-top: 3px; width: 100%;
+      }
+      .rede-bar-fill {
+        height: 100%; border-radius: 999px; transition: width 0.35s ease;
+      }
+      .rede-sub-section {
+        padding-left: 14px;
+        display: flex; flex-direction: column; gap: 8px;
+        border-left: 2px solid rgba(255,255,255,0.07);
+        margin-top: 2px;
+      }
+      .rede-sub-label {
+        font-size: 0.66rem; color: #6b7a94;
+        text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600;
+      }
+      .rede-others-notice {
+        font-size: 0.72rem; color: #f2a03f;
+        background: rgba(242,160,63,0.08);
+        border-radius: 4px; padding: 6px 10px;
+      }
+      .rede-spouses-wrap {
+        display: flex; flex-direction: column; gap: 20px;
+      }
+      @media (max-width: 860px) {
+        .rede-grid-2 { grid-template-columns: 1fr; }
+      }
+
+      /* ── Folder Tabs ─────────────────────────────────────────────── */
+      .dash-tabs-nav {
+        display: flex;
+        gap: 3px;
+        padding: 0;
+        border-bottom: 2px solid rgba(255,255,255,0.08);
+        flex-wrap: wrap;
+        margin-bottom: 2px;
+      }
+      .dash-tab-btn {
+        background: transparent;
+        border: none;
+        border-bottom: 2px solid transparent;
+        color: #8a9ab5;
+        padding: 9px 18px 8px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+        font-family: var(--font-main);
+        letter-spacing: 0.03em;
+        border-radius: 4px 4px 0 0;
+        white-space: nowrap;
+        margin-bottom: -2px;
+        user-select: none;
+      }
+      .dash-tab-btn:hover { color: #d0d8e8; background: rgba(255,255,255,0.03); }
+      .dash-tab-btn.active {
+        color: #5294e2;
+        border-bottom-color: #5294e2;
+        background: rgba(82,148,226,0.07);
+      }
+      .dash-tab-btn .mdi { font-size: 1rem; }
+      .dash-tab-content { display: none; }
+      .dash-tab-content.active { display: contents; }
+
+      /* ── Mapa Mundial (do Mundo) ─────────────────────────────────────── */
+      .mundo-map-panel {
+        background: #0d0e14;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 6px;
+        overflow: hidden;
+        position: relative;
+      }
+      .mundo-map-header {
+        padding: 9px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #9fa7b3;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .mundo-map-header-left { display: flex; align-items: center; gap: 8px; }
+      #world-svg-container {
+        width: 100%;
+        position: relative;
+        background: #080a0f;
+      }
+      #world-svg { width: 100%; height: 100%; display: block; cursor: grab; }
+      #world-svg:active { cursor: grabbing; }
+      .country-path { stroke: rgba(255,255,255,0.25); stroke-width: 0.4; transition: opacity 0.15s; }
+      .country-path:hover { stroke: rgba(255,255,255,0.7); stroke-width: 0.9; opacity: 0.85; }
+      .country-path.zero { fill: #12151e; }
+      .graticule { fill: none; stroke: rgba(255,255,255,0.04); stroke-width: 0.3; }
+      .sphere { fill: #080a0f; }
+      #map-tooltip {
+        position: fixed;
+        background: #1a1d27;
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 5px;
+        padding: 8px 12px;
+        font-size: 0.78rem;
+        color: #d0d8e8;
+        pointer-events: none;
+        display: none;
+        z-index: 9999;
+        white-space: nowrap;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+      }
+      #map-tooltip .tt-name { font-weight: 700; font-size: 0.85rem; color: #fff; margin-bottom: 2px; }
+      #map-tooltip .tt-count { font-size: 0.75rem; color: #9fa7b3; }
+      #map-tooltip .tt-count span { color: #5294e2; font-weight: 700; }
+      .mundo-legend { display: flex; align-items: center; gap: 8px; font-size: 0.68rem; color: #6b7a94; }
+      .legend-gradient {
+        width: 120px; height: 8px; border-radius: 4px;
+        background: linear-gradient(to right, #12151e, #1e4a8f, #2b6dd4, #5294e2, #7bb3f0, #b0d4ff);
+      }
+      .legend-label { font-weight: 600; color: #9fa7b3; }
+      .mundo-stats-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 10px;
+      }
+      .mundo-stat {
+        background: #1a1d27;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 5px;
+        padding: 12px 16px;
+        display: flex; flex-direction: column; gap: 2px;
+      }
+      .mundo-stat-val { font-size: 1.8rem; font-weight: 700; color: #fff; line-height: 1; font-variant-numeric: tabular-nums; }
+      .mundo-stat-lbl { font-size: 0.68rem; color: #6b7a94; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 3px; }
+      .mundo-leaderboard {
+        background: #1a1d27;
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 6px;
+        overflow: hidden;
+      }
+      .mundo-lb-header {
+        padding: 9px 16px;
+        border-bottom: 1px solid rgba(255,255,255,0.06);
+        font-size: 0.72rem; font-weight: 700; color: #9fa7b3;
+        letter-spacing: 0.06em; text-transform: uppercase;
+        display: flex; align-items: center; gap: 8px;
+      }
+      .mundo-lb-list { padding: 8px 0; max-height: 260px; overflow-y: auto; }
+      .mundo-lb-list::-webkit-scrollbar { width: 4px; }
+      .mundo-lb-list::-webkit-scrollbar-track { background: transparent; }
+      .mundo-lb-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 2px; }
+      .lb-row { display: flex; align-items: center; gap: 10px; padding: 6px 16px; transition: background 0.12s; }
+      .lb-row:hover { background: rgba(255,255,255,0.03); }
+      .lb-rank { font-size: 0.65rem; font-weight: 700; color: #4a5568; width: 18px; text-align: right; flex-shrink: 0; }
+      .lb-bar-wrap { flex: 1; background: rgba(255,255,255,0.04); border-radius: 2px; height: 4px; overflow: hidden; }
+      .lb-bar { height: 4px; border-radius: 2px; background: #5294e2; }
+      .lb-country { font-size: 0.78rem; color: #c8d0de; min-width: 130px; }
+      .lb-count { font-size: 0.78rem; font-weight: 700; color: #fff; min-width: 32px; text-align: right; flex-shrink: 0; }
+      .map-controls { display: flex; gap: 4px; }
+      .map-ctrl-btn {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.1);
+        border-radius: 3px; color: #9fa7b3; cursor: pointer;
+        width: 26px; height: 26px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1rem; transition: background 0.15s;
+      }
+      .map-ctrl-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+      .filter-chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 0.72rem; }
+      .filter-chip {
+        background: rgba(255,255,255,0.05);
+        border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 12px; color: #9fa7b3; cursor: pointer;
+        padding: 3px 10px; transition: all 0.15s; user-select: none;
+        font-size: 0.68rem; font-weight: 600; letter-spacing: 0.03em;
+      }
+      .filter-chip:hover { background: rgba(82,148,226,0.15); border-color: rgba(82,148,226,0.4); color: #c0d4f5; }
+      .filter-chip.active { background: rgba(82,148,226,0.2); border-color: rgba(82,148,226,0.6); color: #7bb3f0; }
+      .mundo-bottom { display: grid; grid-template-columns: 1fr 2fr; gap: 10px; }
+      @media (max-width: 860px) { .mundo-bottom { grid-template-columns: 1fr; } }
+      .map-loading {
+        position: absolute; inset: 0;
+        display: flex; align-items: center; justify-content: center;
+        background: #080a0f; z-index: 10; color: #4a5568; font-size: 0.8rem;
+        flex-direction: column; gap: 10px;
+      }
+      .map-loading .spin {
+        width: 28px; height: 28px;
+        border: 3px solid rgba(82,148,226,0.15);
+        border-top-color: #5294e2;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+      }
+      @keyframes spin { to { transform: rotate(360deg); } }
     </style>
   </head>
   <body>
@@ -221,7 +469,6 @@
         <nav>
           <a href="app.html"><i class="mdi mdi-account-multiple" aria-hidden="true"></i>Cadastro</a>
           <a href="indicadores.html" class="active"><i class="mdi mdi-chart-bar" aria-hidden="true"></i>Indicadores</a>
-          <a href="mundo.html"><i class="mdi mdi-earth" aria-hidden="true"></i>Mundo</a>
           <a href="arvore.html"><i class="mdi mdi-sitemap" aria-hidden="true"></i>Árvore</a>
           <a href="gedcom.html"><i class="mdi mdi-dna" aria-hidden="true"></i>GEDCOM</a>
           <a href="album.html"><i class="mdi mdi-image-multiple" aria-hidden="true"></i>Álbum</a>
@@ -299,150 +546,281 @@
             </div>
           </div>
 
-          <!-- Row 2 · Género donut + Nascimentos por Década -->
-          <div class="dash-row dash-row-1-2">
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#5294e2"></span> Distribuição por Género</div>
-              <div class="dash-panel-body" style="align-items:center;padding:16px 14px">
-                <canvas id="chartGenero"></canvas>
-              </div>
-            </div>
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#73bf69"></span> Nascimentos por Década</div>
-              <div class="dash-panel-body">
-                <canvas id="chartNascimentos"></canvas>
-              </div>
-            </div>
+          <!-- ── Folder Tabs ────────────────────────────────────────────── -->
+          <div class="dash-tabs-nav">
+            <button class="dash-tab-btn active" data-target="tab-geral"><i class="mdi mdi-view-dashboard-outline"></i> Geral</button>
+            <button class="dash-tab-btn" data-target="tab-locais"><i class="mdi mdi-map-marker-multiple"></i> Locais</button>
+            <button class="dash-tab-btn" data-target="tab-nomes"><i class="mdi mdi-alphabetical"></i> Nomes</button>
+            <button class="dash-tab-btn" data-target="tab-timeline"><i class="mdi mdi-timeline-clock-outline"></i> Linha do Tempo</button>
+            <button class="dash-tab-btn" data-target="tab-familia"><i class="mdi mdi-account-heart"></i> Família</button>
           </div>
 
-          <!-- Row 3 · Eventos por Tipo + Relações por Tipo -->
-          <div class="dash-row dash-row-half">
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#ff9830"></span> Eventos por Tipo</div>
-              <div class="dash-panel-body">
-                <canvas id="chartEventos"></canvas>
-              </div>
-            </div>
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#b877d9"></span> Tipos de Relações</div>
-              <div class="dash-panel-body" style="align-items:center;padding:16px 14px">
-                <canvas id="chartRelacoes"></canvas>
-              </div>
-            </div>
-          </div>
+          <!-- Tab: Geral ─────────────────────────────────────────────── -->
+          <div class="dash-tab-content active" id="tab-geral">
 
-          <!-- Row 3b · Distribuição por País -->
-          <div class="dash-row dash-row-half">
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#00c9e0"></span> Distribuição por País <span style="font-weight:400;opacity:.55;font-size:.68rem;margin-left:4px">(local de nascimento)</span></div>
-              <div class="dash-panel-body" style="align-items:center;padding:16px 14px">
-                <canvas id="chartPaises"></canvas>
-                <div id="paises-nodata" class="no-data" style="display:none">Sem locais de nascimento registados</div>
-              </div>
-            </div>
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#fda85b"></span> Top Localidades de Nascimento</div>
-              <div class="dash-panel-body">
-                <canvas id="chartLocalidades"></canvas>
-                <div id="localidades-nodata" class="no-data" style="display:none">Sem localidades registadas</div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Row 4 · Top Nomes M + Top Nomes F + Top Apelidos -->
-          <div class="dash-row dash-row-thirds">
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#5294e2"></span> Top Nomes Masculinos</div>
-              <div class="dash-panel-body">
-                <canvas id="chartNomesM"></canvas>
-              </div>
-            </div>
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#ef799e"></span> Top Nomes Femininos</div>
-              <div class="dash-panel-body">
-                <canvas id="chartNomesF"></canvas>
-              </div>
-            </div>
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#73bf69"></span> Top Apelidos</div>
-              <div class="dash-panel-body">
-                <canvas id="chartApelidos"></canvas>
-              </div>
-            </div>
-          </div>
-
-          <!-- Row 5 · Longevidade + Óbitos por Década -->
-          <div class="dash-row dash-row-5-7">
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#f2cc0c"></span> Longevidade</div>
-              <div class="dash-panel-body" style="gap:12px;justify-content:flex-start">
-                <div style="display:flex;gap:8px;flex-wrap:wrap">
-                  <div style="flex:1;min-width:72px;background:#111520;border-radius:4px;padding:10px 8px;text-align:center;border:1px solid rgba(255,255,255,0.06)">
-                    <div class="stat-value" id="longi-media" style="font-size:1.5rem;color:#f2cc0c">—</div>
-                    <div class="stat-label">Média</div>
-                  </div>
-                  <div style="flex:1;min-width:72px;background:#111520;border-radius:4px;padding:10px 8px;text-align:center;border:1px solid rgba(255,255,255,0.06)">
-                    <div class="stat-value" id="longi-max" style="font-size:1.5rem;color:#73bf69">—</div>
-                    <div class="stat-label">Máximo</div>
-                  </div>
-                  <div style="flex:1;min-width:72px;background:#111520;border-radius:4px;padding:10px 8px;text-align:center;border:1px solid rgba(255,255,255,0.06)">
-                    <div class="stat-value" id="longi-min" style="font-size:1.5rem;color:#f25757">—</div>
-                    <div class="stat-label">Mínimo</div>
-                  </div>
+            <div class="dash-row dash-row-half">
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#5294e2"></span> Distribuição por Género</div>
+                <div class="dash-panel-body" style="align-items:center;padding:16px 14px">
+                  <canvas id="chartGenero"></canvas>
                 </div>
-                <div style="flex:1;min-height:80px;position:relative">
-                  <canvas id="chartLongevidade"></canvas>
-                  <div id="longi-nodata" class="no-data" style="display:none">Sem dados suficientes de longevidade</div>
+              </div>
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#ff9830"></span> Eventos por Tipo</div>
+                <div class="dash-panel-body">
+                  <canvas id="chartEventos"></canvas>
                 </div>
               </div>
             </div>
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#f25757"></span> Óbitos por Década</div>
-              <div class="dash-panel-body" id="obitos-body">
-                <canvas id="chartObitos"></canvas>
+
+            <div class="dash-row">
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#b877d9"></span> Mais antigos na árvore</div>
+                <div class="dash-panel-body"><div class="rec-list" id="rec-mais-antigos"><p class="no-data">A calcular…</p></div></div>
               </div>
             </div>
-          </div>
 
-          <!-- Row 6 · Pessoas em Destaque (oldest/youngest living) -->
-          <div class="dash-row dash-row-thirds">
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#f2cc0c"></span> Vivos mais velhos</div>
-              <div class="dash-panel-body"><div class="rec-list" id="rec-mais-velhos"><p class="no-data">A calcular…</p></div></div>
-            </div>
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#73bf69"></span> Vivos mais novos</div>
-              <div class="dash-panel-body"><div class="rec-list" id="rec-mais-novos"><p class="no-data">A calcular…</p></div></div>
-            </div>
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#b877d9"></span> Mais antigos da árvore</div>
-              <div class="dash-panel-body"><div class="rec-list" id="rec-mais-antigos"><p class="no-data">A calcular…</p></div></div>
-            </div>
-          </div>
+          </div><!-- /#tab-geral -->
 
-          <!-- Row 7 · Recordes de Casamento e Família -->
-          <div class="dash-row dash-row-4">
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#f2cc0c"></span> Casamento mais antigo</div>
-              <div class="dash-panel-body"><div class="rec-list" id="rec-marr-oldest"><p class="no-data">A calcular…</p></div></div>
+          <!-- Tab: Locais ─────────────────────────────────────────────── -->
+          <div class="dash-tab-content" id="tab-locais">
+
+            <!-- Mapa: filtros de evento -->
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:4px 0">
+              <div class="filter-chips" id="filter-chips">
+                <span style="font-size:0.68rem;color:#6b7a94;font-weight:600;margin-right:2px;">Eventos:</span>
+                <span class="filter-chip active" data-type="BIRT">Nascimento</span>
+                <span class="filter-chip active" data-type="DEAT">Óbito</span>
+                <span class="filter-chip active" data-type="RESI">Residência</span>
+                <span class="filter-chip active" data-type="other">Outros</span>
+              </div>
             </div>
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#5294e2"></span> Casamento mais recente</div>
-              <div class="dash-panel-body"><div class="rec-list" id="rec-marr-newest"><p class="no-data">A calcular…</p></div></div>
+
+            <!-- Mapa: KPIs -->
+            <div class="mundo-stats-row" id="mundo-kpis">
+              <div class="mundo-stat">
+                <div class="mundo-stat-val" id="kpi-total-places">—</div>
+                <div class="mundo-stat-lbl">Localizações com país identificado</div>
+              </div>
+              <div class="mundo-stat">
+                <div class="mundo-stat-val" id="kpi-countries">—</div>
+                <div class="mundo-stat-lbl">Países distintos</div>
+              </div>
+              <div class="mundo-stat">
+                <div class="mundo-stat-val" id="kpi-top-country">—</div>
+                <div class="mundo-stat-lbl">País com mais pessoas</div>
+              </div>
+              <div class="mundo-stat">
+                <div class="mundo-stat-val" id="kpi-no-place">—</div>
+                <div class="mundo-stat-lbl">Localizações sem país</div>
+              </div>
             </div>
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#73bf69"></span> Família com mais filhos</div>
-              <div class="dash-panel-body"><div class="rec-list" id="rec-most-children"><p class="no-data">A calcular…</p></div></div>
+
+            <!-- Mapa: mapa de calor -->
+            <div class="mundo-map-panel">
+              <div class="mundo-map-header">
+                <div class="mundo-map-header-left">
+                  <i class="mdi mdi-earth" aria-hidden="true"></i>
+                  <span>Mapa de calor — pessoas por país</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:14px">
+                  <div class="mundo-legend">
+                    <span class="legend-label">0</span>
+                    <div class="legend-gradient" id="legend-gradient"></div>
+                    <span class="legend-label" id="legend-max">—</span>
+                  </div>
+                  <div class="map-controls">
+                    <button class="map-ctrl-btn" id="btn-zoom-in" title="Zoom +"><i class="mdi mdi-plus"></i></button>
+                    <button class="map-ctrl-btn" id="btn-zoom-out" title="Zoom −"><i class="mdi mdi-minus"></i></button>
+                    <button class="map-ctrl-btn" id="btn-zoom-reset" title="Centrar"><i class="mdi mdi-fit-to-screen"></i></button>
+                  </div>
+                </div>
+              </div>
+              <div id="world-svg-container" style="height:500px">
+                <div class="map-loading" id="map-loading">
+                  <div class="spin"></div>
+                  <span>A carregar mapa…</span>
+                </div>
+                <svg id="world-svg"></svg>
+              </div>
             </div>
-            <div class="dash-panel">
-              <div class="dash-panel-header"><span class="panel-dot" style="background:#ff9830"></span> Casamento mais longo (casal vivo)</div>
-              <div class="dash-panel-body"><div class="rec-list" id="rec-longest-marr"><p class="no-data">A calcular…</p></div></div>
+
+            <!-- Mapa: leaderboard + localidades -->
+            <div class="mundo-bottom">
+              <div class="mundo-leaderboard">
+                <div class="mundo-lb-header"><i class="mdi mdi-trophy-outline" aria-hidden="true"></i> Top países</div>
+                <div class="mundo-lb-list" id="lb-list">
+                  <div style="padding:20px;text-align:center;color:#4a5568;font-size:0.75rem;">A carregar…</div>
+                </div>
+              </div>
+              <div class="mundo-leaderboard">
+                <div class="mundo-lb-header"><i class="mdi mdi-map-marker-multiple" aria-hidden="true"></i> Localidades mais frequentes</div>
+                <div class="mundo-lb-list" id="place-list">
+                  <div style="padding:20px;text-align:center;color:#4a5568;font-size:0.75rem;">A carregar…</div>
+                </div>
+              </div>
             </div>
-          </div>
+
+            <!-- Gráficos de distribuição -->
+            <div class="dash-row dash-row-thirds">
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#00c9e0"></span> Distribuição por País <span style="font-weight:400;opacity:.55;font-size:.68rem;margin-left:4px">(local de nascimento)</span></div>
+                <div class="dash-panel-body" style="align-items:center;padding:16px 14px">
+                  <canvas id="chartPaises"></canvas>
+                  <div id="paises-nodata" class="no-data" style="display:none">Sem locais de nascimento registados</div>
+                </div>
+              </div>
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#56d4d4"></span> Distribuição por Locais <span style="font-weight:400;opacity:.55;font-size:.68rem;margin-left:4px">(local de nascimento)</span></div>
+                <div class="dash-panel-body" style="align-items:center;padding:16px 14px">
+                  <canvas id="chartDistribLocais"></canvas>
+                  <div id="distriblocais-nodata" class="no-data" style="display:none">Sem localidades registadas</div>
+                </div>
+              </div>
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#fda85b"></span> Top Localidades de Nascimento</div>
+                <div class="dash-panel-body">
+                  <canvas id="chartLocalidades"></canvas>
+                  <div id="localidades-nodata" class="no-data" style="display:none">Sem localidades registadas</div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /#tab-locais -->
+
+          <!-- Tab: Nomes ──────────────────────────────────────────────── -->
+          <div class="dash-tab-content" id="tab-nomes">
+
+            <div class="dash-row dash-row-thirds">
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#5294e2"></span> Top Nomes Masculinos</div>
+                <div class="dash-panel-body">
+                  <canvas id="chartNomesM"></canvas>
+                </div>
+              </div>
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#ef799e"></span> Top Nomes Femininos</div>
+                <div class="dash-panel-body">
+                  <canvas id="chartNomesF"></canvas>
+                </div>
+              </div>
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#73bf69"></span> Top Apelidos</div>
+                <div class="dash-panel-body">
+                  <canvas id="chartApelidos"></canvas>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /#tab-nomes -->
+
+          <!-- Tab: Linha do Tempo ─────────────────────────────────────── -->
+          <div class="dash-tab-content" id="tab-timeline">
+
+            <div class="dash-row dash-row-half">
+              <div class="dash-panel">
+                <div class="dash-panel-header">
+                  <span class="panel-dot" style="background:#5294e2"></span> Longevidade Masculina
+                  <span style="margin-left:auto;font-size:0.75rem;font-weight:600;color:#f2cc0c">Média: <span id="longi-media-m">—</span></span>
+                </div>
+                <div class="dash-panel-body" style="flex-direction:column;gap:12px;justify-content:flex-start">
+                  <div style="flex:1;min-height:100px;position:relative">
+                    <canvas id="chartLongevidadeM"></canvas>
+                    <div id="longi-nodata-m" class="no-data" style="display:none">Sem dados de longevidade masculina</div>
+                  </div>
+                </div>
+              </div>
+              <div class="dash-panel">
+                <div class="dash-panel-header">
+                  <span class="panel-dot" style="background:#ef799e"></span> Longevidade Feminina
+                  <span style="margin-left:auto;font-size:0.75rem;font-weight:600;color:#f2cc0c">Média: <span id="longi-media-f">—</span></span>
+                </div>
+                <div class="dash-panel-body" style="flex-direction:column;gap:12px;justify-content:flex-start">
+                  <div style="flex:1;min-height:100px;position:relative">
+                    <canvas id="chartLongevidadeF"></canvas>
+                    <div id="longi-nodata-f" class="no-data" style="display:none">Sem dados de longevidade feminina</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="dash-row dash-row-half">
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#73bf69"></span> Nascimentos por Década</div>
+                <div class="dash-panel-body">
+                  <canvas id="chartNascimentos"></canvas>
+                </div>
+              </div>
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#f25757"></span> Óbitos por Década</div>
+                <div class="dash-panel-body" id="obitos-body">
+                  <canvas id="chartObitos"></canvas>
+                </div>
+              </div>
+            </div>
+
+            <div class="dash-row dash-row-half">
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#f2cc0c"></span> Vivos mais velhos</div>
+                <div class="dash-panel-body"><div class="rec-list" id="rec-mais-velhos"><p class="no-data">A calcular…</p></div></div>
+              </div>
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#73bf69"></span> Vivos mais novos</div>
+                <div class="dash-panel-body"><div class="rec-list" id="rec-mais-novos"><p class="no-data">A calcular…</p></div></div>
+              </div>
+            </div>
+
+          </div><!-- /#tab-timeline -->
+
+          <!-- Tab: Família ────────────────────────────────────────────── -->
+          <div class="dash-tab-content" id="tab-familia">
+
+            <div class="dash-row dash-row-4">
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#f2cc0c"></span> Casamento mais antigo</div>
+                <div class="dash-panel-body"><div class="rec-list" id="rec-marr-oldest"><p class="no-data">A calcular…</p></div></div>
+              </div>
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#5294e2"></span> Casamento mais recente</div>
+                <div class="dash-panel-body"><div class="rec-list" id="rec-marr-newest"><p class="no-data">A calcular…</p></div></div>
+              </div>
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#73bf69"></span> Família com mais filhos</div>
+                <div class="dash-panel-body"><div class="rec-list" id="rec-most-children"><p class="no-data">A calcular…</p></div></div>
+              </div>
+              <div class="dash-panel">
+                <div class="dash-panel-header"><span class="panel-dot" style="background:#ff9830"></span> Casamento mais longo (casal vivo)</div>
+                <div class="dash-panel-body"><div class="rec-list" id="rec-longest-marr"><p class="no-data">A calcular…</p></div></div>
+              </div>
+            </div>
+
+            <div class="dash-row">
+              <div class="dash-panel">
+                <div class="dash-panel-header">
+                  <span class="panel-dot" style="background:#9c27b0"></span>
+                  Ligações por Família Imediata
+                </div>
+                <div class="dash-panel-body" style="flex-direction:column;gap:16px;padding:16px 14px;justify-content:flex-start">
+                  <div id="redeFocusLabel" style="display:none;align-items:center;gap:8px">
+                    <span style="color:#6b7a94;font-size:0.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em">Pessoa de referência</span>
+                    <span id="redeFocusName" style="color:#d0d8e8;font-size:0.82rem;font-weight:600"></span>
+                  </div>
+                  <div id="redeContent"><p class="no-data">Defina uma pessoa de referência nas <a href="configuracao.html" style="color:#5294e2">Definições</a> para ver as ligações por família imediata</p></div>
+                </div>
+              </div>
+            </div>
+
+          </div><!-- /#tab-familia -->
 
         </div><!-- /.dash-grid -->
       </main>
     </div><!-- /.app-shell -->
+
+    <!-- Map tooltip -->
+    <div id="map-tooltip">
+      <div class="tt-name" id="tt-name"></div>
+      <div class="tt-count" id="tt-count"></div>
+    </div>
 
     <!-- ── Edit Person Drawer ─────────────────────────────────────────── -->
     <div class="drawer-overlay" id="drawerOverlay"></div>
@@ -639,32 +1017,8 @@
           }
         }
 
-        // ── Tipos de Relações (donut) ─────────────────────────────────
+        // ── KPI Relações sub-label ────────────────────────────────────
         {
-          // Derive relation types from families
-          const rlCounts = { 'Conjugal':0, 'Filiação':0 };
-          families.forEach(f => {
-            if(f.husb || f.wife) rlCounts['Conjugal']++;
-            rlCounts['Filiação'] += (f.children||[]).length;
-          });
-          const items = Object.entries(rlCounts).filter(([,v])=>v>0);
-          if(items.length){
-            mkChart('chartRelacoes','doughnut',{
-              labels: items.map(([t])=>t),
-              datasets:[{
-                data: items.map(([,v])=>v),
-                backgroundColor:['#b877d9','#5294e2','#73bf69','#f2cc0c','#f25757','#ff9830'],
-                borderWidth:2, borderColor:'#1a1d27', hoverOffset:8
-              }]
-            },{
-              plugins:{
-                legend:{ position:'bottom', labels:{ usePointStyle:true, padding:14, font:{size:11}, color:'#8a9ab5' } }
-              },
-              cutout:'60%'
-            });
-          } else {
-            document.getElementById('chartRelacoes').replaceWith(Object.assign(document.createElement('p'),{className:'no-data',textContent:'Sem relações registadas'}));
-          }
           const rlSubEl = document.getElementById('kpi-relacoes-sub');
           if(rlSubEl) rlSubEl.textContent = families.length + ' família' + (families.length!==1?'s':'');
         }
@@ -735,57 +1089,57 @@
           }
         }
 
-        // ── Longevidade ───────────────────────────────────────────────
-        {
+        // ── Longevidade por Sexo ─────────────────────────────────────
+        function buildLongevidadeChart(sex, canvasId, mediaId, noDataId, color, barLabel) {
           const ages = [];
           pessoas.forEach(p => {
+            if(p.sex !== sex) return;
             const bev = DB.getBirthEvent(p);
             const dev = DB.getDeathEvent(p);
-            if(bev && dev && bev.date && dev.date){
+            if(bev && dev && bev.date && dev.date) {
               const by = safeYear(bev.date);
               const dy = safeYear(dev.date);
-              if(by && dy){
+              if(by && dy) {
                 const age = dy - by;
                 if(age >= 0 && age < 130) ages.push(age);
               }
             }
           });
-          const mediaEl = document.getElementById('longi-media');
-          const maxEl   = document.getElementById('longi-max');
-          const minEl   = document.getElementById('longi-min');
-          const nodataEl= document.getElementById('longi-nodata');
-          const canvasEl= document.getElementById('chartLongevidade');
-          if(ages.length>0){
-            const avg = Math.round(ages.reduce((a,b)=>a+b,0)/ages.length);
-            if(mediaEl) mediaEl.textContent = avg+' a';
-            if(maxEl)   maxEl.textContent   = Math.max(...ages)+' a';
-            if(minEl)   minEl.textContent   = Math.min(...ages)+' a';
-            if(nodataEl) nodataEl.style.display='none';
-            const buckets={};
-            ages.forEach(a=>{ const b=Math.floor(a/10)*10; buckets[b]=(buckets[b]||0)+1; });
-            const bs=Object.keys(buckets).map(Number).sort((a,b)=>a-b);
-            mkChart('chartLongevidade','bar',{
-              labels: bs.map(b=>b+'–'+(b+9)+' a'),
-              datasets:[{
-                label:'Pessoas',
-                data: bs.map(b=>buckets[b]||0),
-                backgroundColor:'#f2cc0cb0', borderColor:'#f2cc0c', borderWidth:1, borderRadius:3
+          const mediaEl  = document.getElementById(mediaId);
+          const nodataEl = document.getElementById(noDataId);
+          const canvasEl = document.getElementById(canvasId);
+          if(ages.length > 0) {
+            const avg = Math.round(ages.reduce((a, b) => a + b, 0) / ages.length);
+            if(mediaEl) mediaEl.textContent = avg + ' anos';
+            if(nodataEl) nodataEl.style.display = 'none';
+            const buckets = {};
+            ages.forEach(a => { const b = Math.floor(a / 10) * 10; buckets[b] = (buckets[b] || 0) + 1; });
+            const bs = Object.keys(buckets).map(Number).sort((a, b) => a - b);
+            mkChart(canvasId, 'bar', {
+              labels: bs.map(b => b + '–' + (b + 9) + ' a'),
+              datasets: [{
+                label: barLabel,
+                data: bs.map(b => buckets[b] || 0),
+                backgroundColor: color + 'b0',
+                borderColor: color,
+                borderWidth: 1,
+                borderRadius: 3
               }]
-            },{
-              plugins:{ legend:{ display:false } },
-              scales:{
-                x:{ grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#8a9ab5', font:{ size:10 } } },
-                y:{ grid:{ color:'rgba(255,255,255,0.04)' }, ticks:{ color:'#8a9ab5', stepSize:1, precision:0 } }
+            }, {
+              plugins: { legend: { display: false } },
+              scales: {
+                x: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8a9ab5', font: { size: 10 } } },
+                y: { grid: { color: 'rgba(255,255,255,0.04)' }, ticks: { color: '#8a9ab5', stepSize: 1, precision: 0 } }
               }
             });
           } else {
-            if(mediaEl) mediaEl.textContent='—';
-            if(maxEl)   maxEl.textContent='—';
-            if(minEl)   minEl.textContent='—';
-            if(canvasEl) canvasEl.style.display='none';
-            if(nodataEl) nodataEl.style.display='';
+            if(mediaEl) mediaEl.textContent = '—';
+            if(canvasEl) canvasEl.style.display = 'none';
+            if(nodataEl) nodataEl.style.display = '';
           }
         }
+        buildLongevidadeChart('M', 'chartLongevidadeM', 'longi-media-m', 'longi-nodata-m', '#5294e2', 'Homens falecidos');
+        buildLongevidadeChart('F', 'chartLongevidadeF', 'longi-media-f', 'longi-nodata-f', '#ef799e', 'Mulheres falecidas');
 
         // ── Distribuição por País ──────────────────────────────────────
         {
@@ -895,6 +1249,38 @@
           } else {
             if(locCanvas) locCanvas.style.display = 'none';
             if(locNodata) locNodata.style.display = '';
+          }
+
+          // "Distribuição por Locais" — donut of top localities
+          const distribLocCanvas = document.getElementById('chartDistribLocais');
+          const distribLocNodata = document.getElementById('distriblocais-nodata');
+          const topLocDistrib    = Object.entries(localityCounts).sort((a, b) => b[1] - a[1]).slice(0, 8);
+          if(topLocDistrib.length > 0 && distribLocCanvas) {
+            const locPieColors = ['#5294e2','#73bf69','#f2cc0c','#f25757','#b877d9','#ff9830','#00c9e0','#ef799e'];
+            mkChart('chartDistribLocais', 'doughnut', {
+              labels: topLocDistrib.map(([k]) => k),
+              datasets: [{
+                data: topLocDistrib.map(([, v]) => v),
+                backgroundColor: locPieColors,
+                borderColor: '#1a1d27',
+                borderWidth: 2,
+                hoverOffset: 6
+              }]
+            }, {
+              plugins: {
+                legend: { position: 'right', labels: { color: '#8a9ab5', font: { size: 11 }, boxWidth: 12, padding: 10 } },
+                tooltip: {
+                  callbacks: {
+                    label: ctx => ` ${ctx.label}: ${ctx.parsed} pessoa${ctx.parsed !== 1 ? 's' : ''}`
+                  }
+                }
+              },
+              cutout: '55%'
+            });
+            if(distribLocNodata) distribLocNodata.style.display = 'none';
+          } else {
+            if(distribLocCanvas) distribLocCanvas.style.display = 'none';
+            if(distribLocNodata) distribLocNodata.style.display = '';
           }
         }
 
@@ -1068,6 +1454,231 @@
             : '<p class="no-data">Sem casais vivos com data de casamento</p>';
 
         })();
+
+        buildRedeSection();
+        if(window.mundoRefreshData) window.mundoRefreshData();
+      }
+
+      // ── Rede de Ligações por Família Imediata ─────────────────────────
+      function buildRedeSection() {
+        renderRedeSection();
+      }
+
+      function renderRedeSection() {
+        const pessoas  = DB.getIndividuals();
+        const families = DB.getFamilies();
+        const container = document.getElementById('redeContent');
+        const labelEl   = document.getElementById('redeFocusLabel');
+        const nameEl    = document.getElementById('redeFocusName');
+        if(!container) return;
+
+        const focusSetting = DB.getSetting('focusedPerson');
+        const selectedId   = (focusSetting && focusSetting.id) ? focusSetting.id : '';
+        if(!selectedId) {
+          if(labelEl) labelEl.style.display = 'none';
+          container.innerHTML = '<p class="no-data">Defina uma pessoa de referência nas <a href="configuracao.html" style="color:#5294e2">Definições</a> para ver as ligações por família imediata</p>';
+          return;
+        }
+
+        const personMap = {};
+        pessoas.forEach(p => { personMap[p.id] = p; });
+        const focusPerson = personMap[selectedId];
+        if(!focusPerson) {
+          if(labelEl) labelEl.style.display = 'none';
+          container.innerHTML = '<p class="no-data">Pessoa de referência não encontrada</p>';
+          return;
+        }
+
+        if(labelEl) { labelEl.style.display = 'flex'; }
+        if(nameEl)  { nameEl.textContent = DB.getDisplayName(focusPerson); }
+
+        // Build undirected adjacency list from family links.
+        // In families where selectedId is a child, skip the husb↔wife edge so that
+        // the paternal and maternal sides are only connected via selectedId (which
+        // is excluded from every BFS call). Without this, BFS from the father can
+        // immediately reach the mother and traverse her entire side, producing
+        // identical counts for both parents.
+        const focusFamilyParentPairs = new Set();
+        families.forEach(f => {
+          if((f.children || []).includes(selectedId) && f.husb && f.wife) {
+            focusFamilyParentPairs.add(f.husb + '|' + f.wife);
+            focusFamilyParentPairs.add(f.wife + '|' + f.husb);
+          }
+        });
+
+        const graph = {};
+        pessoas.forEach(p => { graph[p.id] = []; });
+        families.forEach(f => {
+          const members = [];
+          if(f.husb) members.push(f.husb);
+          if(f.wife)  members.push(f.wife);
+          (f.children || []).forEach(c => members.push(c));
+          for(let i = 0; i < members.length; i++) {
+            for(let j = i + 1; j < members.length; j++) {
+              const a = members[i], b = members[j];
+              if(focusFamilyParentPairs.has(a + '|' + b)) continue;
+              if(graph[a]) graph[a].push(b);
+              if(graph[b]) graph[b].push(a);
+            }
+          }
+        });
+
+        const totalPeople = pessoas.length;
+
+        // BFS from startId, not visiting nodes in excludeIds; returns count (includes startId)
+        function bfsCount(startId, excludeIds) {
+          const excluded = new Set(excludeIds);
+          if(excluded.has(startId) || !graph[startId]) return 0;
+          const visited = new Set([startId]);
+          const queue = [startId];
+          while(queue.length) {
+            const cur = queue.shift();
+            for(const nb of (graph[cur] || [])) {
+              if(!visited.has(nb) && !excluded.has(nb)) {
+                visited.add(nb);
+                queue.push(nb);
+              }
+            }
+          }
+          return visited.size;
+        }
+
+        // Returns biological parents of a given person
+        function getParentsOf(personId) {
+          let dad = null, mom = null;
+          families.forEach(f => {
+            if((f.children || []).includes(personId)) {
+              if(f.husb && f.husb !== personId) dad = f.husb;
+              if(f.wife  && f.wife  !== personId) mom = f.wife;
+            }
+          });
+          return { dad, mom };
+        }
+
+        // Find focus person's parents and spouses
+        let fatherId = null, motherId = null;
+        const spouseIds = [];
+        families.forEach(f => {
+          if((f.children || []).includes(selectedId)) {
+            if(f.husb && f.husb !== selectedId) fatherId = f.husb;
+            if(f.wife  && f.wife  !== selectedId) motherId = f.wife;
+          }
+          if(f.husb === selectedId && f.wife)  spouseIds.push(f.wife);
+          if(f.wife  === selectedId && f.husb) spouseIds.push(f.husb);
+        });
+
+        if(!fatherId && !motherId && spouseIds.length === 0) {
+          container.innerHTML = '<p class="no-data">Esta pessoa não tem família imediata registada (pais ou cônjuge)</p>';
+          return;
+        }
+
+        const PALETTE = {
+          father:  { main: '#17a2b8', paternal: '#0d7987', maternal: '#56cfe1' },
+          mother:  { main: '#e05c7f', paternal: '#a82554', maternal: '#f4a0bc' },
+          spouses: [
+            { main: '#9c27b0', paternal: '#6a1b9a', maternal: '#ce93d8' },
+            { main: '#ff9800', paternal: '#e65100', maternal: '#ffcc80' },
+            { main: '#00bfa5', paternal: '#007c6e', maternal: '#84eadf' }
+          ]
+        };
+
+        function renderRelativeBlock(relId, colors, sectionLabel) {
+          if(!relId || !personMap[relId]) return '';
+          const rel     = personMap[relId];
+          const relName = DB.getDisplayName(rel);
+          const relSex  = rel.sex || '';
+          const pronoun = relSex === 'F' ? 'dela' : 'dele';
+
+          const totalWithRel = bfsCount(relId, [selectedId]);
+          const { dad: gpFId, mom: gpMId } = getParentsOf(relId);
+          // Exclude the other grandparent from each grandparent BFS so the two
+          // sub-branches don’t bleed into each other (same root cause as above).
+          const gpFCount = gpFId ? bfsCount(gpFId, [selectedId, relId, gpMId].filter(Boolean)) : 0;
+          const gpMCount = gpMId ? bfsCount(gpMId, [selectedId, relId, gpFId].filter(Boolean)) : 0;
+          const others   = Math.max(0, totalWithRel - 1 - gpFCount - gpMCount);
+
+          const barMax = Math.max(totalPeople - 1, 1);
+          const pct    = n => Math.min(100, (n / barMax) * 100).toFixed(1);
+
+          const gpFPerson = gpFId ? personMap[gpFId] : null;
+          const gpMPerson = gpMId ? personMap[gpMId] : null;
+          const gpFName   = gpFPerson ? DB.getDisplayName(gpFPerson) : null;
+          const gpMName   = gpMPerson ? DB.getDisplayName(gpMPerson) : null;
+          const relShort  = relName.split(' ')[0];
+
+          let html = `<div class="rede-member-section" style="--rede-clr:${colors.main}">
+              <div class="rede-section-label">${sectionLabel}</div>
+              <div class="rede-main-card">
+                <div class="rede-avatar" style="background:${colors.main}">${relName.charAt(0).toUpperCase()}</div>
+                <div style="flex:1;min-width:0">
+                  <div class="rede-person-name">${relName}</div>
+                  <div class="rede-bar-track"><div class="rede-bar-fill" style="width:${pct(totalWithRel)}%;background:${colors.main}"></div></div>
+                </div>
+                <div class="rede-count">${totalWithRel.toLocaleString('pt-PT')}</div>
+              </div>`;
+
+          if(gpFName || gpMName) {
+            html += `<div class="rede-sub-section">`;
+            if(gpFName) {
+              html += `<div>
+                <div class="rede-sub-label">Relacionado especificamente através do pai ${pronoun}</div>
+                <div class="rede-sub-card">
+                  <div class="rede-avatar rede-avatar-sm" style="background:${colors.paternal}">${gpFName.charAt(0).toUpperCase()}</div>
+                  <div style="flex:1;min-width:0">
+                    <div class="rede-person-name" style="font-size:0.76rem">${gpFName}</div>
+                    <div class="rede-bar-sub-track"><div class="rede-bar-fill" style="width:${pct(gpFCount)}%;background:${colors.paternal}"></div></div>
+                  </div>
+                  <div class="rede-count rede-count-sm">${gpFCount.toLocaleString('pt-PT')}</div>
+                </div>
+              </div>`;
+            }
+            if(gpMName) {
+              html += `<div>
+                <div class="rede-sub-label">Relacionado especificamente através da mãe ${pronoun}</div>
+                <div class="rede-sub-card">
+                  <div class="rede-avatar rede-avatar-sm" style="background:${colors.maternal}">${gpMName.charAt(0).toUpperCase()}</div>
+                  <div style="flex:1;min-width:0">
+                    <div class="rede-person-name" style="font-size:0.76rem">${gpMName}</div>
+                    <div class="rede-bar-sub-track"><div class="rede-bar-fill" style="width:${pct(gpMCount)}%;background:${colors.maternal}"></div></div>
+                  </div>
+                  <div class="rede-count rede-count-sm">${gpMCount.toLocaleString('pt-PT')}</div>
+                </div>
+              </div>`;
+            }
+            html += `</div>`;
+            if(others > 0) {
+              html += `<div class="rede-others-notice">Há mais <strong>${others}</strong> pessoa${others !== 1 ? 's' : ''} relacionada${others !== 1 ? 's' : ''} consigo através de ${relShort}, mas não através de qualquer parente específico.</div>`;
+            }
+          }
+
+          html += `</div>`;
+          return html;
+        }
+
+        let contentHtml = '';
+
+        if(fatherId || motherId) {
+          const gridCls = fatherId && motherId ? 'rede-grid-2' : '';
+          contentHtml += `<div class="${gridCls}" style="margin-bottom:${gridCls ? '20' : '0'}px">`;
+          if(fatherId) contentHtml += renderRelativeBlock(fatherId, PALETTE.father, 'Relacionado através do seu pai');
+          if(motherId) contentHtml += renderRelativeBlock(motherId, PALETTE.mother, 'Relacionado através da sua mãe');
+          contentHtml += `</div>`;
+        }
+
+        if(spouseIds.length > 0) {
+          contentHtml += `<div class="rede-spouses-wrap">`;
+          spouseIds.forEach((spouseId, idx) => {
+            const sp = personMap[spouseId];
+            if(!sp) return;
+            const spSex   = sp.sex || '';
+            const spLabel = spSex === 'F' ? 'da sua mulher' : (spSex === 'M' ? 'do seu marido' : 'do/da cônjuge');
+            const colors  = PALETTE.spouses[idx % PALETTE.spouses.length];
+            contentHtml += renderRelativeBlock(spouseId, colors, `Relacionado através ${spLabel}`);
+          });
+          contentHtml += `</div>`;
+        }
+
+        container.innerHTML = contentHtml;
       }
 
       window.DRAWER_CONFIG = {
@@ -1078,6 +1689,350 @@
         afterSave: function() { buildDashboard(); },
         afterDelete: function() { buildDashboard(); }
       };
+
+      // ── Folder tab switching ───────────────────────────────────────────
+      document.querySelectorAll('.dash-tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.dash-tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.dash-tab-content').forEach(p => p.classList.remove('active'));
+          btn.classList.add('active');
+          const target = document.getElementById(btn.dataset.target);
+          if(target) target.classList.add('active');
+          // Let Chart.js recalculate sizes for newly visible canvases
+          setTimeout(() => {
+            Object.values(_charts).forEach(c => { try { c.resize(); } catch(e) {} });
+          }, 50);
+          if(btn.dataset.target === 'tab-locais' && window.mundoActivate) {
+            setTimeout(() => window.mundoActivate(), 60);
+          }
+        });
+      });
+
+      // ── Mapa Mundial ──────────────────────────────────────────────────
+      (function () {
+        'use strict';
+
+        const NAME_TO_ISO = {
+          'portugal': 620, 'pt': 620,
+          'brasil': 76, 'brazil': 76, 'br': 76,
+          'angola': 24, 'ao': 24,
+          'moçambique': 508, 'mozambique': 508, 'mz': 508,
+          'cabo verde': 132, 'cape verde': 132, 'cv': 132,
+          'guiné-bissau': 624, 'guinea-bissau': 624, 'gw': 624,
+          'são tomé e príncipe': 678, 'sao tome and principe': 678, 'st': 678,
+          'timor-leste': 626, 'east timor': 626, 'tl': 626,
+          'macau': 446, 'macao': 446,
+          'espanha': 724, 'spain': 724, 'es': 724,
+          'alemanha': 276, 'germany': 276, 'de': 276,
+          'frança': 250, 'france': 250, 'fr': 250,
+          'reino unido': 826, 'united kingdom': 826, 'uk': 826,
+          'grã-bretanha': 826, 'great britain': 826, 'gb': 826,
+          'itália': 380, 'italy': 380, 'it': 380,
+          'holanda': 528, 'países baixos': 528, 'netherlands': 528, 'nl': 528,
+          'bélgica': 56, 'belgium': 56, 'be': 56,
+          'suíça': 756, 'switzerland': 756, 'ch': 756,
+          'áustria': 40, 'austria': 40, 'at': 40,
+          'suécia': 752, 'sweden': 752, 'se': 752,
+          'noruega': 578, 'norway': 578, 'no': 578,
+          'dinamarca': 208, 'denmark': 208, 'dk': 208,
+          'finlândia': 246, 'finland': 246, 'fi': 246,
+          'polónia': 616, 'poland': 616, 'pl': 616,
+          'república checa': 203, 'czech republic': 203, 'czechia': 203, 'cz': 203,
+          'hungria': 348, 'hungary': 348, 'hu': 348,
+          'roménia': 642, 'romania': 642, 'ro': 642,
+          'grécia': 300, 'greece': 300, 'gr': 300,
+          'irlanda': 372, 'ireland': 372, 'ie': 372,
+          'luxemburgo': 442, 'luxembourg': 442, 'lu': 442,
+          'rússia': 643, 'russia': 643, 'ru': 643,
+          'ucrânia': 804, 'ukraine': 804, 'ua': 804,
+          'estados unidos': 840, 'usa': 840, 'united states': 840, 'us': 840,
+          'canadá': 124, 'canada': 124, 'ca': 124,
+          'argentina': 32, 'ar': 32,
+          'chile': 152, 'cl': 152,
+          'peru': 604, 'pe': 604,
+          'colômbia': 170, 'colombia': 170, 'co': 170,
+          'venezuela': 862, 've': 862,
+          'uruguai': 858, 'uruguay': 858, 'uy': 858,
+          'paraguai': 600, 'paraguay': 600, 'py': 600,
+          'bolívia': 68, 'bolivia': 68, 'bo': 68,
+          'equador': 218, 'ecuador': 218, 'ec': 218,
+          'méxico': 484, 'mexico': 484, 'mx': 484,
+          'áfrica do sul': 710, 'south africa': 710, 'za': 710,
+          'marrocos': 504, 'morocco': 504, 'ma': 504,
+          'egito': 818, 'egypt': 818, 'eg': 818,
+          'nigéria': 566, 'nigeria': 566, 'ng': 566,
+          'quénia': 404, 'kenya': 404, 'ke': 404,
+          'etiópia': 231, 'ethiopia': 231, 'et': 231,
+          'ghana': 288, 'gh': 288,
+          'senegal': 686, 'sn': 686,
+          'china': 156, 'cn': 156,
+          'india': 356, 'índia': 356, 'in': 356,
+          'japão': 392, 'japan': 392, 'jp': 392,
+          'coreia do sul': 410, 'south korea': 410, 'kr': 410,
+          'austrália': 36, 'australia': 36, 'au': 36,
+          'nova zelândia': 554, 'new zealand': 554, 'nz': 554,
+          'indonésia': 360, 'indonesia': 360, 'id': 360,
+          'vietname': 704, 'vietnam': 704, 'vn': 704,
+          'tailândia': 764, 'thailand': 764, 'th': 764,
+          'singapura': 702, 'singapore': 702, 'sg': 702,
+        };
+
+        function extractCountry(place) {
+          if (!place || typeof place !== 'string') return null;
+          const parts = place.split(',').map(p => p.trim()).filter(Boolean);
+          if (parts.length === 0) return null;
+          return parts[parts.length - 1];
+        }
+
+        function countryToIso(countryStr) {
+          if (!countryStr) return null;
+          const key = countryStr.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim();
+          const direct = NAME_TO_ISO[countryStr.toLowerCase().trim()];
+          if (direct) return direct;
+          for (const [k, v] of Object.entries(NAME_TO_ISO)) {
+            const normK = k.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+            if (normK === key) return v;
+          }
+          return null;
+        }
+
+        const activeFilters = new Set(['BIRT', 'DEAT', 'RESI', 'other']);
+        let cachedIndividuals = null;
+
+        function buildCountryCounts() {
+          const GDB = window.GedcomDB;
+          if (!cachedIndividuals) cachedIndividuals = GDB.getIndividuals();
+          const individuals = cachedIndividuals;
+          const countryCount = {};
+          const placeCount = {};
+          let withCountry = 0, withoutCountry = 0;
+
+          individuals.forEach(person => {
+            (person.events || []).forEach(ev => {
+              const hasPlace   = ev.place   && ev.place.trim();
+              const hasCountry = ev.country && ev.country.trim();
+              if (!hasPlace && !hasCountry) return;
+              const place = hasPlace ? ev.place.trim() : ev.country.trim();
+              const evType = (ev.type || '').toUpperCase();
+              const isKnown = ['BIRT', 'DEAT', 'RESI'].includes(evType);
+              const filterKey = isKnown ? evType : 'other';
+              if (!activeFilters.has(filterKey)) return;
+              placeCount[place] = (placeCount[place] || 0) + 1;
+              const countryStr = hasCountry ? ev.country.trim() : extractCountry(place);
+              if (!countryStr) { withoutCountry++; return; }
+              const normKey = countryStr.toLowerCase().trim();
+              if (countryCount[normKey] === undefined) countryCount[normKey] = { label: countryStr, count: 0 };
+              countryCount[normKey].count++;
+              withCountry++;
+            });
+            if (activeFilters.has('RESI')) {
+              (person.contacts || []).forEach(c => {
+                if (c.type !== 'address' || !c.address || !c.address.country) return;
+                const country = c.address.country.trim();
+                if (!country) return;
+                placeCount[country] = (placeCount[country] || 0) + 1;
+                const normKey = country.toLowerCase().trim();
+                if (countryCount[normKey] === undefined) countryCount[normKey] = { label: country, count: 0 };
+                countryCount[normKey].count++;
+                withCountry++;
+              });
+            }
+          });
+
+          const isoCount = {};
+          const isoLabels = {};
+          let unmapped = 0;
+          Object.entries(countryCount).forEach(([k, v]) => {
+            const iso = countryToIso(v.label);
+            if (iso !== null) {
+              isoCount[iso] = (isoCount[iso] || 0) + v.count;
+              if (!isoLabels[iso]) isoLabels[iso] = { name: v.label, count: 0 };
+              isoLabels[iso].count += v.count;
+            } else {
+              unmapped += v.count;
+            }
+          });
+          const ranked = Object.values(isoLabels).sort((a, b) => b.count - a.count);
+          const sortedPlaces = Object.entries(placeCount)
+            .map(([p, c]) => ({ place: p, count: c }))
+            .sort((a, b) => b.count - a.count);
+          return { isoCount, ranked, withCountry, withoutCountry, sortedPlaces };
+        }
+
+        let svgMap, gMap, projectionMap, pathMap, zoomMap;
+        let worldData = null;
+        let isoCountGlobal = {};
+        let mundoInitialized = false;
+
+        function getColorScale(isoCount) {
+          const values = Object.values(isoCount);
+          if (values.length === 0) return () => '#12151e';
+          const maxVal = d3.max(values);
+          return d3.scaleSequential()
+            .domain([0, maxVal])
+            .interpolator(t => {
+              if (t === 0) return '#12151e';
+              return d3.interpolateRgb('#1e3a6e', '#7bb3f0')(Math.pow(t, 0.45));
+            });
+        }
+
+        function initMap(container) {
+          const W = container.clientWidth || 900;
+          const H = container.clientHeight || 500;
+          svgMap = d3.select('#world-svg')
+            .attr('viewBox', `0 0 ${W} ${H}`)
+            .attr('preserveAspectRatio', 'xMidYMid meet');
+          projectionMap = d3.geoNaturalEarth1().scale(W / 6.2).translate([W / 2, H / 2]);
+          pathMap = d3.geoPath(projectionMap);
+          zoomMap = d3.zoom().scaleExtent([0.8, 12]).on('zoom', (event) => { gMap.attr('transform', event.transform); });
+          svgMap.call(zoomMap);
+          gMap = svgMap.append('g');
+          gMap.append('path').datum({ type: 'Sphere' }).attr('class', 'sphere').attr('d', pathMap);
+          gMap.append('path').datum(d3.geoGraticule()()).attr('class', 'graticule').attr('d', pathMap);
+        }
+
+        function renderCountries(isoCount) {
+          if (!worldData || !gMap) return;
+          const countries = topojson.feature(worldData, worldData.objects.countries);
+          const colorScale = getColorScale(isoCount);
+          const maxVal = Math.max(...Object.values(isoCount), 1);
+          const legendMaxEl = document.getElementById('legend-max');
+          if (legendMaxEl) legendMaxEl.textContent = maxVal;
+          gMap.selectAll('.country-path').remove();
+          const tooltip = document.getElementById('map-tooltip');
+          const ttName  = document.getElementById('tt-name');
+          const ttCount = document.getElementById('tt-count');
+          gMap.selectAll('.country-path')
+            .data(countries.features)
+            .enter().append('path')
+            .attr('class', d => 'country-path' + (isoCount[+d.id] ? '' : ' zero'))
+            .attr('d', pathMap)
+            .attr('fill', d => colorScale(isoCount[+d.id] || 0))
+            .on('mousemove', function (event, d) {
+              const cnt = isoCount[+d.id] || 0;
+              ttName.textContent = d.properties.name || 'Desconhecido';
+              ttCount.innerHTML = cnt > 0 ? `<span>${cnt}</span> ${cnt === 1 ? 'pessoa' : 'pessoas'}` : 'Sem dados';
+              tooltip.style.display = 'block';
+              tooltip.style.left = (event.clientX + 14) + 'px';
+              tooltip.style.top  = (event.clientY - 36) + 'px';
+            })
+            .on('mouseleave', function () { tooltip.style.display = 'none'; });
+        }
+
+        function updateLeaderboard(ranked) {
+          const list = document.getElementById('lb-list');
+          if (!list) return;
+          if (ranked.length === 0) {
+            list.innerHTML = '<div style="padding:20px;text-align:center;color:#4a5568;font-size:0.75rem;">Sem dados de localização encontrados.</div>';
+            return;
+          }
+          const maxCount = ranked[0].count;
+          list.innerHTML = ranked.slice(0, 30).map((item, i) => {
+            const barPct = Math.round((item.count / maxCount) * 100);
+            return `<div class="lb-row"><span class="lb-rank">${i + 1}</span><span class="lb-country">${item.name}</span><div class="lb-bar-wrap"><div class="lb-bar" style="width:${barPct}%"></div></div><span class="lb-count">${item.count}</span></div>`;
+          }).join('');
+        }
+
+        function updatePlaceList(sortedPlaces) {
+          const list = document.getElementById('place-list');
+          if (!list) return;
+          if (sortedPlaces.length === 0) {
+            list.innerHTML = '<div style="padding:20px;text-align:center;color:#4a5568;font-size:0.75rem;">Sem dados de localização encontrados.</div>';
+            return;
+          }
+          const maxCount = sortedPlaces[0].count;
+          list.innerHTML = sortedPlaces.slice(0, 40).map((item, i) => {
+            const barPct = Math.round((item.count / maxCount) * 100);
+            return `<div class="lb-row"><span class="lb-rank">${i + 1}</span><span class="lb-country" style="min-width:200px;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${item.place}">${item.place}</span><div class="lb-bar-wrap"><div class="lb-bar" style="width:${barPct}%;background:#73bf69"></div></div><span class="lb-count">${item.count}</span></div>`;
+          }).join('');
+        }
+
+        function updateKpis(data) {
+          const set = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+          set('kpi-total-places', data.withCountry);
+          set('kpi-countries', data.ranked.length);
+          set('kpi-top-country', data.ranked.length > 0 ? data.ranked[0].name : '—');
+          set('kpi-no-place', data.withoutCountry);
+        }
+
+        function mundoRefresh() {
+          try {
+            const data = buildCountryCounts();
+            isoCountGlobal = data.isoCount;
+            renderCountries(isoCountGlobal);
+            updateLeaderboard(data.ranked);
+            updatePlaceList(data.sortedPlaces);
+            updateKpis(data);
+          } catch (err) {
+            console.error('Mundo: error building data:', err);
+          }
+        }
+
+        // Filter chips
+        const filterChipsEl = document.getElementById('filter-chips');
+        if (filterChipsEl) {
+          filterChipsEl.addEventListener('click', function (e) {
+            const chip = e.target.closest('.filter-chip');
+            if (!chip) return;
+            const type = chip.dataset.type;
+            if (activeFilters.has(type)) {
+              if (activeFilters.size > 1) { activeFilters.delete(type); chip.classList.remove('active'); }
+            } else {
+              activeFilters.add(type); chip.classList.add('active');
+            }
+            if (mundoInitialized) mundoRefresh();
+          });
+        }
+
+        // Zoom controls
+        const zIn  = document.getElementById('btn-zoom-in');
+        const zOut = document.getElementById('btn-zoom-out');
+        const zRst = document.getElementById('btn-zoom-reset');
+        if (zIn)  zIn.addEventListener('click',  () => { if(svgMap) svgMap.transition().duration(300).call(zoomMap.scaleBy, 1.6); });
+        if (zOut) zOut.addEventListener('click', () => { if(svgMap) svgMap.transition().duration(300).call(zoomMap.scaleBy, 0.625); });
+        if (zRst) zRst.addEventListener('click', () => { if(svgMap) svgMap.transition().duration(400).call(zoomMap.transform, d3.zoomIdentity); });
+
+        async function mundoBootstrap() {
+          if (mundoInitialized) { mundoRefresh(); return; }
+          mundoInitialized = true;
+          const container = document.getElementById('world-svg-container');
+          if (!container) return;
+          initMap(container);
+          try {
+            const res = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json');
+            worldData = await res.json();
+          } catch (err) {
+            console.error('Mundo: failed to load world atlas:', err);
+            const loadEl = document.getElementById('map-loading');
+            if (loadEl) loadEl.innerHTML = '<span style="color:#f25757">Erro ao carregar mapa. Verifique a ligação à internet.</span>';
+            return;
+          }
+          const loadEl = document.getElementById('map-loading');
+          if (loadEl) loadEl.style.display = 'none';
+          mundoRefresh();
+        }
+
+        let resizeTimerMundo;
+        window.addEventListener('resize', () => {
+          if (!mundoInitialized) return;
+          clearTimeout(resizeTimerMundo);
+          resizeTimerMundo = setTimeout(() => {
+            const container = document.getElementById('world-svg-container');
+            if (!container || !worldData) return;
+            d3.select('#world-svg').selectAll('*').remove();
+            gMap = null;
+            initMap(container);
+            renderCountries(isoCountGlobal);
+          }, 300);
+        });
+
+        window.mundoActivate = function () { mundoBootstrap(); };
+        window.mundoRefreshData = function () {
+          cachedIndividuals = null;
+          if (mundoInitialized) mundoRefresh();
+        };
+      })();
 
       buildDashboard();
     </script>

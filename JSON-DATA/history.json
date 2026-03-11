@@ -1,5 +1,27 @@
 [
   {
+    "ts": "2026-03-11T12:40:37.105Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "actionType": "update",
+    "id": "I1",
+    "detail": "Evento editado: Nascimento",
+    "category": "pessoas",
+    "subjectName": "Maria do Rosario Alves Ferreira",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-11T12:37:25.678Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "actionType": "update",
+    "id": "I1",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Maria do Rosario Alves Ferreira",
+    "actor": "+351931018263"
+  },
+  {
     "ts": "2026-03-11T12:29:14.528Z",
     "action": "GEDCOM importado — 3504 registos",
     "detail": "GEDCOM 2026-03-09.ged: 1859 pessoas, 782 famílias",

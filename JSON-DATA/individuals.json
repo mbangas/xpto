@@ -20,11 +20,7 @@
       {
         "type": "BIRT",
         "date": "2 FEB 1962",
-        "place": "",
-        "notes": [],
-        "cause": "",
-        "age": "",
-        "description": ""
+        "place": "Brasil"
       }
     ],
     "attributes": [],
@@ -40,8 +36,20 @@
       "M_I1_2"
     ],
     "createdAt": "2026-03-11T12:28:53.769Z",
-    "updatedAt": "2026-03-11T12:28:53.769Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-11T12:40:37.204Z",
+    "deletedAt": null,
+    "contacts": [
+      {
+        "type": "address",
+        "address": {
+          "addr": "dsfs",
+          "city": "",
+          "state": "",
+          "postal": "",
+          "country": "Brasil"
+        }
+      }
+    ]
   },
   "I2": {
     "id": "I2",

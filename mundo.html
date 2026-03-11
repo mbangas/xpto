@@ -588,6 +588,23 @@
             countryCount[normKey].count++;
             withCountry++;
           });
+
+          // Also count address contacts (morada) as RESI residences
+          if (activeFilters.has('RESI')) {
+            const contacts = person.contacts || [];
+            contacts.forEach(c => {
+              if (c.type !== 'address' || !c.address || !c.address.country) return;
+              const country = c.address.country.trim();
+              if (!country) return;
+              placeCount[country] = (placeCount[country] || 0) + 1;
+              const normKey = country.toLowerCase().trim();
+              if (countryCount[normKey] === undefined) {
+                countryCount[normKey] = { label: country, count: 0 };
+              }
+              countryCount[normKey].count++;
+              withCountry++;
+            });
+          }
         });
 
         // Build isoCount map: numeric → count

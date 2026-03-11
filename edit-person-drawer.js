@@ -736,6 +736,21 @@
     document.getElementById('drawerBody').innerHTML = _renderContacts(personId);
   };
 
+  /* Country list for address contacts — matches NAME_TO_ISO in mundo.html */
+  var _CT_COUNTRY_OPTS = ['Portugal','Brasil','Angola','Moçambique','Cabo Verde','Guiné-Bissau',
+    'São Tomé e Príncipe','Timor-Leste','Macau','Espanha','Alemanha','França',
+    'Reino Unido','Itália','Países Baixos','Bélgica','Suíça','Áustria','Suécia',
+    'Noruega','Dinamarca','Finlândia','Polónia','República Checa','Hungria',
+    'Roménia','Grécia','Irlanda','Luxemburgo','Rússia','Ucrânia',
+    'Estados Unidos','Canadá','Argentina','Chile','Peru','Colômbia','Venezuela',
+    'Uruguai','Paraguai','Bolívia','Equador','México','África do Sul',
+    'Marrocos','Egito','Nigéria','Quénia','Etiópia','Ghana','Senegal',
+    'China','Índia','Japão','Coreia do Sul','Austrália','Nova Zelândia',
+    'Indonésia','Vietname','Tailândia','Singapura'];
+  var _CT_DATALIST = '<datalist id="ctCountryList">' +
+    _CT_COUNTRY_OPTS.map(function(c){ return '<option value="' + c + '">'; }).join('') +
+    '</datalist>';
+
   window._toggleCtFields = function (prefix) {
     var type  = document.getElementById(prefix + 'CtType').value;
     var valW  = document.getElementById(prefix + 'CtValueWrap');
@@ -756,7 +771,8 @@
       + '<div style="margin-bottom:8px;display:flex;gap:8px;"><div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Cidade</label><input id="addCtCity" type="text" style="width:100%;"/></div>'
       + '<div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Distrito / Estado</label><input id="addCtState" type="text" style="width:100%;"/></div></div>'
       + '<div style="margin-bottom:8px;display:flex;gap:8px;"><div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">C\u00f3digo Postal</label><input id="addCtPostal" type="text" style="width:100%;"/></div>'
-      + '<div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pa\u00eds</label><input id="addCtCountry" type="text" style="width:100%;"/></div></div></div>'
+      + '<div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pa\u00eds</label><input id="addCtCountry" type="text" list="ctCountryList" autocomplete="off" style="width:100%;"/></div></div></div>'
+      + _CT_DATALIST
       + '<div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Etiqueta (opcional)</label>'
       + '<input id="addCtLabel" type="text" placeholder="ex: Casa, Trabalho..." style="width:100%;"/></div>'
       + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
@@ -800,7 +816,8 @@
       + '<div style="margin-bottom:8px;display:flex;gap:8px;"><div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Cidade</label><input id="editCtCity" type="text" value="' + _esc(a.city || '') + '" style="width:100%;"/></div>'
       + '<div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Distrito / Estado</label><input id="editCtState" type="text" value="' + _esc(a.state || '') + '" style="width:100%;"/></div></div>'
       + '<div style="margin-bottom:8px;display:flex;gap:8px;"><div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">C\u00f3digo Postal</label><input id="editCtPostal" type="text" value="' + _esc(a.postal || '') + '" style="width:100%;"/></div>'
-      + '<div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pa\u00eds</label><input id="editCtCountry" type="text" value="' + _esc(a.country || '') + '" style="width:100%;"/></div></div></div>';
+      + '<div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pa\u00eds</label><input id="editCtCountry" type="text" list="ctCountryList" autocomplete="off" value="' + _esc(a.country || '') + '" style="width:100%;"/></div></div></div>'
+      + _CT_DATALIST;
     document.getElementById('drawerBody').innerHTML = '<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Editar Contacto</h3>'
       + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label>'
       + '<select id="editCtType" onchange="_toggleCtFields(\'edit\')" style="width:100%;"><option value="phone"' + (c.type === 'phone' ? ' selected' : '') + '>Telm\u00f3vel</option><option value="email"' + (c.type === 'email' ? ' selected' : '') + '>Email</option><option value="address"' + (isAddr ? ' selected' : '') + '>Morada</option></select></div>'

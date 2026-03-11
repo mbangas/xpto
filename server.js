@@ -123,54 +123,32 @@ app.post('/api/multimedia/refresh-zones', (req, res) => {
       const personName = ((nameRec.given || '') + ' ' + (nameRec.surname || '')).trim() || indi.id;
       for (const mref of (indi.multimediaRefs || [])) {
         const mm = multimedia[mref];
-        if (!mm || !mm.files) continue;
+        if (!mm) continue;
         if (!mm.tags) mm.tags = [];
-        const alreadyTagged = mm.tags.some(t => t.personId === indi.id);
-        if (alreadyTagged) continue;
-        // Try to build pixelCoords from files[].position
+        // Find existing tag (may have objeProps from import)
+        let tag = mm.tags.find(t => t.personId === indi.id);
+        if (tag) {
+          // Ensure personName is set
+          if (!tag.personName) { tag.personName = personName; added++; }
+          continue;
+        }
+        // Create new tag; try to get pixelCoords from files[].position
         let pixelCoords = null;
-        for (const f of mm.files) {
-          if (!f.position) continue;
-          const parts = f.position.trim().split(/\s+/).map(Number);
-          if (parts.length === 4 && !parts.some(n => isNaN(n))) {
-            const [x1, y1, x2, y2] = parts;
-            pixelCoords = { x1, y1, x2, y2 };
-            break;
+        if (mm.files) {
+          for (const f of mm.files) {
+            if (!f.position) continue;
+            const parts = f.position.trim().split(/\s+/).map(Number);
+            if (parts.length === 4 && !parts.some(n => isNaN(n))) {
+              const [x1, y1, x2, y2] = parts;
+              pixelCoords = { x1, y1, x2, y2 };
+              break;
+            }
           }
         }
-        const tag = { personId: indi.id, personName };
+        tag = { personId: indi.id, personName };
         if (pixelCoords) tag.pixelCoords = pixelCoords;
         mm.tags.push(tag);
         added++;
-      }
-    }
-
-    // Cross-link tags across multimedia entries sharing the same photoRin
-    const byPhotoRin = {};
-    for (const mm of Object.values(multimedia)) {
-      if (!mm.files) continue;
-      for (const f of mm.files) {
-        if (!f.photoRin) continue;
-        if (!byPhotoRin[f.photoRin]) byPhotoRin[f.photoRin] = [];
-        byPhotoRin[f.photoRin].push(mm);
-      }
-    }
-    for (const group of Object.values(byPhotoRin)) {
-      if (group.length < 2) continue;
-      const allTags = [];
-      for (const mm of group) {
-        for (const t of (mm.tags || [])) {
-          if (!allTags.some(a => a.personId === t.personId)) allTags.push(t);
-        }
-      }
-      for (const mm of group) {
-        for (const t of allTags) {
-          if (!(mm.tags || []).some(a => a.personId === t.personId)) {
-            if (!mm.tags) mm.tags = [];
-            mm.tags.push(t);
-            added++;
-          }
-        }
       }
     }
 

@@ -733,14 +733,32 @@
   function _renderTagZones(m) {
     const overlay = document.getElementById('plbTagOverlay');
     overlay.innerHTML = '';
-    const tags = (m.tags || []).filter(t => t.bbox && t.bbox.w > 0 && t.bbox.h > 0);
+    const img  = document.getElementById('plbImg');
+    const natW = img.naturalWidth  || 1;
+    const natH = img.naturalHeight || 1;
+    const tags = (m.tags || []).filter(t =>
+      (t.bbox && t.bbox.w > 0 && t.bbox.h > 0) || t.pixelCoords
+    );
     tags.forEach((t, idx) => {
+      let left, top, width, height;
+      if (t.bbox && t.bbox.w > 0 && t.bbox.h > 0) {
+        left   = t.bbox.x * 100;
+        top    = t.bbox.y * 100;
+        width  = t.bbox.w * 100;
+        height = t.bbox.h * 100;
+      } else if (t.pixelCoords) {
+        const pc = t.pixelCoords;
+        left   = (pc.x1 / natW) * 100;
+        top    = (pc.y1 / natH) * 100;
+        width  = ((pc.x2 - pc.x1) / natW) * 100;
+        height = ((pc.y2 - pc.y1) / natH) * 100;
+      } else { return; }
       const zone = document.createElement('div');
       zone.className = 'plb-tag-zone';
-      zone.style.left   = (t.bbox.x * 100) + '%';
-      zone.style.top    = (t.bbox.y * 100) + '%';
-      zone.style.width  = (t.bbox.w * 100) + '%';
-      zone.style.height = (t.bbox.h * 100) + '%';
+      zone.style.left   = left + '%';
+      zone.style.top    = top + '%';
+      zone.style.width  = width + '%';
+      zone.style.height = height + '%';
       const lbl = document.createElement('div');
       lbl.className = 'plb-tag-lbl';
       lbl.textContent = t.personName || 'Pessoa';

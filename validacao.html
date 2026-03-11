@@ -1192,11 +1192,19 @@
         const lastName=person?(person.lastName||''):'';
         const gender=person?(person.gender||''):'';
         const notes=person?(person.notes||''):'';
+        const _indi2=person?DB.getIndividual(person.id):null;
+        const _nameRec=_indi2&&_indi2.names&&_indi2.names[0]||{};
+        const marriedName=_nameRec.marriedName||'';
+        const aka=_nameRec.aka||'';
         body.innerHTML=[
           '<div class="drawer-section-label">Identidade</div>',
           '<div class="form-row">',
             '<div><label>Primeiro nome</label><input type="text" id="df_firstName" value="'+_esc(firstName)+'" placeholder="Nome" /></div>',
             '<div><label>Apelido</label><input type="text" id="df_lastName" value="'+_esc(lastName)+'" placeholder="Apelido" /></div>',
+          '</div>',
+          '<div class="form-row">',
+            '<div><label>Nome de casada</label><input type="text" id="df_marriedName" value="'+_esc(marriedName)+'" placeholder="Nome de casada" /></div>',
+            '<div><label>Também conhecido como</label><input type="text" id="df_aka" value="'+_esc(aka)+'" placeholder="Outros nomes" /></div>',
           '</div>',
           '<div><label>G\u00e9nero</label>',
             '<select id="df_gender">',
@@ -1206,7 +1214,7 @@
             '</select></div>',
           '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
           '<div><textarea id="df_notes" rows="3" placeholder="Notas...">'+_esc(notes)+'</textarea></div>',
-          person?'<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Rela\u00e7\u00f5es</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="_drawerShowAddPerson(\''+person.id+'\')" ><i class="mdi mdi-account-plus-outline"></i> Adicionar</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="_drawerShowLinkPerson(\''+person.id+'\')" ><i class="mdi mdi-link-variant"></i> Ligar</button></div>':''
+          person?'<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;"><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Rela\u00e7\u00f5es</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\''+person.id+'\',\'contactos\')"><i class="mdi mdi-card-account-phone-outline"></i> Contactos</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="_drawerShowAddPerson(\''+person.id+'\')" ><i class="mdi mdi-account-plus-outline"></i> Adicionar</button><button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="_drawerShowLinkPerson(\''+person.id+'\')" ><i class="mdi mdi-link-variant"></i> Ligar</button></div>':''
         ].join('');
         drawer.classList.add('open');
         overlay.classList.add('open');
@@ -1229,11 +1237,11 @@
         const backBtn=document.getElementById('drawerBackBtn');
         if(backBtn){ backBtn.style.display=''; backBtn._personId=String(personId); }
         const _treeBtn2=document.getElementById('drawerTreeBtn'); if(_treeBtn2) _treeBtn2.style.display='none';
-        const sectionLabel=section==='relacoes'?'Rela\u00e7\u00f5es':section==='fotos'?'Fotos':'Eventos';
+        const sectionLabel=section==='relacoes'?'Rela\u00e7\u00f5es':section==='fotos'?'Fotos':section==='contactos'?'Contactos':'Eventos';
         const pName=(((person.firstName||'')+' '+(person.lastName||'')).trim())||'';
         document.getElementById('drawerTitle').textContent=sectionLabel+'\u2014 '+pName;
         const body=document.getElementById('drawerBody');
-        body.innerHTML=section==='relacoes'?_renderDrawerRelations(String(personId),people):section==='fotos'?_renderDrawerPhotos(String(personId)):_renderDrawerEvents(String(personId));
+        body.innerHTML=section==='relacoes'?_renderDrawerRelations(String(personId),people):section==='fotos'?_renderDrawerPhotos(String(personId)):section==='contactos'?_renderDrawerContacts(String(personId)):_renderDrawerEvents(String(personId));
       }
 
       function _renderDrawerEvents(personId){
@@ -1248,7 +1256,7 @@
         html+='<div class="mini-list">';
         evs.forEach(function(ev,i){
           var label=EVENT_TYPES[ev.type]||ev.type||'';
-          html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">'+_esc(label)+'</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">'+_esc(fmtEventDate(ev))+'</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_drawerEditEvent('+i+',\''+_esc(personId)+'\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_drawerDeleteEvent('+i+',\''+_esc(personId)+'\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>'+(ev.place?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; '+_esc(ev.place)+'</div>':'')+(ev.notes?'<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">'+_esc(ev.notes)+'</div>':'')+'</div>';
+          html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">'+_esc(label)+'</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">'+_esc(fmtEventDate(ev))+'</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_drawerEditEvent('+i+',\''+_esc(personId)+'\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_drawerDeleteEvent('+i+',\''+_esc(personId)+'\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>'+(ev.place?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; '+_esc(ev.place)+'</div>':'')+(ev.description?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;"><i class="mdi mdi-tag-outline" style="margin-right:3px;"></i>'+_esc(ev.description)+'</div>':'')+(ev.cause?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;"><i class="mdi mdi-alert-circle-outline" style="margin-right:3px;"></i>'+_esc(ev.cause)+'</div>':'')+(ev.age?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;"><i class="mdi mdi-account-clock-outline" style="margin-right:3px;"></i>'+_esc(ev.age)+'</div>':'')+(ev.notes?'<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">'+_esc(ev.notes)+'</div>':'')+'</div>';
         });
         marrEvs.forEach(function(m){
           var ev=m.ev, famId=m.famId, famIdx=m.famIdx;
@@ -1286,7 +1294,10 @@
         if(!day&&!month&&!year){ alert('Preencha pelo menos um campo de data.'); return; }
         var place=((document.getElementById('editEvPlace')||{}).value||'').trim();
         var notes=((document.getElementById('editEvNotes')||{}).value||'').trim();
-        indi.events[idx]={type:type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined};
+        var description=((document.getElementById('editEvDescription')||{}).value||'').trim();
+        var cause=((document.getElementById('editEvCause')||{}).value||'').trim();
+        var age=((document.getElementById('editEvAge')||{}).value||'').trim();
+        indi.events[idx]={type:type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined,description:description||undefined,cause:cause||undefined,age:age||undefined};
         DB.saveIndividual(indi);
         openDrawerSection(personId,'eventos');
       }
@@ -1312,16 +1323,19 @@
         if(!day&&!month&&!year){ alert('Preencha pelo menos um campo de data.'); return; }
         var place=((document.getElementById('addEvPlace')||{}).value||'').trim();
         var notes=((document.getElementById('addEvNotes')||{}).value||'').trim();
+        var description=((document.getElementById('addEvDescription')||{}).value||'').trim();
+        var cause=((document.getElementById('addEvCause')||{}).value||'').trim();
+        var age=((document.getElementById('addEvAge')||{}).value||'').trim();
         if(type==='MARR'){
           var famId=((document.getElementById('addEvFamId')||{}).value||'');
           var fam=famId?DB.getFamily(famId):(DB.getFamilies().filter(function(f){return f.husb===personId||f.wife===personId;})[0]||null);
           if(!fam){ alert('N\u00e3o foi encontrado c\u00f4njuge.'); return; }
           if(!fam.events) fam.events=[];
-          fam.events.push({type:'MARR',date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined});
+          fam.events.push({type:'MARR',date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined,description:description||undefined,cause:cause||undefined,age:age||undefined});
           DB.saveFamily(fam);
         } else {
           if(!indi.events) indi.events=[];
-          indi.events.push({type:type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined});
+          indi.events.push({type:type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined,description:description||undefined,cause:cause||undefined,age:age||undefined});
           DB.saveIndividual(indi);
         }
         openDrawerSection(personId,'eventos');
@@ -1361,6 +1375,112 @@
         DB.saveFamily(fam);
         var body=document.getElementById('drawerBody');
         if(body) body.innerHTML=_renderDrawerEvents(personId);
+      }
+
+      /* ── Contactos section ── */
+      function _renderDrawerContacts(personId){
+        var indi=DB.getIndividual(personId);
+        var contacts=(indi&&indi.contacts)||[];
+        var attrs=(indi&&indi.attributes)||[];
+        var pid=_esc(personId);
+        var html='<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddContact(\''+pid+'\')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Contacto</button></div>';
+        if(!contacts.length&&!attrs.some(function(a){return a.email||a.www||a.address;})){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhum contacto registado.</div>'; return html; }
+        html+='<div class="mini-list">';
+        contacts.forEach(function(c,i){
+          var icon=c.type==='phone'?'mdi-phone-outline':'mdi-email-outline';
+          var defLabel=c.type==='phone'?'Telem\u00f3vel':'Email';
+          html+='<div class="mini-card" style="padding:10px 12px;">'
+            +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">'
+            +'<div style="flex:1;"><i class="mdi '+icon+'" style="color:#4493f8;margin-right:6px;"></i>'
+            +'<span style="font-weight:600;font-size:0.9rem;">'+_esc(c.value)+'</span>'
+            +'<span style="color:#aaa;font-size:0.82rem;margin-left:8px;">'+_esc(c.label||defLabel)+'</span></div>'
+            +'<div style="display:flex;gap:2px;flex-shrink:0;">'
+            +'<button onclick="_drawerEditContact('+i+',\''+pid+'\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button>'
+            +'<button onclick="_drawerDeleteContact('+i+',\''+pid+'\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button>'
+            +'</div></div></div>';
+        });
+        attrs.forEach(function(attr){
+          if(attr.email){
+            html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;"><i class="mdi mdi-email-outline" style="color:#4493f8;margin-right:6px;"></i><span style="font-weight:600;font-size:0.9rem;">'+_esc(attr.email)+'</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">Email ('+_esc(EVENT_TYPES[attr.type]||attr.type)+')</span></div></div></div>';
+          }
+          if(attr.www){
+            html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;"><i class="mdi mdi-web" style="color:#4493f8;margin-right:6px;"></i><span style="font-weight:600;font-size:0.9rem;">'+_esc(attr.www)+'</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">Website ('+_esc(EVENT_TYPES[attr.type]||attr.type)+')</span></div></div></div>';
+          }
+          if(attr.address){
+            var a=attr.address; var parts=[]; if(a.adr1) parts.push(a.adr1); if(a.adr2) parts.push(a.adr2); if(a.addr&&a.addr!==a.adr1) parts.push(a.addr);
+            var loc=[]; if(a.city) loc.push(a.city); if(a.stae) loc.push(a.stae); if(a.post) loc.push(a.post); if(a.ctry) loc.push(a.ctry);
+            if(loc.length) parts.push(loc.join(', '));
+            if(parts.length){
+              html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;align-items:center;gap:8px;"><div style="flex:1;"><i class="mdi mdi-home-outline" style="color:#4493f8;margin-right:6px;"></i><span style="font-weight:600;font-size:0.9rem;">Morada</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">'+_esc(EVENT_TYPES[attr.type]||attr.type)+'</span></div></div><div style="color:#bbb;font-size:0.82rem;margin-top:4px;line-height:1.5;">'+_esc(parts.join(' \u00b7 '))+'</div></div>';
+            }
+          }
+        });
+        html+='</div>';
+        return html;
+      }
+
+      function _drawerDeleteContact(idx,personId){
+        if(!confirm('Apagar este contacto?')) return;
+        var indi=DB.getIndividual(personId); if(!indi) return;
+        if(!indi.contacts) indi.contacts=[];
+        indi.contacts.splice(idx,1);
+        DB.saveIndividual(indi);
+        document.getElementById('drawerBody').innerHTML=_renderDrawerContacts(personId);
+      }
+
+      function _drawerEditContact(idx,personId){
+        var indi=DB.getIndividual(personId); if(!indi) return;
+        var c=(indi.contacts||[])[idx]; if(!c) return;
+        var pid=_esc(personId);
+        document.getElementById('drawerBody').innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Editar Contacto</h3>'
+          +'<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label>'
+          +'<select id="editCtType" style="width:100%;"><option value="phone"'+(c.type==='phone'?' selected':'')+'>Telm\u00f3vel</option><option value="email"'+(c.type==='email'?' selected':'')+'>Email</option></select></div>'
+          +'<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Valor</label>'
+          +'<input id="editCtValue" type="text" value="'+_esc(c.value||'')+'" style="width:100%;"/></div>'
+          +'<div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Etiqueta (opcional)</label>'
+          +'<input id="editCtLabel" type="text" value="'+_esc(c.label||'')+'" placeholder="ex: Casa, Trabalho..." style="width:100%;"/></div>'
+          +'<div style="display:flex;gap:8px;justify-content:flex-end;">'
+          +'<button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\''+pid+'\',\'contactos\')">Cancelar</button>'
+          +'<button class="btn btn-sm" onclick="_drawerSaveEditContact('+idx+',\''+pid+'\')" ><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+      }
+
+      function _drawerSaveEditContact(idx,personId){
+        var indi=DB.getIndividual(personId); if(!indi) return;
+        var type=(document.getElementById('editCtType')||{}).value||'phone';
+        var value=((document.getElementById('editCtValue')||{}).value||'').trim();
+        var label=((document.getElementById('editCtLabel')||{}).value||'').trim();
+        if(!value){ alert('Introduza um valor para o contacto.'); return; }
+        if(!indi.contacts) indi.contacts=[];
+        indi.contacts[idx]={type:type,value:value,label:label||undefined};
+        DB.saveIndividual(indi);
+        openDrawerSection(personId,'contactos');
+      }
+
+      function _drawerShowAddContact(personId){
+        var pid=_esc(personId);
+        document.getElementById('drawerBody').innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Novo Contacto</h3>'
+          +'<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label>'
+          +'<select id="addCtType" style="width:100%;"><option value="phone" selected>Telm\u00f3vel</option><option value="email">Email</option></select></div>'
+          +'<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Valor</label>'
+          +'<input id="addCtValue" type="text" placeholder="+351 910 000 000 / email@exemplo.com" style="width:100%;"/></div>'
+          +'<div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Etiqueta (opcional)</label>'
+          +'<input id="addCtLabel" type="text" placeholder="ex: Casa, Trabalho..." style="width:100%;"/></div>'
+          +'<div style="display:flex;gap:8px;justify-content:flex-end;">'
+          +'<button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\''+pid+'\',\'contactos\')">Cancelar</button>'
+          +'<button class="btn btn-sm" onclick="_drawerSaveNewContact(\''+pid+'\')" ><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+        setTimeout(function(){ var v=document.getElementById('addCtValue'); if(v) v.focus(); },50);
+      }
+
+      function _drawerSaveNewContact(personId){
+        var indi=DB.getIndividual(personId); if(!indi) return;
+        var type=(document.getElementById('addCtType')||{}).value||'phone';
+        var value=((document.getElementById('addCtValue')||{}).value||'').trim();
+        var label=((document.getElementById('addCtLabel')||{}).value||'').trim();
+        if(!value){ alert('Introduza um valor para o contacto.'); return; }
+        if(!indi.contacts) indi.contacts=[];
+        indi.contacts.push({type:type,value:value,label:label||undefined});
+        DB.saveIndividual(indi);
+        openDrawerSection(personId,'contactos');
       }
 
       function _renderDrawerRelations(personId,people){
@@ -1726,6 +1846,8 @@
         const lastName=(document.getElementById('df_lastName')||{}).value||'';
         const gender=(document.getElementById('df_gender')||{}).value||'';
         const notes=(document.getElementById('df_notes')||{}).value||'';
+        const marriedName=((document.getElementById('df_marriedName')||{}).value||'').trim();
+        const aka=((document.getElementById('df_aka')||{}).value||'').trim();
         let people=loadPeople();
         if(_drawerMode==='create'){
           people.push({id:'p_'+Date.now(),firstName:firstName.trim(),lastName:lastName.trim(),gender,notes,createdAt:new Date().toISOString()});
@@ -1733,6 +1855,13 @@
         } else {
           const idx=people.findIndex(p=>String(p.id)===String(_drawerPersonId));
           if(idx!==-1){ people[idx]=Object.assign({},people[idx],{firstName:firstName.trim(),lastName:lastName.trim(),gender,notes,updatedAt:new Date().toISOString()}); savePeople(people); }
+          /* persist marriedName/aka to DB individual */
+          var indi=DB.getIndividual(_drawerPersonId);
+          if(indi){
+            var nameRec=(indi.names&&indi.names[0])||{};
+            indi.names=[Object.assign({},nameRec,{marriedName:marriedName||undefined,aka:aka||undefined})];
+            DB.saveIndividual(indi);
+          }
         }
         closeDrawer();
         runValidation();

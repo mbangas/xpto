@@ -555,11 +555,15 @@
         const body=document.getElementById('drawerBody');
         const given=indi?DB.getGivenName(indi):'';
         const surname=indi?DB.getSurname(indi):'';
+        const nameRec=indi&&indi.names&&indi.names[0]||{};
+        const marriedName=nameRec.marriedName||'';
+        const aka=nameRec.aka||'';
         const sex=indi?(indi.sex||''):'';
         const notes=indi?(indi.notes||''):'';
         body.innerHTML=[
           '<div class="drawer-section-label">Identidade</div>',
           '<div class="form-row"><div><label>Primeiro nome</label><input type="text" id="df_firstName" value="'+_esc(given)+'" placeholder="Nome" /></div><div><label>Apelido</label><input type="text" id="df_lastName" value="'+_esc(surname)+'" placeholder="Apelido" /></div></div>',
+          '<div class="form-row"><div><label>Nome de casada</label><input type="text" id="df_marriedName" value="'+_esc(marriedName)+'" placeholder="Nome de casada" /></div><div><label>Também conhecido como</label><input type="text" id="df_aka" value="'+_esc(aka)+'" placeholder="Outros nomes" /></div></div>',
           '<div><label>Género</label><select id="df_gender"><option value=""'+(!sex?' selected':'')+'>​(n/a)</option><option value="M"'+(sex==='M'?' selected':'')+'>Masculino</option><option value="F"'+(sex==='F'?' selected':'')+'>Feminino</option><option value="X"'+(sex==='X'?' selected':'')+'>Outro</option></select></div>',
           '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
           '<div><textarea id="df_notes" rows="3" placeholder="Notas...">'+_esc(notes)+'</textarea></div>',
@@ -605,7 +609,7 @@
         html+='<div class="mini-list">';
         evs.forEach((ev,i)=>{
           const label=EVENT_TYPES[ev.type]||ev.type||'';
-          html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">'+_esc(label)+'</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">'+_esc(fmtEventDate(ev))+'</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_drawerEditEvent('+i+',\''+_esc(personId)+'\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_drawerDeleteEvent('+i+',\''+_esc(personId)+'\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>'+(ev.place?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; '+_esc(ev.place)+'</div>':'')+(ev.notes?'<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">'+_esc(ev.notes)+'</div>':'')+'</div>';
+          html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">'+_esc(label)+'</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">'+_esc(fmtEventDate(ev))+'</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_drawerEditEvent('+i+',\''+_esc(personId)+'\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_drawerDeleteEvent('+i+',\''+_esc(personId)+'\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>'+(ev.place?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; '+_esc(ev.place)+'</div>':'')+(ev.description?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;"><i class="mdi mdi-tag-outline" style="margin-right:3px;"></i>'+_esc(ev.description)+'</div>':'')+(ev.cause?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;"><i class="mdi mdi-alert-circle-outline" style="margin-right:3px;"></i>'+_esc(ev.cause)+'</div>':'')+(ev.age?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;"><i class="mdi mdi-account-clock-outline" style="margin-right:3px;"></i>'+_esc(ev.age)+'</div>':'')+(ev.notes?'<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">'+_esc(ev.notes)+'</div>':'')+'</div>';
         });
         marrEvs.forEach(({ev,famId,famIdx})=>{
           html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">Casamento</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">'+_esc(fmtEventDate(ev))+'</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_drawerEditMarrEvent(\''+_esc(famId)+'\','+famIdx+',\''+_esc(personId)+'\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_drawerDeleteMarrEvent(\''+_esc(famId)+'\','+famIdx+',\''+_esc(personId)+'\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>'+(ev.place?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; '+_esc(ev.place)+'</div>':'')+(ev.notes?'<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">'+_esc(ev.notes)+'</div>':'')+'</div>';
@@ -628,7 +632,7 @@
         const p=parseGedcomDate(ev.date);
         const body=document.getElementById('drawerBody');
         const opts=Object.entries(EVENT_TYPES).map(([k,v])=>'<option value="'+k+'"'+(ev.type===k?' selected':'')+'>'+v+'</option>').join('');
-        body.innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Editar Evento</h3><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="editEvType" style="width:100%;">'+opts+'</select></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="editEvQual" style="width:100%;margin-bottom:6px;"><option value="Exatamente"'+((!p.qualifier||p.qualifier==='Exatamente')?' selected':'')+'>Exatamente</option><option value="Antes de"'+(p.qualifier==='Antes de'?' selected':'')+'>Antes de</option><option value="Depois de"'+(p.qualifier==='Depois de'?' selected':'')+'>Depois de</option><option value="Cerca de"'+(p.qualifier==='Cerca de'?' selected':'')+'>Cerca de</option></select><div style="display:flex;gap:6px;"><input id="editEvDay" type="number" min="1" max="31" placeholder="Dia" value="'+(p.day||'')+'" style="flex:1;min-width:0;text-align:center;"/><input id="editEvMonth" type="number" min="1" max="12" placeholder="Mês" value="'+(p.month||'')+'" style="flex:1;min-width:0;text-align:center;"/><input id="editEvYear" type="number" min="1" max="9999" placeholder="Ano" value="'+(p.year||'')+'" style="flex:2;min-width:0;text-align:center;"/></div></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="editEvPlace" type="text" value="'+_esc(ev.place||'')+'" style="width:100%;"/></div><div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="editEvNotes" rows="3" style="width:100%;resize:vertical;">'+_esc(ev.notes||'')+'</textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\''+_esc(personId)+'\',\'eventos\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveEditEvent('+idx+',\''+_esc(personId)+'\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+        body.innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Editar Evento</h3><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="editEvType" style="width:100%;">'+opts+'</select></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="editEvQual" style="width:100%;margin-bottom:6px;"><option value="Exatamente"'+((!p.qualifier||p.qualifier==='Exatamente')?' selected':'')+'>Exatamente</option><option value="Antes de"'+(p.qualifier==='Antes de'?' selected':'')+'>Antes de</option><option value="Depois de"'+(p.qualifier==='Depois de'?' selected':'')+'>Depois de</option><option value="Cerca de"'+(p.qualifier==='Cerca de'?' selected':'')+'>Cerca de</option></select><div style="display:flex;gap:6px;"><input id="editEvDay" type="number" min="1" max="31" placeholder="Dia" value="'+(p.day||'')+'" style="flex:1;min-width:0;text-align:center;"/><input id="editEvMonth" type="number" min="1" max="12" placeholder="Mês" value="'+(p.month||'')+'" style="flex:1;min-width:0;text-align:center;"/><input id="editEvYear" type="number" min="1" max="9999" placeholder="Ano" value="'+(p.year||'')+'" style="flex:2;min-width:0;text-align:center;"/></div></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="editEvPlace" type="text" value="'+_esc(ev.place||'')+'" style="width:100%;"/></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Descrição</label><input id="editEvDescription" type="text" value="'+_esc(ev.description||'')+'" placeholder="Descrição do evento" style="width:100%;"/></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Causa</label><input id="editEvCause" type="text" value="'+_esc(ev.cause||'')+'" placeholder="Causa (ex: doença)" style="width:100%;"/></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Idade</label><input id="editEvAge" type="text" value="'+_esc(ev.age||'')+'" placeholder="Idade na altura" style="width:100%;"/></div><div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="editEvNotes" rows="3" style="width:100%;resize:vertical;">'+_esc(ev.notes||'')+'</textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\''+_esc(personId)+'\',\'eventos\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveEditEvent('+idx+',\''+_esc(personId)+'\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
       };
 
       window._drawerSaveEditEvent = function(idx,personId){
@@ -641,7 +645,10 @@
         if(!day&&!month&&!year){ alert('Preencha pelo menos um campo de data.'); return; }
         const place=((document.getElementById('editEvPlace')||{}).value||'').trim();
         const notes=((document.getElementById('editEvNotes')||{}).value||'').trim();
-        indi.events[idx]={type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined};
+        const description=((document.getElementById('editEvDescription')||{}).value||'').trim();
+        const cause=((document.getElementById('editEvCause')||{}).value||'').trim();
+        const age=((document.getElementById('editEvAge')||{}).value||'').trim();
+        indi.events[idx]={type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined,description:description||undefined,cause:cause||undefined,age:age||undefined};
         DB.saveIndividual(indi);
         openDrawerSection(personId,'eventos');
       };
@@ -652,7 +659,7 @@
         const marrOpt=spouseFams.length?'<option value="MARR">Casamento</option>':'';
         const famOpts=spouseFams.map(fam=>{ const spouseId=(fam.husb===personId)?fam.wife:fam.husb; const spouse=spouseId?DB.getIndividual(spouseId):null; const label=spouse?DB.getDisplayName(spouse):'(família '+fam.id+')'; return '<option value="'+_esc(fam.id)+'">'+_esc(label)+'</option>'; }).join('');
         const famRow=spouseFams.length?'<div id="addEvFamRow" style="margin-bottom:10px;display:none;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Cônjuge</label><select id="addEvFamId" style="width:100%;">'+famOpts+'</select></div>':'';
-        document.getElementById('drawerBody').innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Novo Evento</h3><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="addEvType" onchange="_drawerToggleMarrFamily(this.value)" style="width:100%;">'+opts+marrOpt+'</select></div>'+famRow+'<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="addEvQual" style="width:100%;margin-bottom:6px;"><option value="Exatamente" selected>Exatamente</option><option value="Antes de">Antes de</option><option value="Depois de">Depois de</option><option value="Cerca de">Cerca de</option></select><div style="display:flex;gap:6px;"><input id="addEvDay" type="number" min="1" max="31" placeholder="Dia" style="flex:1;min-width:0;text-align:center;"/><input id="addEvMonth" type="number" min="1" max="12" placeholder="Mês" style="flex:1;min-width:0;text-align:center;"/><input id="addEvYear" type="number" min="1" max="9999" placeholder="Ano" style="flex:2;min-width:0;text-align:center;"/></div></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="addEvPlace" type="text" placeholder="Local do evento" style="width:100%;"/></div><div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="addEvNotes" rows="3" placeholder="Notas..." style="width:100%;resize:vertical;"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\''+_esc(personId)+'\',\'eventos\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewEvent(\''+_esc(personId)+'\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+        document.getElementById('drawerBody').innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Novo Evento</h3><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="addEvType" onchange="_drawerToggleMarrFamily(this.value)" style="width:100%;">'+opts+marrOpt+'</select></div>'+famRow+'<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="addEvQual" style="width:100%;margin-bottom:6px;"><option value="Exatamente" selected>Exatamente</option><option value="Antes de">Antes de</option><option value="Depois de">Depois de</option><option value="Cerca de">Cerca de</option></select><div style="display:flex;gap:6px;"><input id="addEvDay" type="number" min="1" max="31" placeholder="Dia" style="flex:1;min-width:0;text-align:center;"/><input id="addEvMonth" type="number" min="1" max="12" placeholder="Mês" style="flex:1;min-width:0;text-align:center;"/><input id="addEvYear" type="number" min="1" max="9999" placeholder="Ano" style="flex:2;min-width:0;text-align:center;"/></div></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="addEvPlace" type="text" placeholder="Local do evento" style="width:100%;"/></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Descrição</label><input id="addEvDescription" type="text" placeholder="Descrição do evento" style="width:100%;"/></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Causa</label><input id="addEvCause" type="text" placeholder="Causa (ex: doença)" style="width:100%;"/></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Idade</label><input id="addEvAge" type="text" placeholder="Idade na altura" style="width:100%;"/></div><div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="addEvNotes" rows="3" placeholder="Notas..." style="width:100%;resize:vertical;"></textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\''+_esc(personId)+'\',\'eventos\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewEvent(\''+_esc(personId)+'\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
       };
 
       window._drawerSaveNewEvent = function(personId){
@@ -665,16 +672,19 @@
         if(!day&&!month&&!year){ alert('Preencha pelo menos um campo de data.'); return; }
         const place=((document.getElementById('addEvPlace')||{}).value||'').trim();
         const notes=((document.getElementById('addEvNotes')||{}).value||'').trim();
+        const description=((document.getElementById('addEvDescription')||{}).value||'').trim();
+        const cause=((document.getElementById('addEvCause')||{}).value||'').trim();
+        const age=((document.getElementById('addEvAge')||{}).value||'').trim();
         if(type==='MARR'){
           const famId=((document.getElementById('addEvFamId')||{}).value||'');
           const fam=famId?DB.getFamily(famId):(DB.getFamilies().filter(f=>f.husb===personId||f.wife===personId)[0]||null);
           if(!fam){ alert('Não foi encontrado cônjuge.'); return; }
           if(!fam.events) fam.events=[];
-          fam.events.push({type:'MARR',date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined});
+          fam.events.push({type:'MARR',date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined,description:description||undefined,cause:cause||undefined,age:age||undefined});
           DB.saveFamily(fam);
         } else {
           if(!indi.events) indi.events=[];
-          indi.events.push({type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined});
+          indi.events.push({type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined,description:description||undefined,cause:cause||undefined,age:age||undefined});
           DB.saveIndividual(indi);
         }
         openDrawerSection(personId,'eventos');
@@ -1058,9 +1068,10 @@
       function _renderContacts(personId){
         const indi=DB.getIndividual(personId);
         const contacts=(indi&&indi.contacts)||[];
+        const attrs=(indi&&indi.attributes)||[];
         const pid=_esc(personId);
         let html='<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddContact(\''+pid+'\')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Contacto</button></div>';
-        if(!contacts.length){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhum contacto registado.</div>'; return html; }
+        if(!contacts.length&&!attrs.some(function(a){return a.email||a.www||a.address;})){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhum contacto registado.</div>'; return html; }
         html+='<div class="mini-list">';
         contacts.forEach(function(c,i){
           const icon=c.type==='phone'?'mdi-phone-outline':'mdi-email-outline';
@@ -1074,6 +1085,31 @@
             +'<button onclick="_drawerEditContact('+i+',\''+pid+'\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button>'
             +'<button onclick="_drawerDeleteContact('+i+',\''+pid+'\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button>'
             +'</div></div></div>';
+        });
+        /* Show email/www/address from GEDCOM attributes (RESI, etc.) */
+        attrs.forEach(function(attr,ai){
+          if(attr.email){
+            html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><i class="mdi mdi-email-outline" style="color:#4493f8;margin-right:6px;"></i><span style="font-weight:600;font-size:0.9rem;">'+_esc(attr.email)+'</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">Email ('+_esc(EVENT_TYPES[attr.type]||attr.type)+')</span></div></div></div>';
+          }
+          if(attr.www){
+            html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><i class="mdi mdi-web" style="color:#4493f8;margin-right:6px;"></i><span style="font-weight:600;font-size:0.9rem;">'+_esc(attr.www)+'</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">Website ('+_esc(EVENT_TYPES[attr.type]||attr.type)+')</span></div></div></div>';
+          }
+          if(attr.address){
+            var a=attr.address;
+            var parts=[];
+            if(a.adr1) parts.push(a.adr1);
+            if(a.adr2) parts.push(a.adr2);
+            if(a.addr&&a.addr!==a.adr1) parts.push(a.addr);
+            var loc=[];
+            if(a.city) loc.push(a.city);
+            if(a.stae) loc.push(a.stae);
+            if(a.post) loc.push(a.post);
+            if(a.ctry) loc.push(a.ctry);
+            if(loc.length) parts.push(loc.join(', '));
+            if(parts.length){
+              html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><i class="mdi mdi-home-outline" style="color:#4493f8;margin-right:6px;"></i><span style="font-weight:600;font-size:0.9rem;">Morada</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">'+_esc(EVENT_TYPES[attr.type]||attr.type)+'</span></div></div><div style="color:#bbb;font-size:0.82rem;margin-top:4px;line-height:1.5;">'+_esc(parts.join(' · '))+'</div></div>';
+            }
+          }
         });
         html+='</div>';
         return html;
@@ -1149,11 +1185,13 @@
         const surname=(document.getElementById('df_lastName')||{}).value||'';
         const sex=(document.getElementById('df_gender')||{}).value||'U';
         const notes=(document.getElementById('df_notes')||{}).value||'';
+        const marriedName=((document.getElementById('df_marriedName')||{}).value||'').trim();
+        const aka=((document.getElementById('df_aka')||{}).value||'').trim();
         if(_drawerMode==='create'){
-          DB.saveIndividual({names:[{given:given.trim(),surname:surname.trim(),type:'birth'}],sex,notes,events:[]});
+          DB.saveIndividual({names:[{given:given.trim(),surname:surname.trim(),marriedName:marriedName||undefined,aka:aka||undefined,type:'birth'}],sex,notes,events:[]});
         } else if(_drawerPersonId){
           const indi=DB.getIndividual(_drawerPersonId);
-          if(indi){ indi.names=[{given:given.trim(),surname:surname.trim(),type:'birth'}]; indi.sex=sex; indi.notes=notes; DB.saveIndividual(indi); }
+          if(indi){ indi.names=[Object.assign({},indi.names&&indi.names[0]||{},{given:given.trim(),surname:surname.trim(),marriedName:marriedName||undefined,aka:aka||undefined,type:'birth'})]; indi.sex=sex; indi.notes=notes; DB.saveIndividual(indi); }
         }
         closeDrawer(); renderTable();
       }

@@ -934,11 +934,15 @@
         const body=document.getElementById('drawerBody');
         const given=indi?DB.getGivenName(indi):'';
         const surname=indi?DB.getSurname(indi):'';
+        const nameRec=indi&&indi.names&&indi.names[0]||{};
+        const marriedName=nameRec.marriedName||'';
+        const aka=nameRec.aka||'';
         const sex=indi?(indi.sex||''):'';
         const notes=indi?(indi.notes||''):'';
         body.innerHTML=[
           '<div class="drawer-section-label">Identidade</div>',
           '<div class="form-row"><div><label>Primeiro nome</label><input type="text" id="df_firstName" value="'+_esc(given)+'" placeholder="Nome" /></div><div><label>Apelido</label><input type="text" id="df_lastName" value="'+_esc(surname)+'" placeholder="Apelido" /></div></div>',
+          '<div class="form-row"><div><label>Nome de casada</label><input type="text" id="df_marriedName" value="'+_esc(marriedName)+'" placeholder="Nome de casada" /></div><div><label>Também conhecido como</label><input type="text" id="df_aka" value="'+_esc(aka)+'" placeholder="Outros nomes" /></div></div>',
           '<div><label>Género</label><select id="df_gender"><option value=""'+(!sex?' selected':'')+'>​(n/a)</option><option value="M"'+(sex==='M'?' selected':'')+'>Masculino</option><option value="F"'+(sex==='F'?' selected':'')+'>Feminino</option><option value="X"'+(sex==='X'?' selected':'')+'>Outro</option></select></div>',
           '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
           '<div><textarea id="df_notes" rows="3" placeholder="Notas...">'+_esc(notes)+'</textarea></div>',
@@ -994,7 +998,7 @@
         html+='<div class="mini-list">';
         evs.forEach((ev,i)=>{
           const label=EVENT_TYPES[ev.type]||ev.type||'';
-          html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">'+_esc(label)+'</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">'+_esc(fmtEventDate(ev))+'</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_treeEditEvent('+i+',\''+_esc(personId)+'\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_treeDeleteEvent('+i+',\''+_esc(personId)+'\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>'+(ev.place?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; '+_esc(ev.place)+'</div>':'')+(ev.notes?'<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">'+_esc(ev.notes)+'</div>':'')+'</div>';
+          html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">'+_esc(label)+'</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">'+_esc(fmtEventDate(ev))+'</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_treeEditEvent('+i+',\''+_esc(personId)+'\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_treeDeleteEvent('+i+',\''+_esc(personId)+'\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>'+(ev.place?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; '+_esc(ev.place)+'</div>':'')+(ev.description?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;"><i class="mdi mdi-tag-outline" style="margin-right:3px;"></i>'+_esc(ev.description)+'</div>':'')+(ev.cause?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;"><i class="mdi mdi-alert-circle-outline" style="margin-right:3px;"></i>'+_esc(ev.cause)+'</div>':'')+(ev.age?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;"><i class="mdi mdi-account-clock-outline" style="margin-right:3px;"></i>'+_esc(ev.age)+'</div>':'')+(ev.notes?'<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">'+_esc(ev.notes)+'</div>':'')+'</div>';
         });
         marrEvs.forEach(({ev,famId,famIdx})=>{
           html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">Casamento</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">'+_esc(fmtEventDate(ev))+'</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_treeEditMarrEvent(\''+_esc(famId)+'\','+famIdx+',\''+_esc(personId)+'\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_treeDeleteMarrEvent(\''+_esc(famId)+'\','+famIdx+',\''+_esc(personId)+'\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>'+(ev.place?'<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; '+_esc(ev.place)+'</div>':'')+(ev.notes?'<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">'+_esc(ev.notes)+'</div>':'')+'</div>';
@@ -1017,7 +1021,7 @@
         const p=parseGedcomDate(ev.date);
         const body=document.getElementById('drawerBody');
         const opts=Object.entries(EVENT_TYPES).map(([k,v])=>'<option value="'+k+'"'+(ev.type===k?' selected':'')+'>'+v+'</option>').join('');
-        body.innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Editar Evento</h3><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="tevType" style="width:100%;">'+opts+'</select></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="tevQual" style="width:100%;margin-bottom:6px;"><option value="Exatamente"'+((!p.qualifier||p.qualifier==="Exatamente")?" selected":"")+'>Exatamente</option><option value="Antes de"'+(p.qualifier==="Antes de"?" selected":"")+'>Antes de</option><option value="Depois de"'+(p.qualifier==="Depois de"?" selected":"")+'>Depois de</option><option value="Cerca de"'+(p.qualifier==="Cerca de"?" selected":"")+'>Cerca de</option></select><div style="display:flex;gap:6px;"><input id="tevDay" type="number" min="1" max="31" placeholder="Dia" value="'+(p.day||'')+'" style="flex:1;min-width:0;text-align:center;"/><input id="tevMonth" type="number" min="1" max="12" placeholder="Mês" value="'+(p.month||'')+'" style="flex:1;min-width:0;text-align:center;"/><input id="tevYear" type="number" min="1" max="9999" placeholder="Ano" value="'+(p.year||'')+'" style="flex:2;min-width:0;text-align:center;"/></div></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="tevPlace" type="text" value="'+_esc(ev.place||'')+'" style="width:100%;"/></div><div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="tevNotes" rows="3" style="width:100%;resize:vertical;">'+_esc(ev.notes||'')+'</textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\''+_esc(personId)+'\',\'eventos\')">Cancelar</button><button class="btn btn-sm" onclick="_treeSaveEditEvent('+idx+',\''+_esc(personId)+'\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+        body.innerHTML='<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Editar Evento</h3><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="tevType" style="width:100%;">'+opts+'</select></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="tevQual" style="width:100%;margin-bottom:6px;"><option value="Exatamente"'+((!p.qualifier||p.qualifier==="Exatamente")?" selected":"")+'>Exatamente</option><option value="Antes de"'+(p.qualifier==="Antes de"?" selected":"")+'>Antes de</option><option value="Depois de"'+(p.qualifier==="Depois de"?" selected":"")+'>Depois de</option><option value="Cerca de"'+(p.qualifier==="Cerca de"?" selected":"")+'>Cerca de</option></select><div style="display:flex;gap:6px;"><input id="tevDay" type="number" min="1" max="31" placeholder="Dia" value="'+(p.day||'')+'" style="flex:1;min-width:0;text-align:center;"/><input id="tevMonth" type="number" min="1" max="12" placeholder="Mês" value="'+(p.month||'')+'" style="flex:1;min-width:0;text-align:center;"/><input id="tevYear" type="number" min="1" max="9999" placeholder="Ano" value="'+(p.year||'')+'" style="flex:2;min-width:0;text-align:center;"/></div></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="tevPlace" type="text" value="'+_esc(ev.place||'')+'" style="width:100%;"/></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Descrição</label><input id="tevDescription" type="text" value="'+_esc(ev.description||'')+'" placeholder="Descrição do evento" style="width:100%;"/></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Causa</label><input id="tevCause" type="text" value="'+_esc(ev.cause||'')+'" placeholder="Causa (ex: doença)" style="width:100%;"/></div><div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Idade</label><input id="tevAge" type="text" value="'+_esc(ev.age||'')+'" placeholder="Idade na altura" style="width:100%;"/></div><div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="tevNotes" rows="3" style="width:100%;resize:vertical;">'+_esc(ev.notes||'')+'</textarea></div><div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\''+_esc(personId)+'\',\'eventos\')">Cancelar</button><button class="btn btn-sm" onclick="_treeSaveEditEvent('+idx+',\''+_esc(personId)+'\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
       };
 
       window._treeSaveEditEvent=function(idx,personId){
@@ -1030,7 +1034,10 @@
         if(!day&&!month&&!year){ alert('Preencha pelo menos um campo de data.'); return; }
         const place=((document.getElementById('tevPlace')||{}).value||'').trim();
         const notes=((document.getElementById('tevNotes')||{}).value||'').trim();
-        indi.events[idx]={type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined};
+        const description=((document.getElementById('tevDescription')||{}).value||'').trim();
+        const cause=((document.getElementById('tevCause')||{}).value||'').trim();
+        const age=((document.getElementById('tevAge')||{}).value||'').trim();
+        indi.events[idx]={type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined,description:description||undefined,cause:cause||undefined,age:age||undefined};
         DB.saveIndividual(indi);
         openDrawerSection(personId,'eventos');
       };
@@ -1054,16 +1061,19 @@
         if(!day&&!month&&!year){ alert('Preencha pelo menos um campo de data.'); return; }
         const place=((document.getElementById('newEvPlace')||{}).value||'').trim();
         const notes=((document.getElementById('newEvNotes')||{}).value||'').trim();
+        const description=((document.getElementById('newEvDescription')||{}).value||'').trim();
+        const cause=((document.getElementById('newEvCause')||{}).value||'').trim();
+        const age=((document.getElementById('newEvAge')||{}).value||'').trim();
         if(type==='MARR'){
           const famId=((document.getElementById('newEvFamId')||{}).value||'');
           const fam=famId?DB.getFamily(famId):(DB.getFamilies().filter(f=>f.husb===personId||f.wife===personId)[0]||null);
           if(!fam){ alert('Não foi encontrado cônjuge.'); return; }
           if(!fam.events) fam.events=[];
-          fam.events.push({type:'MARR',date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined});
+          fam.events.push({type:'MARR',date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined,description:description||undefined,cause:cause||undefined,age:age||undefined});
           DB.saveFamily(fam);
         } else {
           if(!indi.events) indi.events=[];
-          indi.events.push({type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined});
+          indi.events.push({type,date:buildGedcomDate(day,month,year,qual),place:place||undefined,notes:notes||undefined,description:description||undefined,cause:cause||undefined,age:age||undefined});
           DB.saveIndividual(indi);
         }
         openDrawerSection(personId,'eventos');
@@ -1418,9 +1428,10 @@
       function _renderContacts(personId){
         const indi=DB.getIndividual(personId);
         const contacts=(indi&&indi.contacts)||[];
+        const attrs=(indi&&indi.attributes)||[];
         const pid=_esc(personId);
         let html='<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddContact(\''+pid+'\')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Contacto</button></div>';
-        if(!contacts.length){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhum contacto registado.</div>'; return html; }
+        if(!contacts.length&&!attrs.some(function(a){return a.email||a.www||a.address;})){ html+='<div style="color:#888;padding:4px 0 12px;">Nenhum contacto registado.</div>'; return html; }
         html+='<div class="mini-list">';
         contacts.forEach(function(c,i){
           const icon=c.type==='phone'?'mdi-phone-outline':'mdi-email-outline';
@@ -1434,6 +1445,31 @@
             +'<button onclick="_drawerEditContact('+i+',\''+pid+'\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button>'
             +'<button onclick="_drawerDeleteContact('+i+',\''+pid+'\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button>'
             +'</div></div></div>';
+        });
+        /* Show email/www/address from GEDCOM attributes (RESI, etc.) */
+        attrs.forEach(function(attr,ai){
+          if(attr.email){
+            html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><i class="mdi mdi-email-outline" style="color:#4493f8;margin-right:6px;"></i><span style="font-weight:600;font-size:0.9rem;">'+_esc(attr.email)+'</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">Email ('+_esc(EVENT_TYPES[attr.type]||attr.type)+')</span></div></div></div>';
+          }
+          if(attr.www){
+            html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><i class="mdi mdi-web" style="color:#4493f8;margin-right:6px;"></i><span style="font-weight:600;font-size:0.9rem;">'+_esc(attr.www)+'</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">Website ('+_esc(EVENT_TYPES[attr.type]||attr.type)+')</span></div></div></div>';
+          }
+          if(attr.address){
+            var a=attr.address;
+            var parts=[];
+            if(a.adr1) parts.push(a.adr1);
+            if(a.adr2) parts.push(a.adr2);
+            if(a.addr&&a.addr!==a.adr1) parts.push(a.addr);
+            var loc=[];
+            if(a.city) loc.push(a.city);
+            if(a.stae) loc.push(a.stae);
+            if(a.post) loc.push(a.post);
+            if(a.ctry) loc.push(a.ctry);
+            if(loc.length) parts.push(loc.join(', '));
+            if(parts.length){
+              html+='<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><i class="mdi mdi-home-outline" style="color:#4493f8;margin-right:6px;"></i><span style="font-weight:600;font-size:0.9rem;">Morada</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">'+_esc(EVENT_TYPES[attr.type]||attr.type)+'</span></div></div><div style="color:#bbb;font-size:0.82rem;margin-top:4px;line-height:1.5;">'+_esc(parts.join(' · '))+'</div></div>';
+            }
+          }
         });
         html+='</div>';
         return html;
@@ -1511,11 +1547,13 @@
         const notes=(document.getElementById('df_notes')||{}).value||'';
         // Capture focus BEFORE the save so we can restore it after
         const keepFocus = _getSelectedOrFocusId();
+        const marriedName=((document.getElementById('df_marriedName')||{}).value||'').trim();
+        const aka=((document.getElementById('df_aka')||{}).value||'').trim();
         if(_drawerMode==='create'){
-          DB.saveIndividual({names:[{given:given.trim(),surname:surname.trim(),type:'birth'}],sex,notes,events:[]});
+          DB.saveIndividual({names:[{given:given.trim(),surname:surname.trim(),marriedName:marriedName||undefined,aka:aka||undefined,type:'birth'}],sex,notes,events:[]});
         } else if(_drawerPersonId){
           const indi=DB.getIndividual(_drawerPersonId);
-          if(indi){indi.names=[{given:given.trim(),surname:surname.trim(),type:'birth'}];indi.sex=sex;indi.notes=notes;DB.saveIndividual(indi);}
+          if(indi){indi.names=[Object.assign({},indi.names&&indi.names[0]||{},{given:given.trim(),surname:surname.trim(),marriedName:marriedName||undefined,aka:aka||undefined,type:'birth'})];indi.sex=sex;indi.notes=notes;DB.saveIndividual(indi);}
         }
         closeDrawer();
         populateFocusSelect(keepFocus);

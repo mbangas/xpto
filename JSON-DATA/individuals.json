@@ -67336,9 +67336,7 @@
         "prefix": "",
         "suffix": "",
         "nickname": "",
-        "marriedName": "",
-        "aka": "",
-        "type": "BIRTH"
+        "type": "birth"
       }
     ],
     "sex": "M",
@@ -67351,6 +67349,9 @@
         "cause": "",
         "age": "",
         "description": ""
+      },
+      {
+        "type": "DEAT"
       }
     ],
     "attributes": [],
@@ -67358,9 +67359,7 @@
     "fams": [
       "F500089"
     ],
-    "notes": [
-      "Não existem registos de nascimento (baptismos, Igreja Católica) anteriores a 1604 na freguesia da Freixiosa, concelho de Mangualde, distrito de Viseu, Portugal. Provavelmente nasceu em 1540."
-    ],
+    "notes": "Não existem registos de nascimento (baptismos, Igreja Católica) anteriores a 1604 na freguesia da Freixiosa, concelho de Mangualde, distrito de Viseu, Portugal. Provavelmente nasceu em 1540.",
     "sourceRefs": [
       {
         "sourceId": "S500002",
@@ -67370,7 +67369,7 @@
     ],
     "multimediaRefs": [],
     "createdAt": "2026-03-11T09:53:27.891Z",
-    "updatedAt": "2026-03-11T09:53:27.891Z",
+    "updatedAt": "2026-03-11T11:33:25.463Z",
     "deletedAt": null
   },
   "I500208": {
@@ -67608,9 +67607,7 @@
         "prefix": "",
         "suffix": "",
         "nickname": "",
-        "marriedName": "",
-        "aka": "",
-        "type": "BIRTH"
+        "type": "birth"
       }
     ],
     "sex": "M",
@@ -67623,6 +67620,9 @@
         "cause": "",
         "age": "",
         "description": ""
+      },
+      {
+        "type": "DEAT"
       }
     ],
     "attributes": [],
@@ -67630,7 +67630,7 @@
     "fams": [
       "F500090"
     ],
-    "notes": [],
+    "notes": "",
     "sourceRefs": [
       {
         "sourceId": "S500002",
@@ -67640,7 +67640,7 @@
     ],
     "multimediaRefs": [],
     "createdAt": "2026-03-11T09:53:27.891Z",
-    "updatedAt": "2026-03-11T09:53:27.891Z",
+    "updatedAt": "2026-03-11T11:34:02.627Z",
     "deletedAt": null
   },
   "I500214": {
@@ -67700,9 +67700,7 @@
         "prefix": "",
         "suffix": "",
         "nickname": "",
-        "marriedName": "",
-        "aka": "",
-        "type": "BIRTH"
+        "type": "birth"
       }
     ],
     "sex": "M",
@@ -67715,6 +67713,9 @@
         "cause": "",
         "age": "",
         "description": ""
+      },
+      {
+        "type": "DEAT"
       }
     ],
     "attributes": [],
@@ -67722,9 +67723,7 @@
     "fams": [
       "F500091"
     ],
-    "notes": [
-      "Não existem registos de nascimento (baptismos, Igreja Católica) anteriores a 1604 na freguesia da Freixiosa, concelho de Mangualde, distrito de Viseu, Portugal. Provavelmente nasceu em 1516."
-    ],
+    "notes": "Não existem registos de nascimento (baptismos, Igreja Católica) anteriores a 1604 na freguesia da Freixiosa, concelho de Mangualde, distrito de Viseu, Portugal. Provavelmente nasceu em 1516.",
     "sourceRefs": [
       {
         "sourceId": "S500002",
@@ -67734,7 +67733,7 @@
     ],
     "multimediaRefs": [],
     "createdAt": "2026-03-11T09:53:27.891Z",
-    "updatedAt": "2026-03-11T09:53:27.891Z",
+    "updatedAt": "2026-03-11T11:32:42.867Z",
     "deletedAt": null
   },
   "I500216": {
@@ -67796,9 +67795,7 @@
         "prefix": "",
         "suffix": "",
         "nickname": "",
-        "marriedName": "",
-        "aka": "",
-        "type": "BIRTH"
+        "type": "birth"
       }
     ],
     "sex": "M",
@@ -67811,6 +67808,9 @@
         "cause": "",
         "age": "",
         "description": ""
+      },
+      {
+        "type": "DEAT"
       }
     ],
     "attributes": [],
@@ -67818,9 +67818,7 @@
     "fams": [
       "F500092"
     ],
-    "notes": [
-      "Não existem registos de nascimento (baptismos, Igreja Católica) anteriores a 1604 na freguesia da Freixiosa, concelho de Mangualde, distrito de Viseu, Portugal. Provavelmente nasceu em 1521."
-    ],
+    "notes": "Não existem registos de nascimento (baptismos, Igreja Católica) anteriores a 1604 na freguesia da Freixiosa, concelho de Mangualde, distrito de Viseu, Portugal. Provavelmente nasceu em 1521.",
     "sourceRefs": [
       {
         "sourceId": "S500002",
@@ -67830,7 +67828,7 @@
     ],
     "multimediaRefs": [],
     "createdAt": "2026-03-11T09:53:27.891Z",
-    "updatedAt": "2026-03-11T09:53:27.891Z",
+    "updatedAt": "2026-03-11T11:32:52.594Z",
     "deletedAt": null
   },
   "I500218": {

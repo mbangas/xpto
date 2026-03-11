@@ -135,6 +135,8 @@
     var aka         = nameRec.aka         || '';
     var sex         = indi ? (indi.sex    || '') : '';
     var notes       = indi ? (indi.notes  || '') : '';
+    var isDeceased  = indi ? !!(indi.events && indi.events.some(function (e) { return e.type === 'DEAT'; })) : false;
+    var deceasedPid = indi ? '\'' + _esc(indi.id) + '\'' : 'null';
 
     var body = document.getElementById('drawerBody');
     body.innerHTML = [
@@ -154,6 +156,14 @@
           '<option value="F"'  + (sex === 'F'  ? ' selected' : '') + '>Feminino</option>',
           '<option value="X"'  + (sex === 'X'  ? ' selected' : '') + '>Outro</option>',
         '</select></div>',
+      '<div style="margin-top:10px;padding:8px 0 4px;display:flex;align-items:center;gap:12px;">',
+        '<span style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#999;">Falecido/a</span>',
+        '<label style="position:relative;display:inline-block;width:42px;height:22px;cursor:pointer;flex-shrink:0;">',
+          '<input type="checkbox" id="df_deceased"' + (isDeceased ? ' checked' : '') + ' style="opacity:0;position:absolute;width:0;height:0;" onchange="_drawerToggleDeceased(this.checked,' + deceasedPid + ')"/>',
+          '<span id="df_deceasedTrack" style="position:absolute;inset:0;border-radius:11px;background:' + (isDeceased ? 'var(--accent,#4493f8)' : '#444') + ';transition:background 0.2s;"></span>',
+          '<span id="df_deceasedThumb" style="position:absolute;top:3px;left:' + (isDeceased ? '23' : '3') + 'px;width:16px;height:16px;background:#fff;border-radius:50%;transition:left 0.2s;box-shadow:0 1px 3px rgba(0,0,0,.5);"></span>',
+        '</label>',
+      '</div>',
       '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
       '<div><textarea id="df_notes" rows="3" placeholder="Notas...">' + _esc(notes) + '</textarea></div>',
       indi ? [
@@ -287,13 +297,13 @@
     var day   = parseInt((document.getElementById('editEvDay')  || {}).value) || null;
     var month = parseInt((document.getElementById('editEvMonth')|| {}).value) || null;
     var year  = parseInt((document.getElementById('editEvYear') || {}).value) || null;
-    if (!day && !month && !year) { alert('Preencha pelo menos um campo de data.'); return; }
     var place       = ((document.getElementById('editEvPlace')      || {}).value || '').trim();
     var notes       = ((document.getElementById('editEvNotes')      || {}).value || '').trim();
     var description = ((document.getElementById('editEvDescription')|| {}).value || '').trim();
     var cause       = ((document.getElementById('editEvCause')      || {}).value || '').trim();
     var age         = ((document.getElementById('editEvAge')        || {}).value || '').trim();
-    indi.events[idx] = { type: type, date: buildGedcomDate(day, month, year, qual), place: place || undefined, notes: notes || undefined, description: description || undefined, cause: cause || undefined, age: age || undefined };
+    var dateStr = buildGedcomDate(day, month, year, qual);
+    indi.events[idx] = { type: type, date: dateStr || undefined, place: place || undefined, notes: notes || undefined, description: description || undefined, cause: cause || undefined, age: age || undefined };
     DB.saveIndividual(indi);
     openDrawerSection(personId, 'eventos');
   };
@@ -336,13 +346,13 @@
     var day   = parseInt((document.getElementById('addEvDay')  || {}).value) || null;
     var month = parseInt((document.getElementById('addEvMonth')|| {}).value) || null;
     var year  = parseInt((document.getElementById('addEvYear') || {}).value) || null;
-    if (!day && !month && !year) { alert('Preencha pelo menos um campo de data.'); return; }
     var place       = ((document.getElementById('addEvPlace')      || {}).value || '').trim();
     var notes       = ((document.getElementById('addEvNotes')      || {}).value || '').trim();
     var description = ((document.getElementById('addEvDescription')|| {}).value || '').trim();
     var cause       = ((document.getElementById('addEvCause')      || {}).value || '').trim();
     var age         = ((document.getElementById('addEvAge')        || {}).value || '').trim();
-    var newEv = { type: type, date: buildGedcomDate(day, month, year, qual), place: place || undefined, notes: notes || undefined, description: description || undefined, cause: cause || undefined, age: age || undefined };
+    var dateStr = buildGedcomDate(day, month, year, qual);
+    var newEv = { type: type, date: dateStr || undefined, place: place || undefined, notes: notes || undefined, description: description || undefined, cause: cause || undefined, age: age || undefined };
     if (type === 'MARR') {
       var famId = ((document.getElementById('addEvFamId') || {}).value || '');
       var fam   = famId ? DB.getFamily(famId) : (DB.getFamilies().filter(function (f) { return f.husb === personId || f.wife === personId; })[0] || null);
@@ -395,7 +405,29 @@
     DB.saveFamily(fam);
     document.getElementById('drawerBody').innerHTML = _renderEvents(personId);
   };
-
+  window._drawerToggleDeceased = function (isDeceased, personId) {
+    var track = document.getElementById('df_deceasedTrack');
+    var thumb = document.getElementById('df_deceasedThumb');
+    if (track) track.style.background = isDeceased ? 'var(--accent,#4493f8)' : '#444';
+    if (thumb) thumb.style.left = isDeceased ? '23px' : '3px';
+    if (!personId) return;
+    var DB   = _db(); if (!DB) return;
+    var indi = DB.getIndividual(personId); if (!indi) return;
+    if (!indi.events) indi.events = [];
+    if (isDeceased) {
+      var hasDeat = indi.events.some(function (e) { return e.type === 'DEAT'; });
+      if (!hasDeat) {
+        indi.events.push({ type: 'DEAT' });
+        DB.saveIndividual(indi);
+      }
+    } else {
+      var hadDeat = indi.events.some(function (e) { return e.type === 'DEAT'; });
+      if (hadDeat) {
+        indi.events = indi.events.filter(function (e) { return e.type !== 'DEAT'; });
+        DB.saveIndividual(indi);
+      }
+    }
+  };
   /* ══════════════════════════════════════════════════════════════════════════
      RELATIONS SECTION
   ══════════════════════════════════════════════════════════════════════════ */
@@ -942,7 +974,9 @@
     var aka         = ((document.getElementById('df_aka')          || {}).value || '').trim();
     var savedId     = _drawerPersonId;
     if (_drawerMode === 'create') {
-      var saved = DB.saveIndividual({ names: [{ given: given.trim(), surname: surname.trim(), marriedName: marriedName || undefined, aka: aka || undefined, type: 'birth' }], sex: sex, notes: notes, events: [] });
+      var isDeceasedOnCreate = (document.getElementById('df_deceased') || {}).checked || false;
+      var initEvents = isDeceasedOnCreate ? [{ type: 'DEAT' }] : [];
+      var saved = DB.saveIndividual({ names: [{ given: given.trim(), surname: surname.trim(), marriedName: marriedName || undefined, aka: aka || undefined, type: 'birth' }], sex: sex, notes: notes, events: initEvents });
       savedId = saved ? saved.id : null;
     } else if (_drawerPersonId) {
       var indi = DB.getIndividual(_drawerPersonId);

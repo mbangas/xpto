@@ -1,5 +1,105 @@
 [
   {
+    "ts": "2026-03-11T11:34:02.437Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I500213",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "João Vaz",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-11T11:33:56.801Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I500213",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "João Vaz",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-11T11:33:25.394Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I500207",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Gregório Fernandes",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-11T11:33:13.535Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I500207",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Gregório Fernandes",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-11T11:33:08.467Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I500207",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Gregório Fernandes",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-11T11:32:56.395Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I500207",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Gregório Fernandes",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-11T11:32:52.546Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I500217",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Ambrósio João",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-11T11:32:49.082Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I500217",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Ambrósio João",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-11T11:32:42.799Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I500215",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Henrique Vaz",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-11T11:32:40.302Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I500215",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Henrique Vaz",
+    "actor": "+351931018263"
+  },
+  {
     "ts": "2026-03-11T10:51:52.145Z",
     "entity": "Individual",
     "action": "Actualizar Indivíduo",

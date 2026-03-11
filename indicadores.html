@@ -333,8 +333,24 @@
       .rede-spouses-wrap {
         display: flex; flex-direction: column; gap: 20px;
       }
+      .rede-grid-3 {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 24px;
+      }
+      .rede-person-link {
+        cursor: pointer;
+        transition: color 0.15s;
+      }
+      .rede-person-link:hover {
+        color: #7bb3f0;
+        text-decoration: underline;
+      }
+      @media (max-width: 1200px) {
+        .rede-grid-3 { grid-template-columns: repeat(2, 1fr); }
+      }
       @media (max-width: 860px) {
-        .rede-grid-2 { grid-template-columns: 1fr; }
+        .rede-grid-2, .rede-grid-3 { grid-template-columns: 1fr; }
       }
 
       /* ── Folder Tabs ─────────────────────────────────────────────── */
@@ -1923,7 +1939,7 @@
               <div class="rede-main-card">
                 ${redeAvatar(relId, relName, colors.main)}
                 <div style="flex:1;min-width:0">
-                  <div class="rede-person-name">${relName}</div>
+                  <div class="rede-person-name rede-person-link" onclick="openDrawer('edit','${relId}')">${relName}</div>
                   <div class="rede-bar-track"><div class="rede-bar-fill" style="width:${pct(totalWithRel)}%;background:${colors.main}"></div></div>
                 </div>
                 <div class="rede-count">${totalWithRel.toLocaleString('pt-PT')}</div>
@@ -1937,7 +1953,7 @@
                 <div class="rede-sub-card">
                   ${redeAvatar(gpFId, gpFName, colors.paternal, 'rede-avatar-sm')}
                   <div style="flex:1;min-width:0">
-                    <div class="rede-person-name" style="font-size:0.76rem">${gpFName}</div>
+                    <div class="rede-person-name rede-person-link" style="font-size:0.76rem" onclick="openDrawer('edit','${gpFId}')">${gpFName}</div>
                     <div class="rede-bar-sub-track"><div class="rede-bar-fill" style="width:${pct(gpFCount)}%;background:${colors.paternal}"></div></div>
                   </div>
                   <div class="rede-count rede-count-sm">${gpFCount.toLocaleString('pt-PT')}</div>
@@ -1950,7 +1966,7 @@
                 <div class="rede-sub-card">
                   ${redeAvatar(gpMId, gpMName, colors.maternal, 'rede-avatar-sm')}
                   <div style="flex:1;min-width:0">
-                    <div class="rede-person-name" style="font-size:0.76rem">${gpMName}</div>
+                    <div class="rede-person-name rede-person-link" style="font-size:0.76rem" onclick="openDrawer('edit','${gpMId}')">${gpMName}</div>
                     <div class="rede-bar-sub-track"><div class="rede-bar-fill" style="width:${pct(gpMCount)}%;background:${colors.maternal}"></div></div>
                   </div>
                   <div class="rede-count rede-count-sm">${gpMCount.toLocaleString('pt-PT')}</div>
@@ -1967,30 +1983,23 @@
           return html;
         }
 
-        let contentHtml = '';
+        const blocks = [];
+        if(fatherId) blocks.push(renderRelativeBlock(fatherId, PALETTE.father, 'Relacionado através do seu pai'));
+        if(motherId) blocks.push(renderRelativeBlock(motherId, PALETTE.mother, 'Relacionado através da sua mãe'));
+        spouseIds.forEach((spouseId, idx) => {
+          const sp = personMap[spouseId];
+          if(!sp) return;
+          const spSex   = sp.sex || '';
+          const spLabel = spSex === 'F' ? 'da sua mulher' : (spSex === 'M' ? 'do seu marido' : 'do/da cônjuge');
+          const colors  = PALETTE.spouses[idx % PALETTE.spouses.length];
+          blocks.push(renderRelativeBlock(spouseId, colors, `Relacionado através ${spLabel}`));
+        });
 
-        if(fatherId || motherId) {
-          const gridCls = fatherId && motherId ? 'rede-grid-2' : '';
-          contentHtml += `<div class="${gridCls}" style="margin-bottom:${gridCls ? '20' : '0'}px">`;
-          if(fatherId) contentHtml += renderRelativeBlock(fatherId, PALETTE.father, 'Relacionado através do seu pai');
-          if(motherId) contentHtml += renderRelativeBlock(motherId, PALETTE.mother, 'Relacionado através da sua mãe');
-          contentHtml += `</div>`;
-        }
-
-        if(spouseIds.length > 0) {
-          contentHtml += `<div class="rede-spouses-wrap">`;
-          spouseIds.forEach((spouseId, idx) => {
-            const sp = personMap[spouseId];
-            if(!sp) return;
-            const spSex   = sp.sex || '';
-            const spLabel = spSex === 'F' ? 'da sua mulher' : (spSex === 'M' ? 'do seu marido' : 'do/da cônjuge');
-            const colors  = PALETTE.spouses[idx % PALETTE.spouses.length];
-            contentHtml += renderRelativeBlock(spouseId, colors, `Relacionado através ${spLabel}`);
-          });
-          contentHtml += `</div>`;
-        }
-
-        container.innerHTML = contentHtml;
+        const colCount = Math.min(blocks.length, 3);
+        const gridCls = colCount === 3 ? 'rede-grid-3' : (colCount === 2 ? 'rede-grid-2' : '');
+        container.innerHTML = gridCls
+          ? `<div class="${gridCls}">${blocks.join('')}</div>`
+          : blocks.join('');
       }
 
       window.DRAWER_CONFIG = {

@@ -647,11 +647,15 @@
         const btn = document.getElementById('aniv-top-btn');
         const scroller = document.querySelector('main.content');
         if (!btn || !scroller) return;
-        scroller.addEventListener('scroll', function() {
-          if (scroller.scrollTop > 200) btn.classList.add('visible');
+        function onScroll() {
+          const y = window.scrollY || window.pageYOffset || scroller.scrollTop || 0;
+          if (y > 200) btn.classList.add('visible');
           else btn.classList.remove('visible');
-        }, { passive: true });
+        }
+        window.addEventListener('scroll', onScroll, { passive: true });
+        scroller.addEventListener('scroll', onScroll, { passive: true });
         btn.addEventListener('click', function() {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
           scroller.scrollTo({ top: 0, behavior: 'smooth' });
         });
       }());

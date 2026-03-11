@@ -631,3 +631,36 @@ body.page-tree .legend {
   .topbar { padding: 0 12px; }
   body.page-tree .tree-canvas-wrap { padding: 8px; }
 }
+
+/* ── Back to top button ───────────────────────────────────────────────── */
+.back-to-top {
+  position: fixed;
+  bottom: 28px;
+  right: 28px;
+  z-index: 200;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.15rem;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s, transform 0.2s;
+  transform: translateY(8px);
+}
+.back-to-top.visible {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.back-to-top:hover { background: var(--accent-hover, #5aa8ff); }
+@media (max-width: 600px) {
+  .back-to-top { bottom: 16px; right: 16px; }
+}

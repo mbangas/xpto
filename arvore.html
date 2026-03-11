@@ -893,9 +893,27 @@
         renderChart(id);
       });
 
-      /* ═══════════════════════════════════════════════════════════════════
-         DRAWER (same pattern as app.html)
-         ═══════════════════════════════════════════════════════════════════ */
+      window.DRAWER_CONFIG = {
+        treeBtnAction: function(personId) {
+          window.closeDrawer();
+          document.getElementById('focusPersonSelect').value = personId;
+          var _indi = DB.getIndividual(personId);
+          if (_indi) document.getElementById('focusPersonInput').value = DB.getDisplayName(_indi);
+          renderChart(personId);
+        },
+        afterSave: function(savedId) {
+          populateFocusSelect(savedId);
+          refreshChartInPlace();
+        },
+        afterDelete: function(deletedId) {
+          var currentFocus = _getSelectedOrFocusId();
+          var stillValid = DB.getIndividuals().find(function(i) { return i.id === currentFocus; });
+          var newFocus = stillValid ? currentFocus : (DB.getIndividuals()[0] || {}).id || null;
+          populateFocusSelect(newFocus);
+          refreshChartInPlace();
+        }
+      };
+      if(false) { /* LEGACY DRAWER CODE - replaced by edit-person-drawer.js */
       let _drawerPersonId=null,_drawerMode='edit';
 
       function openDrawer(mode,personId){
@@ -1574,20 +1592,12 @@
         refreshChartInPlace();
       }
 
-      document.getElementById('drawerCloseBtn').addEventListener('click',closeDrawer);
-      document.getElementById('drawerCancelBtn').addEventListener('click',closeDrawer);
-      document.getElementById('drawerOverlay').addEventListener('click',closeDrawer);
-      document.getElementById('drawerSaveBtn').addEventListener('click',drawerSave);
-      document.getElementById('drawerDeleteBtn').addEventListener('click',drawerDeletePerson);
-      document.getElementById('drawerBackBtn').addEventListener('click',function(){const pid=this._personId;if(pid) openDrawer('edit',pid);});
-
-      /* ── Photo modal stubs ─────────────────────────────────────────────── */
-      window._drawerClosePhotoModal = function(){ window.PhotoLightbox && window.PhotoLightbox.close(); };
-      window._drawerSavePhotoNotes  = function(){};
+      } /* end disabled drawer code */
 
     })();
     </script>
     <script src="photo-lightbox.js"></script>
+    <script src="edit-person-drawer.js"></script>
     <script src="history-logger.js"></script>
   </body>
 </html>

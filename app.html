@@ -521,9 +521,15 @@
 
       document.getElementById('hideDeleted').addEventListener('change', renderTable);
 
-      /* ═══════════════════════════════════════════════════════════════════
-         DRAWER
-         ═══════════════════════════════════════════════════════════════════ */
+      window.DRAWER_CONFIG = {
+        treeBtnAction: function(personId) {
+          DB.setSetting('tempFocusPerson', personId);
+          window.location.href = 'arvore.html';
+        },
+        afterSave:   function() { renderTable(); },
+        afterDelete: function() { renderTable(); }
+      };
+      if(false) { /* LEGACY DRAWER CODE - replaced by edit-person-drawer.js */
       let _drawerPersonId = null, _drawerMode = 'edit';
 
       function openDrawer(mode, personId){
@@ -1275,7 +1281,7 @@
       document.getElementById('drawerOverlay').addEventListener('click', closeDrawer);
       document.getElementById('drawerSaveBtn').addEventListener('click', drawerSave);
       document.getElementById('drawerDeleteBtn').addEventListener('click', drawerDeletePerson);
-      document.getElementById('drawerBackBtn').addEventListener('click', function(){ const pid=this._personId; if(pid) openDrawer('edit',pid); });
+      } /* end disabled drawer code */
 
       /* ── Init ──────────────────────────────────────────────────────────── */
       renderTable();
@@ -1394,6 +1400,7 @@
     </script>
 
     <script src="photo-lightbox.js"></script>
+    <script src="edit-person-drawer.js"></script>
     <script src="history-logger.js"></script>
   </body>
 </html>

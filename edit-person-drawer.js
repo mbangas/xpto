@@ -1,0 +1,995 @@
+/**
+ * edit-person-drawer.js
+ * Shared "Edit Person" drawer for arvore.html, app.html and validacao.html.
+ *
+ * Configuration — each page sets window.DRAWER_CONFIG BEFORE this script loads:
+ *
+ *   window.DRAWER_CONFIG = {
+ *     // What the "Ver na Árvore" button does. If omitted the button is hidden.
+ *     treeBtnAction: function(personId) { ... },
+ *     // Called after a person is saved (create or update). Receives saved id.
+ *     afterSave:     function(personId) { ... },
+ *     // Called after a person is permanently deleted. Receives the deleted id.
+ *     afterDelete:   function(deletedId) { ... },
+ *   };
+ *
+ * Depends on:
+ *   window.GedcomDB     — GEDCOM data store (set by remote-storage.js)
+ *   window.PhotoLightbox — photo viewer (set by photo-lightbox.js)
+ */
+(function () {
+  'use strict';
+
+  /* ── Data store ──────────────────────────────────────────────────────────── */
+  function _db() { return window.GedcomDB; }
+
+  /* ── HTML escape ─────────────────────────────────────────────────────────── */
+  function _esc(s) {
+    return String(s || '').replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  /* ── GEDCOM date utilities ───────────────────────────────────────────────── */
+  var MONTHS     = ['','JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+  var MONTHS_MAP = {JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12};
+  var QUAL_TO_GED = {'Antes de':'BEF','Depois de':'AFT','Cerca de':'ABT'};
+  var GED_TO_QUAL = {BEF:'Antes de',AFT:'Depois de',ABT:'Cerca de',EST:'Cerca de'};
+
+  function buildGedcomDate(day, month, year, qualifier) {
+    var p = [];
+    if (qualifier && qualifier !== 'Exatamente') p.push(QUAL_TO_GED[qualifier] || qualifier);
+    if (day)   p.push(String(day));
+    if (month) p.push(MONTHS[month] || '');
+    if (year)  p.push(String(year));
+    return p.join(' ');
+  }
+
+  function parseGedcomDate(s) {
+    if (!s) return {};
+    var tokens = s.toUpperCase().split(/\s+/);
+    var q = null, d = null, m = null, y = null;
+    for (var i = 0; i < tokens.length; i++) {
+      var t = tokens[i];
+      if (GED_TO_QUAL[t])                    q = GED_TO_QUAL[t];
+      else if (MONTHS_MAP[t])                m = MONTHS_MAP[t];
+      else if (/^\d{3,4}$/.test(t))          y = parseInt(t);
+      else if (/^\d{1,2}$/.test(t) && !d)   d = parseInt(t);
+    }
+    return { day: d, month: m, year: y, qualifier: q };
+  }
+
+  function fmtEventDate(ev) {
+    if (!ev || !ev.date) return '';
+    var p = parseGedcomDate(ev.date);
+    var qualMap = { 'Antes de': 'ant.', 'Depois de': 'dep.', 'Cerca de': 'c.' };
+    var q = p.qualifier ? (qualMap[p.qualifier] || p.qualifier) + ' ' : '';
+    var parts = [];
+    if (p.day)   parts.push(String(p.day).padStart(2, '0'));
+    if (p.month) parts.push(String(p.month).padStart(2, '0'));
+    if (p.year)  parts.push(String(p.year));
+    return q + (parts.length ? parts.join('/') : ev.date);
+  }
+
+  /* ── Drawer state ────────────────────────────────────────────────────────── */
+  var _drawerPersonId = null;
+  var _drawerMode     = 'edit';
+
+  /* ── Open / Close ────────────────────────────────────────────────────────── */
+  function openDrawer(mode, personId) {
+    var DB = _db();
+    var footer  = document.querySelector('.drawer-footer');
+    var backBtn = document.getElementById('drawerBackBtn');
+    var phdr    = document.getElementById('drawerPersonHeader');
+    if (footer)  footer.style.display = '';
+    if (backBtn) { backBtn.style.display = 'none'; backBtn._personId = null; }
+    if (phdr)    phdr.style.display = '';
+
+    _drawerMode     = mode;
+    _drawerPersonId = personId ? String(personId) : null;
+
+    var indi = (personId && DB) ? DB.getIndividual(personId) : null;
+
+    document.getElementById('drawerTitle').textContent = (mode === 'create') ? 'Nova Pessoa' : 'Editar Pessoa';
+
+    /* Tree button */
+    var cfg      = window.DRAWER_CONFIG || {};
+    var treeBtn  = document.getElementById('drawerTreeBtn');
+    if (treeBtn) {
+      var showTree = (mode === 'edit' && personId && typeof cfg.treeBtnAction === 'function');
+      treeBtn.style.display = showTree ? '' : 'none';
+      treeBtn.onclick = showTree ? function () { cfg.treeBtnAction(_drawerPersonId); } : null;
+    }
+
+    /* Person header (avatar, name, dates) */
+    var nameEl   = document.getElementById('drawerPersonName');
+    var subEl    = document.getElementById('drawerPersonSub');
+    var avatarEl = document.getElementById('drawerAvatar');
+    if (indi && DB) {
+      nameEl.textContent = DB.getDisplayName(indi);
+      var sub = [];
+      var birth = DB.getBirthEvent(indi); if (birth && birth.date) sub.push('\u2605 ' + fmtEventDate(birth));
+      var death = DB.getDeathEvent(indi); if (death && death.date) sub.push('\u271D ' + fmtEventDate(death));
+      subEl.textContent = sub.join('  \u00b7  ');
+      var thumb = DB.getThumbnailForPerson(indi.id);
+      if (thumb) {
+        avatarEl.style.backgroundImage    = 'url(' + thumb + ')';
+        avatarEl.style.backgroundSize     = 'cover';
+        avatarEl.style.backgroundPosition = 'center';
+      } else {
+        avatarEl.style.backgroundImage = '';
+        avatarEl.style.background = indi.sex === 'F' ? '#e26aa6' : indi.sex === 'M' ? '#4493f8' : '#9aa0a6';
+      }
+    } else {
+      nameEl.textContent = 'Nova Pessoa';
+      subEl.textContent  = '';
+      avatarEl.style.backgroundImage = '';
+      avatarEl.style.background = 'var(--bg-surface-2)';
+    }
+
+    /* Identity form */
+    var given       = (indi && DB) ? (DB.getGivenName(indi)  || '') : '';
+    var surname     = (indi && DB) ? (DB.getSurname(indi)    || '') : '';
+    var nameRec     = (indi && indi.names && indi.names[0])  || {};
+    var marriedName = nameRec.marriedName || '';
+    var aka         = nameRec.aka         || '';
+    var sex         = indi ? (indi.sex    || '') : '';
+    var notes       = indi ? (indi.notes  || '') : '';
+
+    var body = document.getElementById('drawerBody');
+    body.innerHTML = [
+      '<div class="drawer-section-label">Identidade</div>',
+      '<div class="form-row">',
+        '<div><label>Primeiro nome</label><input type="text" id="df_firstName" value="' + _esc(given)   + '" placeholder="Nome" /></div>',
+        '<div><label>Apelido</label><input type="text" id="df_lastName" value="'        + _esc(surname) + '" placeholder="Apelido" /></div>',
+      '</div>',
+      '<div class="form-row">',
+        '<div><label>Nome de casada</label><input type="text" id="df_marriedName" value="' + _esc(marriedName) + '" placeholder="Nome de casada" /></div>',
+        '<div><label>Tamb\u00e9m conhecido como</label><input type="text" id="df_aka" value="' + _esc(aka) + '" placeholder="Outros nomes" /></div>',
+      '</div>',
+      '<div><label>G\u00e9nero</label>',
+        '<select id="df_gender">',
+          '<option value=""'   + (!sex         ? ' selected' : '') + '>\u200b(n/a)</option>',
+          '<option value="M"'  + (sex === 'M'  ? ' selected' : '') + '>Masculino</option>',
+          '<option value="F"'  + (sex === 'F'  ? ' selected' : '') + '>Feminino</option>',
+          '<option value="X"'  + (sex === 'X'  ? ' selected' : '') + '>Outro</option>',
+        '</select></div>',
+      '<div class="drawer-section-label" style="margin-top:8px;">Notas</div>',
+      '<div><textarea id="df_notes" rows="3" placeholder="Notas...">' + _esc(notes) + '</textarea></div>',
+      indi ? [
+        '<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;">',
+          '<button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + _esc(indi.id) + '\',\'relacoes\')"><i class="mdi mdi-account-multiple-outline"></i> Rela\u00e7\u00f5es</button>',
+          '<button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + _esc(indi.id) + '\',\'eventos\')"><i class="mdi mdi-calendar-check-outline"></i> Eventos</button>',
+          '<button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + _esc(indi.id) + '\',\'fotos\')"><i class="mdi mdi-image-multiple-outline"></i> Fotos</button>',
+          '<button class="btn btn-ghost btn-sm" style="font-size:0.82rem;" onclick="openDrawerSection(\'' + _esc(indi.id) + '\',\'contactos\')"><i class="mdi mdi-card-account-phone-outline"></i> Contactos</button>',
+        '</div>',
+        '<div style="margin-top:10px;display:flex;gap:8px;">',
+          '<button class="btn btn-sm" style="font-size:0.82rem;gap:5px;" onclick="_drawerShowAddPerson(\'' + _esc(indi.id) + '\')"><i class="mdi mdi-account-plus-outline"></i> Adicionar</button>',
+          '<button class="btn btn-sm" style="font-size:0.82rem;gap:5px;" onclick="_drawerShowLinkPerson(\'' + _esc(indi.id) + '\')"><i class="mdi mdi-link-variant"></i> Ligar</button>',
+        '</div>'
+      ].join('') : ''
+    ].join('');
+
+    document.getElementById('personDrawer').classList.add('open');
+    document.getElementById('drawerOverlay').classList.add('open');
+    setTimeout(function () { var fi = document.getElementById('df_firstName'); if (fi) fi.focus(); }, 50);
+  }
+
+  function closeDrawer() {
+    document.getElementById('personDrawer').classList.remove('open');
+    document.getElementById('drawerOverlay').classList.remove('open');
+  }
+
+  window.openDrawer  = openDrawer;
+  window.closeDrawer = closeDrawer;
+
+  /* ── Section dispatcher ──────────────────────────────────────────────────── */
+  window.openDrawerSection = function (personId, section) {
+    var DB   = _db();
+    var indi = DB ? DB.getIndividual(personId) : null;
+    if (!indi) return;
+    var footer  = document.querySelector('.drawer-footer');
+    var phdr    = document.getElementById('drawerPersonHeader');
+    var backBtn = document.getElementById('drawerBackBtn');
+    var treeBtn = document.getElementById('drawerTreeBtn');
+    if (footer)  footer.style.display  = 'none';
+    if (phdr)    phdr.style.display    = 'none';
+    if (treeBtn) treeBtn.style.display = 'none';
+    if (backBtn) { backBtn.style.display = ''; backBtn._personId = personId; }
+
+    var label = section === 'relacoes' ? 'Rela\u00e7\u00f5es'
+              : section === 'fotos'    ? 'Fotos'
+              : section === 'contactos'? 'Contactos'
+              : 'Eventos';
+    document.getElementById('drawerTitle').textContent = label + ' \u2014 ' + DB.getDisplayName(indi);
+
+    var body = document.getElementById('drawerBody');
+    if      (section === 'relacoes')  body.innerHTML = _renderRelations(personId);
+    else if (section === 'fotos')   { body.innerHTML = _renderPhotos(personId); _buildPhotoGrid(personId); }
+    else if (section === 'contactos') body.innerHTML = _renderContacts(personId);
+    else                              body.innerHTML = _renderEvents(personId);
+  };
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     EVENTS SECTION
+  ══════════════════════════════════════════════════════════════════════════ */
+  var EVENT_TYPES = {BIRT:'Nascimento',BAPM:'Batismo',CHR:'Batizado',DEAT:'\u00d3bito',BURI:'Sepultamento',CREM:'Crema\u00e7\u00e3o',ADOP:'Ado\u00e7\u00e3o',OCCU:'Ocupa\u00e7\u00e3o',RESI:'Resid\u00eancia',EVEN:'Outro'};
+
+  function _renderEvents(personId) {
+    var DB   = _db();
+    var indi = DB ? DB.getIndividual(personId) : null;
+    var evs  = (indi && indi.events) || [];
+    var marrEvs = [];
+    if (DB) {
+      DB.getFamilies().filter(function (f) { return f.husb === personId || f.wife === personId; })
+        .forEach(function (fam) {
+          (fam.events || []).forEach(function (ev, i) { if (ev.type === 'MARR') marrEvs.push({ ev: ev, famId: fam.id, famIdx: i }); });
+        });
+    }
+    var pid  = _esc(personId);
+    var html = '<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddEvent(\'' + pid + '\')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Evento</button></div>';
+    if (!evs.length && !marrEvs.length) { html += '<div style="color:#888;padding:4px 0 12px;">Nenhum evento cadastrado.</div>'; return html; }
+    html += '<div class="mini-list">';
+    evs.forEach(function (ev, i) {
+      var label = EVENT_TYPES[ev.type] || ev.type || '';
+      html += '<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">' + _esc(label) + '</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">' + _esc(fmtEventDate(ev)) + '</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_drawerEditEvent(' + i + ',\'' + pid + '\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_drawerDeleteEvent(' + i + ',\'' + pid + '\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>'
+        + (ev.place       ? '<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; ' + _esc(ev.place)       + '</div>' : '')
+        + (ev.description ? '<div style="color:#aaa;font-size:0.82rem;margin-top:3px;"><i class="mdi mdi-tag-outline" style="margin-right:3px;"></i>'            + _esc(ev.description) + '</div>' : '')
+        + (ev.cause       ? '<div style="color:#aaa;font-size:0.82rem;margin-top:3px;"><i class="mdi mdi-alert-circle-outline" style="margin-right:3px;"></i>'   + _esc(ev.cause)       + '</div>' : '')
+        + (ev.age         ? '<div style="color:#aaa;font-size:0.82rem;margin-top:3px;"><i class="mdi mdi-account-clock-outline" style="margin-right:3px;"></i>'  + _esc(ev.age)         + '</div>' : '')
+        + (ev.notes       ? '<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">'                                                                         + _esc(ev.notes)       + '</div>' : '')
+        + '</div>';
+    });
+    marrEvs.forEach(function (item) {
+      var ev = item.ev; var famId = item.famId; var famIdx = item.famIdx;
+      html += '<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">Casamento</span><span style="color:#888;font-size:0.82rem;margin-left:8px;">' + _esc(fmtEventDate(ev)) + '</span></div><div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_drawerEditMarrEvent(\'' + _esc(famId) + '\',' + famIdx + ',\'' + pid + '\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button><button onclick="_drawerDeleteMarrEvent(\'' + _esc(famId) + '\',' + famIdx + ',\'' + pid + '\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>'
+        + (ev.place ? '<div style="color:#aaa;font-size:0.82rem;margin-top:3px;">&#128205; ' + _esc(ev.place) + '</div>' : '')
+        + (ev.notes ? '<div style="color:#bbb;font-size:0.82rem;margin-top:3px;">' + _esc(ev.notes) + '</div>' : '')
+        + '</div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  window._drawerDeleteEvent = function (idx, personId) {
+    var DB = _db(); if (!DB) return;
+    if (!confirm('Apagar este evento?')) return;
+    var indi = DB.getIndividual(personId); if (!indi) return;
+    indi.events.splice(idx, 1);
+    DB.saveIndividual(indi);
+    document.getElementById('drawerBody').innerHTML = _renderEvents(personId);
+  };
+
+  window._drawerEditEvent = function (idx, personId) {
+    var DB = _db(); if (!DB) return;
+    var indi = DB.getIndividual(personId); if (!indi) return;
+    var ev = indi.events[idx]; if (!ev) return;
+    var p    = parseGedcomDate(ev.date);
+    var pid  = _esc(personId);
+    var opts = Object.entries(EVENT_TYPES).map(function (e) { return '<option value="' + e[0] + '"' + (ev.type === e[0] ? ' selected' : '') + '>' + e[1] + '</option>'; }).join('');
+    document.getElementById('drawerBody').innerHTML = '<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Editar Evento</h3>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="editEvType" style="width:100%;">' + opts + '</select></div>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="editEvQual" style="width:100%;margin-bottom:6px;"><option value="Exatamente"' + ((!p.qualifier || p.qualifier === 'Exatamente') ? ' selected' : '') + '>Exatamente</option><option value="Antes de"' + (p.qualifier === 'Antes de' ? ' selected' : '') + '>Antes de</option><option value="Depois de"' + (p.qualifier === 'Depois de' ? ' selected' : '') + '>Depois de</option><option value="Cerca de"' + (p.qualifier === 'Cerca de' ? ' selected' : '') + '>Cerca de</option></select>'
+      + '<div style="display:flex;gap:6px;"><input id="editEvDay" type="number" min="1" max="31" placeholder="Dia" value="' + (p.day || '') + '" style="flex:1;min-width:0;text-align:center;"/><input id="editEvMonth" type="number" min="1" max="12" placeholder="M\u00eas" value="' + (p.month || '') + '" style="flex:1;min-width:0;text-align:center;"/><input id="editEvYear" type="number" min="1" max="9999" placeholder="Ano" value="' + (p.year || '') + '" style="flex:2;min-width:0;text-align:center;"/></div></div>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="editEvPlace" type="text" value="' + _esc(ev.place || '') + '" style="width:100%;"/></div>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Descri\u00e7\u00e3o</label><input id="editEvDescription" type="text" value="' + _esc(ev.description || '') + '" placeholder="Descri\u00e7\u00e3o do evento" style="width:100%;"/></div>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Causa</label><input id="editEvCause" type="text" value="' + _esc(ev.cause || '') + '" placeholder="Causa (ex: doen\u00e7a)" style="width:100%;"/></div>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Idade</label><input id="editEvAge" type="text" value="' + _esc(ev.age || '') + '" placeholder="Idade na altura" style="width:100%;"/></div>'
+      + '<div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="editEvNotes" rows="3" style="width:100%;resize:vertical;">' + _esc(ev.notes || '') + '</textarea></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\'' + pid + '\',\'eventos\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveEditEvent(' + idx + ',\'' + pid + '\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+  };
+
+  window._drawerSaveEditEvent = function (idx, personId) {
+    var DB = _db(); if (!DB) return;
+    var indi = DB.getIndividual(personId); if (!indi) return;
+    var type  = (document.getElementById('editEvType')        || {}).value || 'EVEN';
+    var qual  = (document.getElementById('editEvQual')        || {}).value;
+    var day   = parseInt((document.getElementById('editEvDay')  || {}).value) || null;
+    var month = parseInt((document.getElementById('editEvMonth')|| {}).value) || null;
+    var year  = parseInt((document.getElementById('editEvYear') || {}).value) || null;
+    if (!day && !month && !year) { alert('Preencha pelo menos um campo de data.'); return; }
+    var place       = ((document.getElementById('editEvPlace')      || {}).value || '').trim();
+    var notes       = ((document.getElementById('editEvNotes')      || {}).value || '').trim();
+    var description = ((document.getElementById('editEvDescription')|| {}).value || '').trim();
+    var cause       = ((document.getElementById('editEvCause')      || {}).value || '').trim();
+    var age         = ((document.getElementById('editEvAge')        || {}).value || '').trim();
+    indi.events[idx] = { type: type, date: buildGedcomDate(day, month, year, qual), place: place || undefined, notes: notes || undefined, description: description || undefined, cause: cause || undefined, age: age || undefined };
+    DB.saveIndividual(indi);
+    openDrawerSection(personId, 'eventos');
+  };
+
+  window._drawerShowAddEvent = function (personId) {
+    var DB   = _db(); if (!DB) return;
+    var pid  = _esc(personId);
+    var opts = Object.entries(EVENT_TYPES).map(function (e) { return '<option value="' + e[0] + '">' + e[1] + '</option>'; }).join('');
+    var spouseFams = DB.getFamilies().filter(function (f) { return f.husb === personId || f.wife === personId; });
+    var marrOpt  = spouseFams.length ? '<option value="MARR">Casamento</option>' : '';
+    var famOpts  = spouseFams.map(function (fam) {
+      var spouseId = (fam.husb === personId) ? fam.wife : fam.husb;
+      var spouse   = spouseId ? DB.getIndividual(spouseId) : null;
+      var label    = spouse ? DB.getDisplayName(spouse) : '(fam\u00edlia ' + fam.id + ')';
+      return '<option value="' + _esc(fam.id) + '">' + _esc(label) + '</option>';
+    }).join('');
+    var famRow = spouseFams.length ? '<div id="addEvFamRow" style="margin-bottom:10px;display:none;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">C\u00f4njuge</label><select id="addEvFamId" style="width:100%;">' + famOpts + '</select></div>' : '';
+    document.getElementById('drawerBody').innerHTML = '<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Novo Evento</h3>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="addEvType" onchange="_drawerToggleMarrFamily(this.value)" style="width:100%;">' + opts + marrOpt + '</select></div>'
+      + famRow
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="addEvQual" style="width:100%;margin-bottom:6px;"><option value="Exatamente" selected>Exatamente</option><option value="Antes de">Antes de</option><option value="Depois de">Depois de</option><option value="Cerca de">Cerca de</option></select><div style="display:flex;gap:6px;"><input id="addEvDay" type="number" min="1" max="31" placeholder="Dia" style="flex:1;min-width:0;text-align:center;"/><input id="addEvMonth" type="number" min="1" max="12" placeholder="M\u00eas" style="flex:1;min-width:0;text-align:center;"/><input id="addEvYear" type="number" min="1" max="9999" placeholder="Ano" style="flex:2;min-width:0;text-align:center;"/></div></div>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="addEvPlace" type="text" placeholder="Local do evento" style="width:100%;"/></div>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Descri\u00e7\u00e3o</label><input id="addEvDescription" type="text" placeholder="Descri\u00e7\u00e3o do evento" style="width:100%;"/></div>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Causa</label><input id="addEvCause" type="text" placeholder="Causa (ex: doen\u00e7a)" style="width:100%;"/></div>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Idade</label><input id="addEvAge" type="text" placeholder="Idade na altura" style="width:100%;"/></div>'
+      + '<div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="addEvNotes" rows="3" placeholder="Notas..." style="width:100%;resize:vertical;"></textarea></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\'' + pid + '\',\'eventos\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewEvent(\'' + pid + '\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+  };
+
+  window._drawerToggleMarrFamily = function (type) {
+    var row = document.getElementById('addEvFamRow');
+    if (row) row.style.display = (type === 'MARR') ? '' : 'none';
+  };
+
+  window._drawerSaveNewEvent = function (personId) {
+    var DB   = _db(); if (!DB) return;
+    var indi = DB.getIndividual(personId); if (!indi) return;
+    var type  = (document.getElementById('addEvType')  || {}).value || 'EVEN';
+    var qual  = (document.getElementById('addEvQual')  || {}).value;
+    var day   = parseInt((document.getElementById('addEvDay')  || {}).value) || null;
+    var month = parseInt((document.getElementById('addEvMonth')|| {}).value) || null;
+    var year  = parseInt((document.getElementById('addEvYear') || {}).value) || null;
+    if (!day && !month && !year) { alert('Preencha pelo menos um campo de data.'); return; }
+    var place       = ((document.getElementById('addEvPlace')      || {}).value || '').trim();
+    var notes       = ((document.getElementById('addEvNotes')      || {}).value || '').trim();
+    var description = ((document.getElementById('addEvDescription')|| {}).value || '').trim();
+    var cause       = ((document.getElementById('addEvCause')      || {}).value || '').trim();
+    var age         = ((document.getElementById('addEvAge')        || {}).value || '').trim();
+    var newEv = { type: type, date: buildGedcomDate(day, month, year, qual), place: place || undefined, notes: notes || undefined, description: description || undefined, cause: cause || undefined, age: age || undefined };
+    if (type === 'MARR') {
+      var famId = ((document.getElementById('addEvFamId') || {}).value || '');
+      var fam   = famId ? DB.getFamily(famId) : (DB.getFamilies().filter(function (f) { return f.husb === personId || f.wife === personId; })[0] || null);
+      if (!fam) { alert('N\u00e3o foi encontrado c\u00f4njuge.'); return; }
+      if (!fam.events) fam.events = [];
+      fam.events.push(newEv);
+      DB.saveFamily(fam);
+    } else {
+      if (!indi.events) indi.events = [];
+      indi.events.push(newEv);
+      DB.saveIndividual(indi);
+    }
+    openDrawerSection(personId, 'eventos');
+  };
+
+  window._drawerEditMarrEvent = function (famId, famIdx, personId) {
+    var DB  = _db(); if (!DB) return;
+    var fam = DB.getFamily(famId); if (!fam) return;
+    var ev  = fam.events[famIdx]; if (!ev) return;
+    var p   = parseGedcomDate(ev.date);
+    var pid = _esc(personId);
+    document.getElementById('drawerBody').innerHTML = '<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Editar Casamento</h3>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Data</label><select id="marrEvQual" style="width:100%;margin-bottom:6px;"><option value="Exatamente"' + ((!p.qualifier || p.qualifier === 'Exatamente') ? ' selected' : '') + '>Exatamente</option><option value="Antes de"' + (p.qualifier === 'Antes de' ? ' selected' : '') + '>Antes de</option><option value="Depois de"' + (p.qualifier === 'Depois de' ? ' selected' : '') + '>Depois de</option><option value="Cerca de"' + (p.qualifier === 'Cerca de' ? ' selected' : '') + '>Cerca de</option></select>'
+      + '<div style="display:flex;gap:6px;"><input id="marrEvDay" type="number" min="1" max="31" placeholder="Dia" value="' + (p.day || '') + '" style="flex:1;min-width:0;text-align:center;"/><input id="marrEvMonth" type="number" min="1" max="12" placeholder="M\u00eas" value="' + (p.month || '') + '" style="flex:1;min-width:0;text-align:center;"/><input id="marrEvYear" type="number" min="1" max="9999" placeholder="Ano" value="' + (p.year || '') + '" style="flex:2;min-width:0;text-align:center;"/></div></div>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Local</label><input id="marrEvPlace" type="text" value="' + _esc(ev.place || '') + '" style="width:100%;"/></div>'
+      + '<div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="marrEvNotes" rows="3" style="width:100%;resize:vertical;">' + _esc(ev.notes || '') + '</textarea></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\'' + pid + '\',\'eventos\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveEditMarrEvent(\'' + _esc(famId) + '\',' + famIdx + ',\'' + pid + '\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+  };
+
+  window._drawerSaveEditMarrEvent = function (famId, famIdx, personId) {
+    var DB  = _db(); if (!DB) return;
+    var fam = DB.getFamily(famId); if (!fam) return;
+    var qual  = (document.getElementById('marrEvQual')  || {}).value;
+    var day   = parseInt((document.getElementById('marrEvDay')  || {}).value) || null;
+    var month = parseInt((document.getElementById('marrEvMonth')|| {}).value) || null;
+    var year  = parseInt((document.getElementById('marrEvYear') || {}).value) || null;
+    if (!day && !month && !year) { alert('Preencha pelo menos um campo de data.'); return; }
+    var place = ((document.getElementById('marrEvPlace')|| {}).value || '').trim();
+    var notes = ((document.getElementById('marrEvNotes')|| {}).value || '').trim();
+    fam.events[famIdx] = { type: 'MARR', date: buildGedcomDate(day, month, year, qual), place: place || undefined, notes: notes || undefined };
+    DB.saveFamily(fam);
+    openDrawerSection(personId, 'eventos');
+  };
+
+  window._drawerDeleteMarrEvent = function (famId, famIdx, personId) {
+    var DB  = _db(); if (!DB) return;
+    if (!confirm('Apagar este evento de casamento?')) return;
+    var fam = DB.getFamily(famId); if (!fam) return;
+    fam.events.splice(famIdx, 1);
+    DB.saveFamily(fam);
+    document.getElementById('drawerBody').innerHTML = _renderEvents(personId);
+  };
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     RELATIONS SECTION
+  ══════════════════════════════════════════════════════════════════════════ */
+  function _renderRelations(personId) {
+    var DB = _db(); if (!DB) return '<div style="color:#888;">Sem rela\u00e7\u00f5es.</div>';
+    var typeDesc = { siblin: 'Irm\u00e3o / Irm\u00e3', ancestor: 'Pai / M\u00e3e', child: 'Filho(a)', mate: 'Companheiro(a)' };
+    var rels = [];
+    DB.getParents(personId).forEach(function  (p) { rels.push({ type: 'ancestor', targetId: p.id, name: DB.getDisplayName(p), sex: p.sex }); });
+    DB.getChildren(personId).forEach(function (c) { rels.push({ type: 'child',    targetId: c.id, name: DB.getDisplayName(c), sex: c.sex }); });
+    DB.getSpouses(personId).forEach(function  (s) { rels.push({ type: 'mate',     targetId: s.id, name: DB.getDisplayName(s), sex: s.sex }); });
+    DB.getSiblings(personId).forEach(function (s) { rels.push({ type: 'siblin',   targetId: s.id, name: DB.getDisplayName(s), sex: s.sex }); });
+    var pid  = _esc(personId);
+    var html = '<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddRelation(\'' + pid + '\')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Rela\u00e7\u00e3o</button></div>';
+    if (!rels.length) { html += '<div style="color:#888;padding:4px 0 12px;">Nenhuma rela\u00e7\u00e3o cadastrada.</div>'; return html; }
+    html += '<div class="mini-list">';
+    rels.forEach(function (r) {
+      var desc = typeDesc[r.type] || r.type;
+      if (r.sex === 'F') { if (desc.includes('Filho')) desc = 'Filha'; else if (desc.includes('Pai')) desc = 'M\u00e3e'; else if (desc.includes('Compan')) desc = 'Companheira'; else if (desc.includes('Irm')) desc = 'Irm\u00e3'; }
+      else if (r.sex === 'M') { if (desc.includes('Filho')) desc = 'Filho'; else if (desc.includes('M\u00e3e') || desc.includes('Pai')) desc = 'Pai'; else if (desc.includes('Compan')) desc = 'Companheiro'; else if (desc.includes('Irm')) desc = 'Irm\u00e3o'; }
+      html += '<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">' + _esc(r.name) + '</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">' + _esc(desc) + '</span></div><button onclick="_drawerDeleteRelation(\'' + pid + '\',\'' + _esc(r.targetId) + '\',\'' + _esc(r.type) + '\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;flex-shrink:0;"><i class="mdi mdi-trash-can-outline"></i></button></div></div>';
+    });
+    html += '</div>';
+    return html;
+  }
+
+  window._drawerDeleteRelation = function (personId, targetId, relType) {
+    var DB = _db(); if (!DB) return;
+    if (!confirm('Apagar esta rela\u00e7\u00e3o?')) return;
+    if (relType === 'ancestor') {
+      var indi = DB.getIndividual(personId);
+      if (indi && indi.famc) {
+        var fam = DB.getFamily(indi.famc);
+        if (fam) {
+          if (fam.husb === targetId) fam.husb = null;
+          if (fam.wife === targetId) fam.wife = null;
+          DB.saveFamily(fam);
+          var parent = DB.getIndividual(targetId);
+          if (parent && parent.fams) { parent.fams = parent.fams.filter(function (f) { return f !== fam.id; }); DB.saveIndividual(parent); }
+        }
+      }
+    } else if (relType === 'child') {
+      DB.getFamiliesAsSpouse(personId).forEach(function (fam) {
+        if (fam.children && fam.children.includes(targetId)) {
+          fam.children = fam.children.filter(function (c) { return c !== targetId; });
+          DB.saveFamily(fam);
+          var child = DB.getIndividual(targetId);
+          if (child && child.famc === fam.id) { child.famc = null; DB.saveIndividual(child); }
+        }
+      });
+    } else if (relType === 'mate') {
+      DB.getFamiliesAsSpouse(personId).forEach(function (fam) {
+        if (fam.husb === targetId || fam.wife === targetId) {
+          if (fam.husb === targetId) fam.husb = null;
+          if (fam.wife === targetId) fam.wife = null;
+          DB.saveFamily(fam);
+          var sp = DB.getIndividual(targetId);
+          if (sp && sp.fams) { sp.fams = sp.fams.filter(function (f) { return f !== fam.id; }); DB.saveIndividual(sp); }
+        }
+      });
+    } else if (relType === 'siblin') {
+      var indiS = DB.getIndividual(personId);
+      if (indiS && indiS.famc) {
+        var famS = DB.getFamily(indiS.famc);
+        if (famS && famS.children && famS.children.includes(targetId)) {
+          famS.children = famS.children.filter(function (c) { return c !== targetId; });
+          DB.saveFamily(famS);
+          var sib = DB.getIndividual(targetId);
+          if (sib && sib.famc === famS.id) { sib.famc = null; DB.saveIndividual(sib); }
+        }
+      }
+    }
+    document.getElementById('drawerBody').innerHTML = _renderRelations(personId);
+  };
+
+  window._drawerShowAddRelation = function (personId) {
+    var DB = _db(); if (!DB) return;
+    var pid     = _esc(personId);
+    var parents = DB.getParents(personId);
+    var kinOpts = '<option value="ancestor">Pai / M\u00e3e</option><option value="child">Filho(a)</option><option value="mate">Companheiro(a)</option><option value="siblin">Irm\u00e3o / Irm\u00e3</option>';
+    if (parents.length >= 2) kinOpts = '<option value="child">Filho(a)</option><option value="mate">Companheiro(a)</option><option value="siblin">Irm\u00e3o / Irm\u00e3</option>';
+    var others = DB.getIndividuals().filter(function (i) { return i.id !== personId; });
+    var opts = others.map(function (i) { return '<option value="' + i.id + '">' + _esc(DB.getDisplayName(i)) + '</option>'; }).join('');
+    document.getElementById('drawerBody').innerHTML = '<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Nova Rela\u00e7\u00e3o</h3>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label><select id="addRelType" style="width:100%;">' + kinOpts + '</select></div>'
+      + '<div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pessoa</label><select id="addRelTarget" style="width:100%;">' + opts + '</select></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\'' + pid + '\',\'relacoes\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveLinkRelation(\'' + pid + '\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+  };
+
+  window._drawerSaveLinkRelation = function (personId) {
+    var relType  = (document.getElementById('addRelType')  || {}).value;
+    var targetId = (document.getElementById('addRelTarget')|| {}).value;
+    if (!relType || !targetId) return alert('Selecione tipo e pessoa.');
+    _linkRelation(personId, targetId, relType);
+    openDrawerSection(personId, 'relacoes');
+  };
+
+  function _linkRelation(personId, targetId, relType) {
+    var DB     = _db(); if (!DB) return;
+    var indi   = DB.getIndividual(personId);
+    var target = DB.getIndividual(targetId);
+    if (!indi || !target) return;
+    if (relType === 'mate') {
+      DB.ensureFamily(personId, targetId);
+    } else if (relType === 'ancestor') {
+      if (!indi.famc) {
+        var fam = DB.saveFamily({ husb: target.sex === 'M' ? targetId : null, wife: target.sex === 'F' ? targetId : null, children: [personId], events: [] });
+        indi.famc = fam.id; DB.saveIndividual(indi);
+        if (!target.fams) target.fams = [];
+        if (!target.fams.includes(fam.id)) { target.fams.push(fam.id); DB.saveIndividual(target); }
+      } else {
+        var famA = DB.getFamily(indi.famc);
+        if (famA) {
+          if (!famA.husb && target.sex !== 'F') famA.husb = targetId;
+          else if (!famA.wife) famA.wife = targetId;
+          else famA.husb = targetId;
+          DB.saveFamily(famA);
+          if (!target.fams) target.fams = [];
+          if (!target.fams.includes(famA.id)) { target.fams.push(famA.id); DB.saveIndividual(target); }
+        }
+      }
+    } else if (relType === 'child') {
+      var fams = DB.getFamiliesAsSpouse(personId);
+      var famC = fams.length ? fams[0] : null;
+      if (!famC) {
+        famC = DB.saveFamily({ husb: indi.sex === 'M' ? personId : null, wife: indi.sex === 'F' ? personId : null, children: [], events: [] });
+        if (!indi.fams) indi.fams = []; indi.fams.push(famC.id); DB.saveIndividual(indi);
+      }
+      if (!famC.children) famC.children = [];
+      if (!famC.children.includes(targetId)) { famC.children.push(targetId); DB.saveFamily(famC); }
+      target.famc = famC.id; DB.saveIndividual(target);
+    } else if (relType === 'siblin') {
+      var indiSib = DB.getIndividual(personId);
+      if (indiSib.famc) {
+        var famSib = DB.getFamily(indiSib.famc);
+        if (famSib) {
+          if (!famSib.children) famSib.children = [];
+          if (!famSib.children.includes(targetId)) { famSib.children.push(targetId); DB.saveFamily(famSib); }
+          target.famc = famSib.id; DB.saveIndividual(target);
+        }
+      } else {
+        var famNew = DB.saveFamily({ children: [personId, targetId], events: [] });
+        indiSib.famc = famNew.id; DB.saveIndividual(indiSib);
+        target.famc  = famNew.id; DB.saveIndividual(target);
+      }
+    }
+  }
+
+  /* ── Add new person + link ───────────────────────────────────────────────── */
+  window._drawerShowAddPerson = function (personId) {
+    var DB   = _db(); if (!DB) return;
+    var indi = DB.getIndividual(personId); if (!indi) return;
+    var parents = DB.getParents(personId);
+    var footer  = document.querySelector('.drawer-footer'); if (footer) footer.style.display = 'none';
+    var phdr    = document.getElementById('drawerPersonHeader'); if (phdr) phdr.style.display = 'none';
+    var backBtn = document.getElementById('drawerBackBtn'); if (backBtn) { backBtn.style.display = ''; backBtn._personId = personId; }
+    document.getElementById('drawerTitle').textContent = 'Adicionar \u2014 ' + DB.getDisplayName(indi);
+    var pid     = _esc(personId);
+    var kinOpts = '<option value="sibling_male">Irm\u00e3o</option><option value="sibling_female">Irm\u00e3</option>'
+      + '<option value="child_male">Filho</option><option value="child_female">Filha</option>';
+    if (parents.length < 2) kinOpts += '<option value="ancestor_male">Pai</option><option value="ancestor_female">M\u00e3e</option>';
+    kinOpts += '<option value="mate_male">Companheiro</option><option value="mate_female">Companheira</option>';
+    document.getElementById('drawerBody').innerHTML = '<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Nova Pessoa</h3>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Grau de parentesco</label><select id="addPersKinship" style="width:100%;">' + kinOpts + '</select></div>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Primeiro nome</label><input id="addPersFirstName" type="text" placeholder="Nome" style="width:100%;"/></div>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Apelido</label><input id="addPersLastName" type="text" placeholder="Apelido" style="width:100%;"/></div>'
+      + '<div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Notas</label><textarea id="addPersNotes" rows="2" placeholder="Notas..." style="width:100%;resize:vertical;"></textarea></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn btn-ghost btn-sm" onclick="openDrawer(\'edit\',\'' + pid + '\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveNewPerson(\'' + pid + '\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+    setTimeout(function () { var fi = document.getElementById('addPersFirstName'); if (fi) fi.focus(); }, 50);
+  };
+
+  window._drawerSaveNewPerson = function (personId) {
+    var DB      = _db(); if (!DB) return;
+    var kinship   = ((document.getElementById('addPersKinship')  || {}).value || '');
+    var firstName = ((document.getElementById('addPersFirstName')|| {}).value || '').trim();
+    var lastName  = ((document.getElementById('addPersLastName') || {}).value || '').trim();
+    var notes     = ((document.getElementById('addPersNotes')    || {}).value || '').trim();
+    if (!firstName && !lastName) { alert('Introduza pelo menos um nome.'); return; }
+    var sexMap = { sibling_male: 'M', sibling_female: 'F', child_male: 'M', child_female: 'F', ancestor_male: 'M', ancestor_female: 'F', mate_male: 'M', mate_female: 'F' };
+    var relMap = { sibling_male: 'siblin', sibling_female: 'siblin', child_male: 'child', child_female: 'child', ancestor_male: 'ancestor', ancestor_female: 'ancestor', mate_male: 'mate', mate_female: 'mate' };
+    var sex     = sexMap[kinship] || 'U';
+    var relType = relMap[kinship] || '';
+    var newIndi = DB.saveIndividual({ names: [{ given: firstName, surname: lastName, type: 'birth' }], sex: sex, notes: notes || undefined, events: [] });
+    if (relType) _linkRelation(personId, newIndi.id, relType);
+    openDrawer('edit', personId);
+    var cfg = window.DRAWER_CONFIG || {};
+    if (typeof cfg.afterSave === 'function') cfg.afterSave(personId);
+  };
+
+  /* ── Link existing person ────────────────────────────────────────────────── */
+  window._drawerShowLinkPerson = function (personId) {
+    var DB   = _db(); if (!DB) return;
+    var indi = DB.getIndividual(personId); if (!indi) return;
+    var parents = DB.getParents(personId);
+    var footer  = document.querySelector('.drawer-footer'); if (footer) footer.style.display = 'none';
+    var phdr    = document.getElementById('drawerPersonHeader'); if (phdr) phdr.style.display = 'none';
+    var backBtn = document.getElementById('drawerBackBtn'); if (backBtn) { backBtn.style.display = ''; backBtn._personId = personId; }
+    document.getElementById('drawerTitle').textContent = 'Ligar \u2014 ' + DB.getDisplayName(indi);
+    var pid     = _esc(personId);
+    var kinOpts = '<option value="siblin">Irm\u00e3o / Irm\u00e3</option><option value="child">Filho(a)</option>';
+    if (parents.length < 2) kinOpts = '<option value="ancestor">Pai / M\u00e3e</option>' + kinOpts;
+    kinOpts += '<option value="mate">Companheiro(a)</option>';
+    var others = DB.getIndividuals().filter(function (i) { return i.id !== personId; });
+    var opts   = others.map(function (i) { return '<option value="' + i.id + '">' + _esc(DB.getDisplayName(i)) + '</option>'; }).join('');
+    document.getElementById('drawerBody').innerHTML = '<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Ligar Pessoa Existente</h3>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Grau de parentesco</label><select id="linkPersKinship" style="width:100%;">' + kinOpts + '</select></div>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pesquisar pessoa</label><input id="linkPersSearch" type="text" placeholder="Pesquisar por nome..." style="width:100%;margin-bottom:6px;" /><select id="linkPersTarget" size="6" style="width:100%;min-height:110px;">' + opts + '</select></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;"><button class="btn btn-ghost btn-sm" onclick="openDrawer(\'edit\',\'' + pid + '\')">Cancelar</button><button class="btn btn-sm" onclick="_drawerSaveLinkPerson(\'' + pid + '\')"><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+    var sel = document.getElementById('linkPersTarget');
+    if (sel) sel._allOpts = others.map(function (i) { return { value: i.id, text: DB.getDisplayName(i) }; });
+    var si = document.getElementById('linkPersSearch');
+    if (si) {
+      si.addEventListener('input', function () {
+        var q   = this.value.toLowerCase();
+        var all = sel._allOpts || [];
+        sel.innerHTML = all.filter(function (o) { return o.text.toLowerCase().includes(q); })
+                           .map(function (o) { return '<option value="' + o.value + '">' + _esc(o.text) + '</option>'; }).join('');
+      });
+      si.focus();
+    }
+  };
+
+  window._drawerSaveLinkPerson = function (personId) {
+    var relType  = (document.getElementById('linkPersKinship')|| {}).value;
+    var targetId = (document.getElementById('linkPersTarget') || {}).value;
+    if (!relType || !targetId) { alert('Selecione tipo e pessoa.'); return; }
+    if (targetId === personId) { alert('N\u00e3o pode ligar uma pessoa a si pr\u00f3pria.'); return; }
+    _linkRelation(personId, targetId, relType);
+    openDrawer('edit', personId);
+    var cfg = window.DRAWER_CONFIG || {};
+    if (typeof cfg.afterSave === 'function') cfg.afterSave(personId);
+  };
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     CONTACTS SECTION
+  ══════════════════════════════════════════════════════════════════════════ */
+  function _renderContacts(personId) {
+    var DB       = _db(); if (!DB) return '<div style="color:#888;">Nenhum contacto registado.</div>';
+    var indi     = DB.getIndividual(personId); if (!indi) return '';
+    var contacts = (indi && indi.contacts)   || [];
+    var attrs    = (indi && indi.attributes) || [];
+    var pid      = _esc(personId);
+    var html     = '<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddContact(\'' + pid + '\')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Contacto</button></div>';
+    if (!contacts.length && !attrs.some(function (a) { return a.email || a.www || a.address; })) {
+      html += '<div style="color:#888;padding:4px 0 12px;">Nenhum contacto registado.</div>'; return html;
+    }
+    html += '<div class="mini-list">';
+    contacts.forEach(function (c, i) {
+      var actionBtns = '<div style="display:flex;gap:2px;flex-shrink:0;">'
+        + '<button onclick="_drawerEditContact(' + i + ',\'' + pid + '\')" title="Editar" style="background:none;border:none;cursor:pointer;color:#4493f8;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-pencil-outline"></i></button>'
+        + '<button onclick="_drawerDeleteContact(' + i + ',\'' + pid + '\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button>'
+        + '</div>';
+      if (c.type === 'address') {
+        var a = c.address || {}; var parts = [];
+        if (a.addr) parts.push(a.addr);
+        var loc = []; if (a.city) loc.push(a.city); if (a.state) loc.push(a.state); if (a.postal) loc.push(a.postal); if (a.country) loc.push(a.country);
+        if (loc.length) parts.push(loc.join(', '));
+        html += '<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><i class="mdi mdi-home-outline" style="color:#4493f8;margin-right:6px;"></i><span style="font-weight:600;font-size:0.9rem;">Morada</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">' + _esc(c.label || '') + '</span></div>' + actionBtns + '</div>'
+          + (parts.length ? '<div style="color:#bbb;font-size:0.82rem;margin-top:4px;line-height:1.5;">' + _esc(parts.join(' \u00b7 ')) + '</div>' : '')
+          + '</div>';
+      } else {
+        var icon     = c.type === 'phone' ? 'mdi-phone-outline' : 'mdi-email-outline';
+        var defLabel = c.type === 'phone' ? 'Telm\u00f3vel' : 'Email';
+        html += '<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><i class="mdi ' + icon + '" style="color:#4493f8;margin-right:6px;"></i><span style="font-weight:600;font-size:0.9rem;">' + _esc(c.value) + '</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">' + _esc(c.label || defLabel) + '</span></div>' + actionBtns + '</div></div>';
+      }
+    });
+    attrs.forEach(function (attr, ai) {
+      var attrDel = function (field) { return '<div style="display:flex;gap:2px;flex-shrink:0;"><button onclick="_drawerDeleteAttrField(' + ai + ',\'' + field + '\',\'' + pid + '\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;"><i class="mdi mdi-trash-can-outline"></i></button></div>'; };
+      if (attr.email) html += '<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><i class="mdi mdi-email-outline" style="color:#4493f8;margin-right:6px;"></i><span style="font-weight:600;font-size:0.9rem;">' + _esc(attr.email) + '</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">Email (' + _esc(EVENT_TYPES[attr.type] || attr.type) + ')</span></div>' + attrDel('email') + '</div></div>';
+      if (attr.www)   html += '<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><i class="mdi mdi-web" style="color:#4493f8;margin-right:6px;"></i><span style="font-weight:600;font-size:0.9rem;">' + _esc(attr.www) + '</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">Website (' + _esc(EVENT_TYPES[attr.type] || attr.type) + ')</span></div>' + attrDel('www') + '</div></div>';
+      if (attr.address) {
+        var aa = attr.address; var aparts = [];
+        if (aa.adr1) aparts.push(aa.adr1); if (aa.adr2) aparts.push(aa.adr2); if (aa.addr && aa.addr !== aa.adr1) aparts.push(aa.addr);
+        var aloc = []; if (aa.city) aloc.push(aa.city); if (aa.stae) aloc.push(aa.stae); if (aa.post) aloc.push(aa.post); if (aa.ctry) aloc.push(aa.ctry);
+        if (aloc.length) aparts.push(aloc.join(', '));
+        if (aparts.length) html += '<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><i class="mdi mdi-home-outline" style="color:#4493f8;margin-right:6px;"></i><span style="font-weight:600;font-size:0.9rem;">Morada</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">' + _esc(EVENT_TYPES[attr.type] || attr.type) + '</span></div>' + attrDel('address') + '</div><div style="color:#bbb;font-size:0.82rem;margin-top:4px;line-height:1.5;">' + _esc(aparts.join(' \u00b7 ')) + '</div></div>';
+      }
+    });
+    html += '</div>';
+    return html;
+  }
+
+  window._drawerDeleteContact = function (idx, personId) {
+    var DB = _db(); if (!DB) return;
+    if (!confirm('Apagar este contacto?')) return;
+    var indi = DB.getIndividual(personId); if (!indi) return;
+    if (!indi.contacts) indi.contacts = [];
+    indi.contacts.splice(idx, 1);
+    DB.saveIndividual(indi);
+    document.getElementById('drawerBody').innerHTML = _renderContacts(personId);
+  };
+
+  window._drawerDeleteAttrField = function (attrIdx, field, personId) {
+    var DB = _db(); if (!DB) return;
+    if (!confirm('Apagar este contacto?')) return;
+    var indi = DB.getIndividual(personId); if (!indi) return;
+    if (!indi.attributes || !indi.attributes[attrIdx]) return;
+    delete indi.attributes[attrIdx][field];
+    DB.saveIndividual(indi);
+    document.getElementById('drawerBody').innerHTML = _renderContacts(personId);
+  };
+
+  window._toggleCtFields = function (prefix) {
+    var type  = document.getElementById(prefix + 'CtType').value;
+    var valW  = document.getElementById(prefix + 'CtValueWrap');
+    var addrW = document.getElementById(prefix + 'CtAddrWrap');
+    if (valW)  valW.style.display  = (type === 'address') ? 'none' : '';
+    if (addrW) addrW.style.display = (type === 'address') ? '' : 'none';
+  };
+
+  window._drawerShowAddContact = function (personId) {
+    var pid = _esc(personId);
+    document.getElementById('drawerBody').innerHTML = '<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Novo Contacto</h3>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label>'
+      + '<select id="addCtType" onchange="_toggleCtFields(\'add\')" style="width:100%;"><option value="phone" selected>Telm\u00f3vel</option><option value="email">Email</option><option value="address">Morada</option></select></div>'
+      + '<div id="addCtValueWrap" style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Valor</label>'
+      + '<input id="addCtValue" type="text" placeholder="+351 910 000 000 / email@exemplo.com" style="width:100%;"/></div>'
+      + '<div id="addCtAddrWrap" style="display:none;">'
+      + '<div style="margin-bottom:8px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Rua</label><input id="addCtAddr" type="text" style="width:100%;"/></div>'
+      + '<div style="margin-bottom:8px;display:flex;gap:8px;"><div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Cidade</label><input id="addCtCity" type="text" style="width:100%;"/></div>'
+      + '<div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Distrito / Estado</label><input id="addCtState" type="text" style="width:100%;"/></div></div>'
+      + '<div style="margin-bottom:8px;display:flex;gap:8px;"><div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">C\u00f3digo Postal</label><input id="addCtPostal" type="text" style="width:100%;"/></div>'
+      + '<div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pa\u00eds</label><input id="addCtCountry" type="text" style="width:100%;"/></div></div></div>'
+      + '<div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Etiqueta (opcional)</label>'
+      + '<input id="addCtLabel" type="text" placeholder="ex: Casa, Trabalho..." style="width:100%;"/></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
+      + '<button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\'' + pid + '\',\'contactos\')">Cancelar</button>'
+      + '<button class="btn btn-sm" onclick="_drawerSaveNewContact(\'' + pid + '\')" ><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+    setTimeout(function () { var v = document.getElementById('addCtValue'); if (v) v.focus(); }, 50);
+  };
+
+  window._drawerSaveNewContact = function (personId) {
+    var DB   = _db(); if (!DB) return;
+    var indi = DB.getIndividual(personId); if (!indi) return;
+    var type  = (document.getElementById('addCtType') || {}).value || 'phone';
+    var label = ((document.getElementById('addCtLabel')|| {}).value || '').trim();
+    if (!indi.contacts) indi.contacts = [];
+    if (type === 'address') {
+      var addr    = ((document.getElementById('addCtAddr')   || {}).value || '').trim();
+      var city    = ((document.getElementById('addCtCity')   || {}).value || '').trim();
+      var state   = ((document.getElementById('addCtState')  || {}).value || '').trim();
+      var postal  = ((document.getElementById('addCtPostal') || {}).value || '').trim();
+      var country = ((document.getElementById('addCtCountry')|| {}).value || '').trim();
+      if (!addr && !city && !postal && !country) { alert('Preencha pelo menos um campo da morada.'); return; }
+      indi.contacts.push({ type: 'address', address: { addr: addr, city: city, state: state, postal: postal, country: country }, label: label || undefined });
+    } else {
+      var value = ((document.getElementById('addCtValue') || {}).value || '').trim();
+      if (!value) { alert('Introduza um valor para o contacto.'); return; }
+      indi.contacts.push({ type: type, value: value, label: label || undefined });
+    }
+    DB.saveIndividual(indi);
+    openDrawerSection(personId, 'contactos');
+  };
+
+  window._drawerEditContact = function (idx, personId) {
+    var DB   = _db(); if (!DB) return;
+    var indi = DB.getIndividual(personId); if (!indi) return;
+    var c    = (indi.contacts || [])[idx]; if (!c) return;
+    var pid  = _esc(personId);
+    var isAddr = (c.type === 'address');
+    var a    = (isAddr && c.address) || {};
+    var addrFields = '<div id="editCtAddrWrap" style="' + (isAddr ? '' : 'display:none;') + '">'
+      + '<div style="margin-bottom:8px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Rua</label><input id="editCtAddr" type="text" value="' + _esc(a.addr || '') + '" style="width:100%;"/></div>'
+      + '<div style="margin-bottom:8px;display:flex;gap:8px;"><div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Cidade</label><input id="editCtCity" type="text" value="' + _esc(a.city || '') + '" style="width:100%;"/></div>'
+      + '<div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Distrito / Estado</label><input id="editCtState" type="text" value="' + _esc(a.state || '') + '" style="width:100%;"/></div></div>'
+      + '<div style="margin-bottom:8px;display:flex;gap:8px;"><div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">C\u00f3digo Postal</label><input id="editCtPostal" type="text" value="' + _esc(a.postal || '') + '" style="width:100%;"/></div>'
+      + '<div style="flex:1;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Pa\u00eds</label><input id="editCtCountry" type="text" value="' + _esc(a.country || '') + '" style="width:100%;"/></div></div></div>';
+    document.getElementById('drawerBody').innerHTML = '<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Editar Contacto</h3>'
+      + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Tipo</label>'
+      + '<select id="editCtType" onchange="_toggleCtFields(\'edit\')" style="width:100%;"><option value="phone"' + (c.type === 'phone' ? ' selected' : '') + '>Telm\u00f3vel</option><option value="email"' + (c.type === 'email' ? ' selected' : '') + '>Email</option><option value="address"' + (isAddr ? ' selected' : '') + '>Morada</option></select></div>'
+      + '<div id="editCtValueWrap" style="' + (isAddr ? 'display:none;' : '') + 'margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Valor</label>'
+      + '<input id="editCtValue" type="text" value="' + _esc(isAddr ? '' : (c.value || '')) + '" style="width:100%;"/></div>'
+      + addrFields
+      + '<div style="margin-bottom:14px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Etiqueta (opcional)</label>'
+      + '<input id="editCtLabel" type="text" value="' + _esc(c.label || '') + '" placeholder="ex: Casa, Trabalho..." style="width:100%;"/></div>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;">'
+      + '<button class="btn btn-ghost btn-sm" onclick="openDrawerSection(\'' + pid + '\',\'contactos\')">Cancelar</button>'
+      + '<button class="btn btn-sm" onclick="_drawerSaveEditContact(' + idx + ',\'' + pid + '\')" ><i class="mdi mdi-content-save-outline"></i> Guardar</button></div></div>';
+  };
+
+  window._drawerSaveEditContact = function (idx, personId) {
+    var DB   = _db(); if (!DB) return;
+    var indi = DB.getIndividual(personId); if (!indi) return;
+    var type  = (document.getElementById('editCtType') || {}).value || 'phone';
+    var label = ((document.getElementById('editCtLabel')|| {}).value || '').trim();
+    if (!indi.contacts) indi.contacts = [];
+    if (type === 'address') {
+      var addr    = ((document.getElementById('editCtAddr')   || {}).value || '').trim();
+      var city    = ((document.getElementById('editCtCity')   || {}).value || '').trim();
+      var state   = ((document.getElementById('editCtState')  || {}).value || '').trim();
+      var postal  = ((document.getElementById('editCtPostal') || {}).value || '').trim();
+      var country = ((document.getElementById('editCtCountry')|| {}).value || '').trim();
+      if (!addr && !city && !postal && !country) { alert('Preencha pelo menos um campo da morada.'); return; }
+      indi.contacts[idx] = { type: 'address', address: { addr: addr, city: city, state: state, postal: postal, country: country }, label: label || undefined };
+    } else {
+      var value = ((document.getElementById('editCtValue') || {}).value || '').trim();
+      if (!value) { alert('Introduza um valor para o contacto.'); return; }
+      indi.contacts[idx] = { type: type, value: value, label: label || undefined };
+    }
+    DB.saveIndividual(indi);
+    openDrawerSection(personId, 'contactos');
+  };
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     PHOTOS SECTION — upload, delete and view are available everywhere
+  ══════════════════════════════════════════════════════════════════════════ */
+  function _renderPhotos(personId) {
+    var pid = _esc(personId);
+    return '<div style="margin-bottom:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      + '<label for="drawerPhotoInput" class="btn btn-sm" style="cursor:pointer;font-size:0.83rem;"><i class="mdi mdi-image-plus"></i> Escolher Ficheiro</label>'
+      + '<span id="drawerPhotoName" style="color:#aaa;font-size:0.82rem;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Nenhum ficheiro</span>'
+      + '<button class="btn btn-sm" id="drawerUploadBtn" style="font-size:0.83rem;"><i class="mdi mdi-upload"></i> Upload</button>'
+      + '</div>'
+      + '<input type="file" id="drawerPhotoInput" accept="image/*" style="display:none;"/>'
+      + '<div id="_photoGrid" style="display:flex;flex-wrap:wrap;gap:10px;"></div>';
+  }
+
+  function _buildPhotoGrid(personId) {
+    var DB = _db();
+    /* Wire upload button after innerHTML is set */
+    var uploadBtn = document.getElementById('drawerUploadBtn');
+    if (uploadBtn) uploadBtn.addEventListener('click', function () { window._drawerUploadPhoto(personId); });
+    var fileInput = document.getElementById('drawerPhotoInput');
+    if (fileInput) fileInput.addEventListener('change', function () {
+      var nameEl = document.getElementById('drawerPhotoName');
+      if (nameEl) nameEl.textContent = (fileInput.files && fileInput.files.length) ? fileInput.files[0].name : 'Nenhum ficheiro';
+    });
+
+    var grid = document.getElementById('_photoGrid');
+    if (!grid) return;
+    var media = DB ? DB.getMultimediaForIndividual(personId) : [];
+    if (!media.length) {
+      grid.innerHTML = '<div style="color:#888;padding:4px 0 12px;">Nenhuma foto associada.</div>';
+      return;
+    }
+
+    media.forEach(function (m) {
+      var src      = m.dataUrl || (m.files && m.files[0] ? m.files[0].file : '') || '';
+      var hasImage = src.startsWith('data:') || src.startsWith('http') || src.startsWith('/');
+      var wrap     = document.createElement('div');
+      wrap.style.cssText = 'position:relative;display:inline-block;';
+
+      if (hasImage) {
+        var img = document.createElement('img');
+        img.src           = src;
+        img.title         = m.title || '';
+        img.style.cssText = 'width:72px;height:72px;object-fit:cover;border-radius:6px;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.3);display:block;transition:transform 0.15s;';
+        img.onmouseover = function () { this.style.transform = 'scale(1.06)'; };
+        img.onmouseout  = function () { this.style.transform = 'scale(1)'; };
+        (function (mid, pid) {
+          img.onclick = function (ev) { ev.stopPropagation(); window._drawerViewPhoto(mid, pid); };
+        })(m.id, personId);
+        wrap.appendChild(img);
+      } else {
+        var placeholder = document.createElement('div');
+        placeholder.style.cssText = 'width:72px;height:72px;border-radius:6px;background:#2a2a3a;border:1px dashed #555;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:pointer;';
+        var iconEl = document.createElement('i'); iconEl.className = 'mdi mdi-image-off'; iconEl.style.cssText = 'font-size:1.4rem;color:#888;pointer-events:none;';
+        var label  = document.createElement('span'); label.style.cssText = 'font-size:0.55rem;color:#888;text-align:center;word-break:break-all;padding:0 3px;max-height:28px;overflow:hidden;pointer-events:none;';
+        label.textContent  = src || '(sem nome)';
+        placeholder.title  = 'Clique para carregar: ' + (src || '(sem nome)');
+        placeholder.appendChild(iconEl);
+        placeholder.appendChild(label);
+        (function (mid, pid) {
+          placeholder.onclick = function (ev) { ev.stopPropagation(); window._drawerLinkGedcomPhoto(mid, pid); };
+        })(m.id, personId);
+        wrap.appendChild(placeholder);
+      }
+
+      /* Remove / unlink button */
+      var removeBtn = document.createElement('button');
+      removeBtn.title         = 'Remover v\u00ednculo';
+      removeBtn.innerHTML     = '<i class="mdi mdi-close" style="pointer-events:none;"></i>';
+      removeBtn.style.cssText = 'position:absolute;top:-6px;right:-6px;background:#e06060;border:none;color:#fff;border-radius:50%;width:18px;height:18px;font-size:0.65rem;cursor:pointer;padding:0;display:flex;align-items:center;justify-content:center;';
+      removeBtn.addEventListener('click', (function (mid, pid) {
+        return function (ev) { ev.stopPropagation(); window._drawerUnlinkPhoto(mid, pid); };
+      })(m.id, personId));
+      wrap.appendChild(removeBtn);
+      grid.appendChild(wrap);
+    });
+  }
+
+  window._drawerUploadPhoto = async function (personId) {
+    var DB    = _db(); if (!DB) return;
+    var input = document.getElementById('drawerPhotoInput');
+    if (!input || !input.files || !input.files.length) return alert('Selecione uma imagem.');
+    var f = input.files[0];
+    try {
+      var dataUrl = await new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(r.result); }; r.onerror = rej; r.readAsDataURL(f); });
+      var media   = DB.saveMultimedia({ title: f.name, dataUrl: dataUrl, files: [{ file: dataUrl, format: f.type }] });
+      var indi    = DB.getIndividual(personId);
+      if (indi) {
+        if (!indi.multimediaRefs) indi.multimediaRefs = [];
+        indi.multimediaRefs.push(media.id);
+        DB.saveIndividual(indi);
+      }
+      input.value = '';
+      openDrawerSection(personId, 'fotos');
+    } catch (err) { alert('Erro no upload: ' + err); }
+  };
+
+  window._drawerLinkGedcomPhoto = function (mediaId, personId) {
+    var DB    = _db(); if (!DB) return;
+    var input = document.createElement('input');
+    input.type   = 'file';
+    input.accept = 'image/*';
+    input.onchange = async function () {
+      if (!input.files || !input.files.length) return;
+      var f = input.files[0];
+      try {
+        var dataUrl = await new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(r.result); }; r.onerror = rej; r.readAsDataURL(f); });
+        var m = DB.getMultimediaItem(mediaId); if (!m) return;
+        m.dataUrl = dataUrl; m.files = [{ file: dataUrl, format: f.type }]; if (!m.title) m.title = f.name;
+        DB.saveMultimedia(m);
+        openDrawerSection(personId, 'fotos');
+      } catch (err) { alert('Erro ao carregar imagem: ' + err); }
+    };
+    input.click();
+  };
+
+  window._drawerUnlinkPhoto = function (mediaId, personId) {
+    var DB = _db(); if (!DB) return;
+    if (!confirm('Remover v\u00ednculo desta foto?')) return;
+    var indi = DB.getIndividual(personId);
+    if (indi && indi.multimediaRefs) {
+      indi.multimediaRefs = indi.multimediaRefs.filter(function (id) { return id !== mediaId; });
+      DB.saveIndividual(indi);
+    }
+    openDrawerSection(personId, 'fotos');
+  };
+
+  window._drawerViewPhoto = function (mediaId, personId) {
+    if (window.PhotoLightbox) window.PhotoLightbox.open(mediaId, personId);
+  };
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     SAVE / DELETE
+  ══════════════════════════════════════════════════════════════════════════ */
+  function drawerSave() {
+    var DB          = _db(); if (!DB) return;
+    var given       = (document.getElementById('df_firstName')  || {}).value || '';
+    var surname     = (document.getElementById('df_lastName')   || {}).value || '';
+    var sex         = (document.getElementById('df_gender')     || {}).value || 'U';
+    var notes       = (document.getElementById('df_notes')      || {}).value || '';
+    var marriedName = ((document.getElementById('df_marriedName') || {}).value || '').trim();
+    var aka         = ((document.getElementById('df_aka')          || {}).value || '').trim();
+    var savedId     = _drawerPersonId;
+    if (_drawerMode === 'create') {
+      var saved = DB.saveIndividual({ names: [{ given: given.trim(), surname: surname.trim(), marriedName: marriedName || undefined, aka: aka || undefined, type: 'birth' }], sex: sex, notes: notes, events: [] });
+      savedId = saved ? saved.id : null;
+    } else if (_drawerPersonId) {
+      var indi = DB.getIndividual(_drawerPersonId);
+      if (indi) {
+        indi.names = [Object.assign({}, (indi.names && indi.names[0]) || {}, { given: given.trim(), surname: surname.trim(), marriedName: marriedName || undefined, aka: aka || undefined, type: 'birth' })];
+        indi.sex   = sex;
+        indi.notes = notes;
+        DB.saveIndividual(indi);
+      }
+    }
+    closeDrawer();
+    var cfg = window.DRAWER_CONFIG || {};
+    if (typeof cfg.afterSave === 'function') cfg.afterSave(savedId);
+  }
+
+  function drawerDeletePerson() {
+    var DB = _db(); if (!DB) return;
+    if (!_drawerPersonId || !confirm('Apagar esta pessoa?')) return;
+    var deletedId = _drawerPersonId;
+    DB.deleteIndividual(deletedId);
+    closeDrawer();
+    var cfg = window.DRAWER_CONFIG || {};
+    if (typeof cfg.afterDelete === 'function') cfg.afterDelete(deletedId);
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     INIT — wire footer buttons once DOM is ready
+  ══════════════════════════════════════════════════════════════════════════ */
+  function _initDrawerButtons() {
+    var closeBtn  = document.getElementById('drawerCloseBtn');
+    var cancelBtn = document.getElementById('drawerCancelBtn');
+    var overlay   = document.getElementById('drawerOverlay');
+    var saveBtn   = document.getElementById('drawerSaveBtn');
+    var deleteBtn = document.getElementById('drawerDeleteBtn');
+    var backBtn   = document.getElementById('drawerBackBtn');
+    if (closeBtn)  closeBtn.addEventListener('click',  closeDrawer);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeDrawer);
+    if (overlay)   overlay.addEventListener('click',   closeDrawer);
+    if (saveBtn)   saveBtn.addEventListener('click',   drawerSave);
+    if (deleteBtn) deleteBtn.addEventListener('click', drawerDeletePerson);
+    if (backBtn)   backBtn.addEventListener('click', function () { var pid = this._personId; if (pid) openDrawer('edit', pid); });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _initDrawerButtons);
+  } else {
+    _initDrawerButtons();
+  }
+
+})();

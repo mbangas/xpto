@@ -205,6 +205,22 @@
       transition: background 0.15s;
     }
     .plb-tag-zone:hover { background: rgba(59,130,246,0.22); }
+    .plb-tag-zone.plb-highlight {
+      background: rgba(59,130,246,0.32);
+      border-color: rgba(99,179,255,1);
+      box-shadow: 0 0 0 3px rgba(59,130,246,0.28);
+    }
+    .plb-person-chip-label.plb-highlight {
+      background: rgba(59,130,246,0.28);
+      color: #93c5fd;
+      border-color: rgba(59,130,246,0.65);
+      box-shadow: 0 0 0 2px rgba(59,130,246,0.22);
+    }
+    .plb-person-chip-label.plb-bbox-tag.plb-highlight {
+      background: rgba(59,130,246,0.32);
+      color: #93c5fd;
+      border-color: rgba(59,130,246,0.72);
+    }
     .plb-tag-lbl {
       position: absolute;
       bottom: calc(100% + 3px);
@@ -310,6 +326,8 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s, box-shadow 0.15s;
     }
     .plb-person-chip-label.plb-bbox-tag {
       background: rgba(59,130,246,0.12);
@@ -736,10 +754,7 @@
     const img  = document.getElementById('plbImg');
     const natW = img.naturalWidth  || 1;
     const natH = img.naturalHeight || 1;
-    const tags = (m.tags || []).filter(t =>
-      (t.bbox && t.bbox.w > 0 && t.bbox.h > 0) || t.pixelCoords
-    );
-    tags.forEach((t, idx) => {
+    (m.tags || []).forEach((t, originalIdx) => {
       let left, top, width, height;
       if (t.bbox && t.bbox.w > 0 && t.bbox.h > 0) {
         left   = t.bbox.x * 100;
@@ -768,10 +783,74 @@
       rmBtn.className = 'plb-tag-remove-btn';
       rmBtn.title = 'Remover região';
       rmBtn.innerHTML = '<i class="mdi mdi-close" style="pointer-events:none;font-size:0.65rem;"></i>';
-      rmBtn.addEventListener('click', e => { e.stopPropagation(); _removeBboxTag(idx); });
+      rmBtn.addEventListener('click', e => { e.stopPropagation(); _removeBboxTag(originalIdx); });
       zone.appendChild(rmBtn);
+      // Cross-highlight with sidebar chip
+      const pid = t.personId || ('__idx_' + originalIdx);
+      zone.dataset.plbPid = pid;
+      zone.addEventListener('mouseenter', () => _highlightByPid(pid, true,  zone));
+      zone.addEventListener('mouseleave', () => _highlightByPid(pid, false, zone));
       overlay.appendChild(zone);
     });
+
+    // Delegated hover from the photo pane itself (catches cases where zone
+    // pointer-events might be suppressed by a parent)
+    const pane = document.getElementById('plbImgPane');
+    if (pane && !pane._plbHoverWired) {
+      pane._plbHoverWired = true;
+      pane.addEventListener('mouseover', e => {
+        const z = e.target.closest('.plb-tag-zone');
+        if (z && z.dataset.plbPid) _highlightByPid(z.dataset.plbPid, true,  z);
+      });
+      pane.addEventListener('mouseout', e => {
+        const z = e.target.closest('.plb-tag-zone');
+        if (z && z.dataset.plbPid) _highlightByPid(z.dataset.plbPid, false, z);
+      });
+    }
+  }
+
+  /**
+   * Toggle highlight class on all tag zones and person chips sharing the same pid,
+   * excluding the element that triggered the hover (it already has its own :hover CSS).
+   * @param {string}  pid    – person key (personId or '__idx_N')
+   * @param {boolean} on     – true = add highlight, false = remove
+   * @param {Element} source – the element that triggered the event (skip it)
+   */
+  function _highlightByPid(pid, on, source) {
+    const ovEl   = document.getElementById('plbTagOverlay');
+    const listEl = document.getElementById('plbPeopleList');
+    if (ovEl) {
+      ovEl.querySelectorAll('.plb-tag-zone').forEach(el => {
+        if (el !== source && el.dataset.plbPid === pid) {
+          if (on) {
+            el.style.background  = 'rgba(59,130,246,0.38)';
+            el.style.borderColor = 'rgba(99,179,255,1)';
+            el.style.boxShadow   = '0 0 0 3px rgba(59,130,246,0.32)';
+          } else {
+            el.style.background  = '';
+            el.style.borderColor = '';
+            el.style.boxShadow   = '';
+          }
+        }
+      });
+    }
+    if (listEl) {
+      listEl.querySelectorAll('.plb-person-chip-label').forEach(el => {
+        if (el !== source && el.dataset.plbPid === pid) {
+          if (on) {
+            el.style.background  = 'rgba(59,130,246,0.38)';
+            el.style.color       = '#93c5fd';
+            el.style.borderColor = 'rgba(59,130,246,0.75)';
+            el.style.boxShadow   = '0 0 0 2px rgba(59,130,246,0.32)';
+          } else {
+            el.style.background  = '';
+            el.style.color       = '';
+            el.style.borderColor = '';
+            el.style.boxShadow   = '';
+          }
+        }
+      });
+    }
   }
 
   /* ── Thumbnail strip ──────────────────────────────────────────────────── */
@@ -868,6 +947,13 @@
         chip.className = 'plb-person-chip-label' + (p.source === 'tag' ? ' plb-bbox-tag' : '');
         chip.title = p.source === 'tag' ? 'Marcação por região' : 'Associação direta';
         chip.textContent = p.name;
+        // Cross-highlight with tag zone on photo
+        const pid = p.id || ('__idx_' + p.tagIdx);
+        if (pid) {
+          chip.dataset.plbPid = pid;
+          chip.addEventListener('mouseover', e => { e.stopPropagation(); _highlightByPid(pid, true,  chip); });
+          chip.addEventListener('mouseout',  e => { e.stopPropagation(); _highlightByPid(pid, false, chip); });
+        }
 
         const unlinkBtn = document.createElement('button');
         unlinkBtn.className = 'plb-person-unlink-btn';

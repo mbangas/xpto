@@ -1,5 +1,89 @@
 [
   {
+    "ts": "2026-03-11T10:51:52.145Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I112",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Miguel Filipe do Amaral Bangueses",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-11T10:51:45.358Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I112",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Miguel Filipe do Amaral Bangueses",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-11T10:51:41.291Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I112",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Miguel Filipe do Amaral Bangueses",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-11T09:53:28.999Z",
+    "action": "GEDCOM importado — 3504 registos",
+    "detail": "myLineage_export_2026-03-11 (1).ged: 1859 pessoas, 782 famílias",
+    "category": "gedcom"
+  },
+  {
+    "ts": "2026-03-11T09:43:48.892Z",
+    "action": "GEDCOM importado — 3504 registos",
+    "detail": "GEDCOM 2026-03-09.ged: 1859 pessoas, 782 famílias",
+    "category": "gedcom"
+  },
+  {
+    "ts": "2026-03-11T09:41:57.688Z",
+    "action": "GEDCOM importado — 3504 registos",
+    "detail": "myLineage_export_2026-03-11 (1).ged: 1859 pessoas, 782 famílias",
+    "category": "gedcom"
+  },
+  {
+    "ts": "2026-03-11T09:02:12.637Z",
+    "entity": "Login",
+    "action": "Login: +351931018263",
+    "id": "+351931018263",
+    "detail": "+351931018263 · Administrador",
+    "category": "login"
+  },
+  {
+    "ts": "2026-03-11T09:01:14.271Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I114",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Madalena Ferreira Bangueses"
+  },
+  {
+    "ts": "2026-03-11T09:01:07.948Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I114",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Madalena Ferreira Bangueses"
+  },
+  {
+    "ts": "2026-03-11T04:05:22.960Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "id": "I114",
+    "detail": "",
+    "category": "pessoas",
+    "subjectName": "Madalena Ferreira Bangueses",
+    "actor": "+351931018263"
+  },
+  {
     "ts": "2026-03-11T03:46:01.349Z",
     "action": "GEDCOM exportado",
     "detail": "myLineage_export_2026-03-11.ged (615582 bytes)",

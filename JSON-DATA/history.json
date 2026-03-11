@@ -1,5 +1,27 @@
 [
   {
+    "ts": "2026-03-11T18:24:58.605Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "actionType": "update",
+    "id": "I500209",
+    "detail": "Dados pessoais actualizados",
+    "category": "pessoas",
+    "subjectName": "Domingos Henriques",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-11T18:24:56.972Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "actionType": "update",
+    "id": "I500209",
+    "detail": "Marcado/a como falecido/a",
+    "category": "pessoas",
+    "subjectName": "Domingos Henriques",
+    "actor": "+351931018263"
+  },
+  {
     "ts": "2026-03-11T17:04:20.230Z",
     "entity": "Login",
     "action": "Login: +351931018263",

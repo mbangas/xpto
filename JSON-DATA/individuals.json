@@ -67552,9 +67552,7 @@
         "prefix": "",
         "suffix": "",
         "nickname": "",
-        "marriedName": "",
-        "aka": "",
-        "type": "BIRTH"
+        "type": "birth"
       }
     ],
     "sex": "M",
@@ -67567,12 +67565,15 @@
         "cause": "",
         "age": "",
         "description": ""
+      },
+      {
+        "type": "DEAT"
       }
     ],
     "attributes": [],
     "famc": "F500067",
     "fams": [],
-    "notes": [],
+    "notes": "",
     "sourceRefs": [
       {
         "sourceId": "S500002",
@@ -67582,7 +67583,7 @@
     ],
     "multimediaRefs": [],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
+    "updatedAt": "2026-03-11T18:24:58.662Z",
     "deletedAt": null
   },
   "I500210": {

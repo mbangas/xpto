@@ -338,14 +338,6 @@
         grid-template-columns: repeat(3, 1fr);
         gap: 24px;
       }
-      .rede-person-link {
-        cursor: pointer;
-        transition: color 0.15s;
-      }
-      .rede-person-link:hover {
-        color: #7bb3f0;
-        text-decoration: underline;
-      }
       @media (max-width: 1200px) {
         .rede-grid-3 { grid-template-columns: repeat(2, 1fr); }
       }
@@ -1936,10 +1928,10 @@
 
           let html = `<div class="rede-member-section" style="--rede-clr:${colors.main}">
               <div class="rede-section-label">${sectionLabel}</div>
-              <div class="rede-main-card">
+              <div class="rede-main-card" style="cursor:pointer;" onclick="openDrawer('edit','${relId}')">
                 ${redeAvatar(relId, relName, colors.main)}
                 <div style="flex:1;min-width:0">
-                  <div class="rede-person-name rede-person-link" onclick="openDrawer('edit','${relId}')">${relName}</div>
+                  <div class="rede-person-name">${relName}</div>
                   <div class="rede-bar-track"><div class="rede-bar-fill" style="width:${pct(totalWithRel)}%;background:${colors.main}"></div></div>
                 </div>
                 <div class="rede-count">${totalWithRel.toLocaleString('pt-PT')}</div>
@@ -1950,10 +1942,10 @@
             if(gpFName) {
               html += `<div>
                 <div class="rede-sub-label">Relacionado especificamente através do pai ${pronoun}</div>
-                <div class="rede-sub-card">
+                <div class="rede-sub-card" style="cursor:pointer;" onclick="openDrawer('edit','${gpFId}')">
                   ${redeAvatar(gpFId, gpFName, colors.paternal, 'rede-avatar-sm')}
                   <div style="flex:1;min-width:0">
-                    <div class="rede-person-name rede-person-link" style="font-size:0.76rem" onclick="openDrawer('edit','${gpFId}')">${gpFName}</div>
+                    <div class="rede-person-name" style="font-size:0.76rem">${gpFName}</div>
                     <div class="rede-bar-sub-track"><div class="rede-bar-fill" style="width:${pct(gpFCount)}%;background:${colors.paternal}"></div></div>
                   </div>
                   <div class="rede-count rede-count-sm">${gpFCount.toLocaleString('pt-PT')}</div>
@@ -1963,10 +1955,10 @@
             if(gpMName) {
               html += `<div>
                 <div class="rede-sub-label">Relacionado especificamente através da mãe ${pronoun}</div>
-                <div class="rede-sub-card">
+                <div class="rede-sub-card" style="cursor:pointer;" onclick="openDrawer('edit','${gpMId}')">
                   ${redeAvatar(gpMId, gpMName, colors.maternal, 'rede-avatar-sm')}
                   <div style="flex:1;min-width:0">
-                    <div class="rede-person-name rede-person-link" style="font-size:0.76rem" onclick="openDrawer('edit','${gpMId}')">${gpMName}</div>
+                    <div class="rede-person-name" style="font-size:0.76rem">${gpMName}</div>
                     <div class="rede-bar-sub-track"><div class="rede-bar-fill" style="width:${pct(gpMCount)}%;background:${colors.maternal}"></div></div>
                   </div>
                   <div class="rede-count rede-count-sm">${gpMCount.toLocaleString('pt-PT')}</div>

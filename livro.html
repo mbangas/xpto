@@ -86,17 +86,35 @@
     return m ? parseInt(m[1], 10) : null;
   }
 
-  const PT_MONTHS = {
-    JAN:'Jan',FEB:'Fev',MAR:'Mar',APR:'Abr',MAY:'Mai',JUN:'Jun',
-    JUL:'Jul',AUG:'Ago',SEP:'Set',OCT:'Out',NOV:'Nov',DEC:'Dez'
+  const MONTH_NUM = {
+    JAN:'01',FEB:'02',MAR:'03',APR:'04',MAY:'05',JUN:'06',
+    JUL:'07',AUG:'08',SEP:'09',OCT:'10',NOV:'11',DEC:'12'
   };
 
-  /** Format GEDCOM date string for display */
+  /** Format GEDCOM date string as DD-MM-YYYY (as complete as possible) */
   function fmtDate(str) {
     if (!str) return '–';
-    return str.replace(
-      /\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b/i,
-      m => PT_MONTHS[m.toUpperCase()] || m
+    const s = String(str).trim();
+    // Detect GEDCOM qualifier prefix (ABT, BEF, AFT, EST, CAL, INT)
+    const prefixMatch = s.match(/^(ABT|BEF|AFT|EST|CAL|INT)\s+/i);
+    const prefix = prefixMatch ? prefixMatch[1].toUpperCase() + '\u00a0' : '';
+    const rest = prefixMatch ? s.slice(prefixMatch[0].length).trim() : s;
+    // DD MMM YYYY
+    const full = rest.match(/^(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{4})$/i);
+    if (full) {
+      return prefix + full[1].padStart(2,'0') + '-' + MONTH_NUM[full[2].toUpperCase()] + '-' + full[3];
+    }
+    // MMM YYYY
+    const my = rest.match(/^(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{4})$/i);
+    if (my) {
+      return prefix + MONTH_NUM[my[1].toUpperCase()] + '-' + my[2];
+    }
+    // YYYY only
+    if (/^\d{4}$/.test(rest)) return prefix + rest;
+    // Fallback: replace month abbreviations with numbers
+    return (prefix + rest).replace(
+      /\b(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\b/gi,
+      m => MONTH_NUM[m.toUpperCase()] || m
     );
   }
 
@@ -121,10 +139,21 @@
     if (!ind || !ind.events) return '';
     const birt = ind.events.find(e => e.type === 'BIRT');
     const deat = ind.events.find(e => e.type === 'DEAT');
+    const bd = birt && birt.date ? fmtDate(birt.date) : null;
+    const dd = deat && deat.date ? fmtDate(deat.date) : null;
+    if (!bd && !dd) return '';
+    return (bd || '?') + (dd ? ' \u2013 ' + dd : ' \u2013 ');
+  }
+
+  /** Year-only life span for compact SVG boxes */
+  function lifeYearsSvg(ind) {
+    if (!ind || !ind.events) return '';
+    const birt = ind.events.find(e => e.type === 'BIRT');
+    const deat = ind.events.find(e => e.type === 'DEAT');
     const by = parseYear(birt && birt.date);
     const dy = parseYear(deat && deat.date);
     if (!by && !dy) return '';
-    return (by || '?') + (dy ? ' – ' + dy : ' – ');
+    return (by || '?') + (dy ? ' \u2013 ' + dy : ' \u2013 ');
   }
 
   /** Escape HTML */
@@ -294,47 +323,92 @@
     _getHistoricalNoteForFamily(famId) {
       const fam = this.families[famId];
       if (!fam) return '';
-      // Gather birth/death years of family members
-      const years = [];
-      ['husb','wife'].forEach(k => {
+
+      // ── Determine reference year (birth year of husb/wife, within 30-year window) ──
+      let refYear = null;
+
+      // 1. Primary: birth year of husband, then wife
+      for (const k of ['husb', 'wife']) {
         const ind = this.individuals[fam[k]];
-        if (!ind || !ind.events) return;
-        ind.events.forEach(e => {
-          const y = parseYear(e.date);
-          if (y) years.push(y);
-        });
-      });
-      (fam.children || []).forEach(cid => {
-        const ind = this.individuals[cid];
-        if (!ind || !ind.events) return;
-        ind.events.forEach(e => { const y = parseYear(e.date); if (y) years.push(y); });
-      });
-
-      // Use median year as era representative
-      years.sort((a,b)=>a-b);
-      const mid = years.length ? years[Math.floor(years.length/2)] : null;
-      const rangeKey = this._yearRangeKey(mid);
-      const region = this._detectRegionForFamily(fam);
-
-      const bucket = (this._historicalNotes[region] && this._historicalNotes[region][rangeKey]) || [];
-      let note = '';
-      for (const n of bucket) {
-        if (!this._usedHistNotes.has(n)) { note = n; break; }
+        if (!ind || !ind.events) continue;
+        const birt = ind.events.find(e => e.type === 'BIRT');
+        if (birt) { refYear = parseYear(birt.date); if (refYear) break; }
       }
+      // 2. Fallback: any event date from husb or wife
+      if (!refYear) {
+        for (const k of ['husb', 'wife']) {
+          const ind = this.individuals[fam[k]];
+          if (!ind || !ind.events) continue;
+          for (const e of ind.events) {
+            refYear = parseYear(e.date);
+            if (refYear) break;
+          }
+          if (refYear) break;
+        }
+      }
+      // 3. Fallback: birth year of first child
+      if (!refYear) {
+        for (const cid of (fam.children || [])) {
+          const ind = this.individuals[cid];
+          if (!ind || !ind.events) continue;
+          const birt = ind.events.find(e => e.type === 'BIRT');
+          if (birt) { refYear = parseYear(birt.date); if (refYear) break; }
+        }
+      }
+      // 4. Fallback: any date from any family member (earliest available)
+      if (!refYear) {
+        const allYears = [];
+        for (const k of ['husb', 'wife']) {
+          const ind = this.individuals[fam[k]];
+          if (ind && ind.events) ind.events.forEach(e => { const y = parseYear(e.date); if (y) allYears.push(y); });
+        }
+        (fam.children || []).forEach(cid => {
+          const ind = this.individuals[cid];
+          if (ind && ind.events) ind.events.forEach(e => { const y = parseYear(e.date); if (y) allYears.push(y); });
+        });
+        allYears.sort((a, b) => a - b);
+        refYear = allYears[0] || null;
+      }
+
+      // The historical window is [refYear, refYear+30]; pick notes whose era overlaps this window.
+      // Since buckets are 50-year spans, include the bucket for refYear and, if the window
+      // extends into the next bucket, include that too.
+      const rangeKey = this._yearRangeKey(refYear);
+      const nextRangeKey = refYear ? this._yearRangeKey(refYear + 30) : rangeKey;
+      const region = this._detectRegionForFamily(fam);
+      const bucketsToTry = nextRangeKey !== rangeKey ? [rangeKey, nextRangeKey] : [rangeKey];
+
+      // Try the window buckets first (preferring birth-year era)
+      let note = '';
+      for (const bk of bucketsToTry) {
+        const bucket = (this._historicalNotes[region] && this._historicalNotes[region][bk]) || [];
+        for (const n of bucket) {
+          if (!this._usedHistNotes.has(n)) { note = n; break; }
+        }
+        if (note) break;
+      }
+      // Ordered list of all era bucket keys
+      const ERA_ORDER = ['1800-1849','1850-1899','1900-1949','1950-1999','2000-2099'];
+      // Only allow buckets at or after the family's reference era (never show older history)
+      const minBucketIdx = ERA_ORDER.indexOf(rangeKey);
+      const allowedBuckets = ERA_ORDER.slice(minBucketIdx < 0 ? 0 : minBucketIdx);
+
       if (!note) {
-        // fallback: try any unused note in region
-        for (const rk in this._historicalNotes[region]) {
-          for (const n of this._historicalNotes[region][rk]) {
+        // fallback: try any unused note in region, but only in allowed (≥ refYear) buckets
+        for (const rk of allowedBuckets) {
+          const bucket = (this._historicalNotes[region] && this._historicalNotes[region][rk]) || [];
+          for (const n of bucket) {
             if (!this._usedHistNotes.has(n)) { note = n; break; }
           }
           if (note) break;
         }
       }
       if (!note) {
-        // final fallback: any unused global note
+        // fallback: any unused global note in allowed buckets
         for (const reg of Object.keys(this._historicalNotes)) {
-          for (const rk in this._historicalNotes[reg]) {
-            for (const n of this._historicalNotes[reg][rk]) {
+          for (const rk of allowedBuckets) {
+            const bucket = (this._historicalNotes[reg] && this._historicalNotes[reg][rk]) || [];
+            for (const n of bucket) {
               if (!this._usedHistNotes.has(n)) { note = n; break; }
             }
             if (note) break;
@@ -343,8 +417,9 @@
         }
       }
       if (!note) {
-        // allow repetition if everything used
-        note = (bucket && bucket[0]) || '';
+        // last resort: allow repetition within the correct era
+        const fallbackBucket = (this._historicalNotes[region] && this._historicalNotes[region][rangeKey]) || [];
+        note = (fallbackBucket && fallbackBucket[0]) || '';
       }
       if (note) this._usedHistNotes.add(note);
       return note;
@@ -587,8 +662,8 @@
       }
 
       // ── Couple boxes ───────────────────────────────────────────
-      if (husb) parts.push(this._svgBox(hX, coupleRowY, BOX_W, BOX_H, RX, esc(displayName(husb)), esc(lifeYears(husb)), true));
-      if (wife) parts.push(this._svgBox(wX, coupleRowY, BOX_W, BOX_H, RX, esc(displayName(wife)), esc(lifeYears(wife)), true));
+      if (husb) parts.push(this._svgBox(hX, coupleRowY, BOX_W, BOX_H, RX, esc(displayName(husb)), esc(lifeYearsSvg(husb)), true));
+      if (wife) parts.push(this._svgBox(wX, coupleRowY, BOX_W, BOX_H, RX, esc(displayName(wife)), esc(lifeYearsSvg(wife)), true));
 
       // ── Marriage horizontal line ────────────────────────────────
       let coupleConnCx = husb ? hX + BOX_W / 2 : wX + BOX_W / 2;
@@ -627,7 +702,7 @@
           const cxBox = childStartX + i * (BOX_W + COL_GAP);
           const mx = childMids[i];
           parts.push(`<line x1="${mx}" y1="${barY}" x2="${mx}" y2="${childRowY}" stroke="#7a4e18" stroke-width="1.2"/>`);
-          parts.push(this._svgBox(cxBox, childRowY, BOX_W, BOX_H, RX, esc(displayName(child)), esc(lifeYears(child)), true));
+          parts.push(this._svgBox(cxBox, childRowY, BOX_W, BOX_H, RX, esc(displayName(child)), esc(lifeYearsSvg(child)), true));
         });
       }
 
@@ -685,57 +760,70 @@
       footnotes = footnotes || [];
       const n = photos.length;
       const esc2 = s => esc(s);
+      // Normalise: accept string[] or {src,bbox,isSolo}[]
+      const norm = photos.map(p => typeof p === 'string' ? { src: p, bbox: null, isSolo: false } : p);
       // footnote index set for fast lookup by photo position (1-based)
       const fnSet = new Set(footnotes.map(f => f.idx));
 
-      // Helper: single photo element wrapped in vintage album style + optional footnote superscript
-      const img = (src, style, photoIdx) => {
+      // Helper: single photo element with smart fit/crop
+      const img = (photoObj, style, photoIdx) => {
+        const { src, bbox, isSolo } = photoObj;
         const badge = fnSet.has(photoIdx)
           ? `<span class="bio-photo-fn-badge">${photoIdx}</span>` : '';
         const rot = (Math.random() * 5 - 2.5).toFixed(1);
         const z = photoIdx;
+        let imgStyle = style;
+        let extraAttrs = '';
+        if (isSolo) {
+          // Solo portrait: never crop the face — use contain with a warm background
+          imgStyle = 'width:100%;height:100%;object-fit:contain;background:#2a1a08;';
+        } else if (bbox) {
+          // Group photo with a marked face zone: pan to it after load
+          extraAttrs = ` data-bbox="${bbox.x1},${bbox.y1},${bbox.x2},${bbox.y2}"
+            onload="window._livroFaceCrop&&window._livroFaceCrop(this)"`;
+        }
         return `<div class="album-photo" style="--rot:${rot}deg;--z:${z};">` +
           `<span class="album-corner tl"></span><span class="album-corner tr"></span>` +
           `<span class="album-corner bl"></span><span class="album-corner br"></span>` +
-          `${badge}<img src="${esc2(src)}" alt="${esc2(name)}" class="bio-photo-mosaic-img" style="${style}" loading="lazy"/>` +
+          `${badge}<img src="${esc2(src)}" alt="${esc2(name)}" class="bio-photo-mosaic-img" style="${imgStyle}"${extraAttrs} loading="lazy"/>` +
           `</div>`;
       };
 
       const imgStyle = 'width:100%;height:100%;object-fit:cover;';
 
       if (n === 1) {
-        return `<div class="bio-photo-mosaic bio-photo-mosaic-1">${img(photos[0], imgStyle, 1)}</div>`;
+        return `<div class="bio-photo-mosaic bio-photo-mosaic-1">${img(norm[0], imgStyle, 1)}</div>`;
       }
       if (n === 2) {
         return `<div class="bio-photo-mosaic bio-photo-mosaic-2">
-          <div style="flex:1;display:flex;align-items:stretch;">${img(photos[0], imgStyle, 1)}</div>
-          <div style="flex:1;display:flex;align-items:stretch;">${img(photos[1], imgStyle, 2)}</div>
+          <div style="flex:1;display:flex;align-items:stretch;">${img(norm[0], imgStyle, 1)}</div>
+          <div style="flex:1;display:flex;align-items:stretch;">${img(norm[1], imgStyle, 2)}</div>
         </div>`;
       }
       if (n === 3) {
         return `<div class="bio-photo-mosaic bio-photo-mosaic-3">
-          <div style="flex:1.4;display:flex;align-items:stretch;">${img(photos[0], imgStyle, 1)}</div>
+          <div style="flex:1.4;display:flex;align-items:stretch;">${img(norm[0], imgStyle, 1)}</div>
           <div style="flex:1;display:flex;flex-direction:column;gap:6px;">
-            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[1], imgStyle, 2)}</div>
-            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[2], imgStyle, 3)}</div>
+            <div style="flex:1;display:flex;align-items:stretch;">${img(norm[1], imgStyle, 2)}</div>
+            <div style="flex:1;display:flex;align-items:stretch;">${img(norm[2], imgStyle, 3)}</div>
           </div>
         </div>`;
       }
       if (n === 4) {
         return `<div class="bio-photo-mosaic bio-photo-mosaic-4">
           <div style="display:flex;gap:6px;flex:1;min-height:0;">
-            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[0], imgStyle, 1)}</div>
-            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[1], imgStyle, 2)}</div>
+            <div style="flex:1;display:flex;align-items:stretch;">${img(norm[0], imgStyle, 1)}</div>
+            <div style="flex:1;display:flex;align-items:stretch;">${img(norm[1], imgStyle, 2)}</div>
           </div>
           <div style="display:flex;gap:6px;flex:1;min-height:0;">
-            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[2], imgStyle, 3)}</div>
-            <div style="flex:1;display:flex;align-items:stretch;">${img(photos[3], imgStyle, 4)}</div>
+            <div style="flex:1;display:flex;align-items:stretch;">${img(norm[2], imgStyle, 3)}</div>
+            <div style="flex:1;display:flex;align-items:stretch;">${img(norm[3], imgStyle, 4)}</div>
           </div>
         </div>`;
       }
       // 5 or 6
-      const first3 = photos.slice(0, 3);
-      const rest   = photos.slice(3, 6);
+      const first3 = norm.slice(0, 3);
+      const rest   = norm.slice(3, 6);
       const row2   = rest.map((p, ri) => `<div style="flex:1;display:flex;align-items:stretch;">${img(p, imgStyle, 4 + ri)}</div>`).join('');
       return `<div class="bio-photo-mosaic bio-photo-mosaic-5" style="flex-direction:column;">
         <div style="display:flex;gap:6px;flex:1.4;min-height:0;">${first3.map((p,i) =>
@@ -753,29 +841,56 @@
       const name = displayName(ind);
       const years = lifeYears(ind);
 
-      // Vital events
-      const birt = getEvent(ind, 'BIRT');
-      const bapm = getEvent(ind, 'BAPM');
-      const deat = getEvent(ind, 'DEAT');
-      const buri = getEvent(ind, 'BURI');
-      const occu = ind.events ? ind.events.filter(e => e.type === 'OCCU') : [];
-      const resi = ind.events ? ind.events.filter(e => e.type === 'RESI') : [];
-
       // Notes
       const notes = gatherNotes(DB, ind);
 
-      // Photos with notes
-      const photos = [];       // { src, note }
+      // ── Smart photo selection ──────────────────────────────────────────
+      // Rule 1: Don't show both a cutout thumbnail and its parent photo.
+      // Rule 2: Photos with a face-zone for this person get priority.
+      // Rule 3: Solo/personal photos use object-fit:contain (no face crop).
+      const _rawPhotos = [];
       (ind.multimediaRefs || []).forEach(mid => {
         const mm = DB.getMultimediaItem ? DB.getMultimediaItem(mid) : null;
         if (!mm) return;
         const src = mm.dataUrl || (mm.files && mm.files[0] && mm.files[0].file) || '';
         if (!src) return;
         const noteText = mm.notes && mm.notes.length
-          ? mm.notes.map(n => resolveNote(DB, n)).filter(Boolean).join(' ')
-          : '';
-        photos.push({ src, note: noteText });
+          ? mm.notes.map(n => resolveNote(DB, n)).filter(Boolean).join(' ') : '';
+        const personTag   = (mm.tags || []).find(t => t.personId === personId);
+        const props       = (personTag && personTag.objeProps) || (mm.files && mm.files[0]) || {};
+        const taggedCount = (mm.tags || []).filter(t => t.pixelCoords).length;
+        _rawPhotos.push({
+          mid, src, note: noteText,
+          bbox:          personTag && personTag.pixelCoords ? personTag.pixelCoords : null,
+          isCutout:      !!props.cutout,
+          isParentPhoto: !!props.parentPhoto,
+          isPrimary:     !!props.primary,
+          isPersonal:    !!props.personalPhoto,
+          parentRin:     props.parentRin || '',
+          photoRin:      props.photoRin  || '',
+          taggedCount,
+        });
       });
+      // Dedup: if a cutout has its parent photo present, drop the cutout
+      const _parentRins = new Set(
+        _rawPhotos.filter(p => p.isParentPhoto && p.photoRin).map(p => p.photoRin)
+      );
+      const _deduped = _rawPhotos.filter(p =>
+        !(p.isCutout && p.parentRin && _parentRins.has(p.parentRin))
+      );
+      // Score: higher = shown first
+      _deduped.sort((a, b) => {
+        const sc = p => (p.isPrimary ? 10 : 0) + (p.isPersonal ? 8 : 0)
+          + (p.bbox ? 6 : 0) + (p.taggedCount === 1 ? 3 : 0) + (!p.isCutout ? 1 : 0);
+        return sc(b) - sc(a);
+      });
+      // Build final photo objects with rendering hints
+      const photos = _deduped.map(p => ({
+        src:    p.src,
+        note:   p.note,
+        bbox:   p.bbox,
+        isSolo: p.isPersonal || (p.taggedCount === 1 && !!p.bbox),
+      }));
       // Photos for first page (up to 4 if there's lots of text, else 6)
       const hasNotes = !!(gatherNotes(DB, ind));
       const photoLimit = (hasNotes || notes.length > 200) ? 4 : 6;
@@ -813,15 +928,29 @@
         }
       });
 
-      // Bio meta grid
-      const metaItems = [
-        birt  ? { l: 'Nascimento', v: `${fmtDate(birt.date)}${birt.place ? ', '+birt.place : ''}` } : null,
-        bapm  ? { l: 'Baptismo',   v: `${fmtDate(bapm.date)}${bapm.place ? ', '+bapm.place : ''}` } : null,
-        deat  ? { l: 'Falecimento',v: `${fmtDate(deat.date)}${deat.place ? ', '+deat.place : ''}` } : null,
-        buri  ? { l: 'Sepultamento',v:`${fmtDate(buri.date)}${buri.place ? ', '+buri.place : ''}` } : null,
-        ...(occu.map(o => ({ l: 'Profissão', v: `${o.place||''}${o.date?' ('+fmtDate(o.date)+')':''}`.trim() || '–' }))),
-        ...(resi.slice(0,2).map(r => ({ l: 'Residência', v: `${r.place||''}${r.date?' ('+fmtDate(r.date)+')':''}`.trim() || '–' }))),
-      ].filter(Boolean);
+      // Bio meta grid — all events, vitals first, then chronological, death-events last
+      const _EL = {
+        BIRT:'Nascimento', CHR:'Batismo', BAPM:'Baptismo', CONF:'Confirmação',
+        ADOP:'Adopção', NATU:'Naturalização', EMIG:'Emigração', IMMI:'Imigração',
+        OCCU:'Profissão', EDUC:'Educação', GRAD:'Graduação', MILI:'Serviço Militar',
+        RESI:'Residência', RETI:'Reforma', ENGA:'Noivado', MARR:'Casamento', DIV:'Divórcio',
+        WILL:'Testamento', PROB:'Inventário', EVEN:'Evento',
+        DEAT:'Falecimento', CREM:'Cremação', BURI:'Sepultamento',
+      };
+      const _VITAL = ['BIRT','CHR','BAPM','CONF'];
+      const _DEATH = ['DEAT','CREM','BURI'];
+      const _evVital  = (ind.events || []).filter(e => _VITAL.includes(e.type));
+      const _evDeath  = (ind.events || []).filter(e => _DEATH.includes(e.type));
+      const _evOther  = (ind.events || []).filter(e => !_VITAL.includes(e.type) && !_DEATH.includes(e.type));
+      _evOther.sort((a, b) => (parseYear(a.date) || 9999) - (parseYear(b.date) || 9999));
+      const metaItems = [..._evVital, ..._evOther, ..._evDeath]
+        .filter(e => e.date || e.place)
+        .map(e => {
+          const label = _EL[e.type] || e.type;
+          const datePart  = e.date  ? fmtDate(e.date) : '';
+          const placePart = e.place ? (datePart ? ', ' + e.place : e.place) : '';
+          return { l: label, v: datePart + placePart || '–' };
+        });
 
       const metaHtml = metaItems.map(m =>
         `<div class="bio-meta-item"><span class="bio-meta-label">${esc(m.l)}</span><span class="bio-meta-value">${esc(m.v)}</span></div>`
@@ -832,8 +961,7 @@
       photosPage1.forEach((p, i) => {
         if (p.note) photoFootnotes.push({ idx: i + 1, text: p.note });
       });
-      const photoSrcsPage1 = photosPage1.map(p => p.src);
-      const photosHtml = this._renderPhotoMosaic(photoSrcsPage1, name, photoFootnotes);
+      const photosHtml = this._renderPhotoMosaic(photosPage1, name, photoFootnotes);
 
       // Photo height class
       const photoHeightClass = photosPage1.length === 0 ? '' :
@@ -865,9 +993,9 @@
 
     /** Build a photo continuation page for extra photos that didn't fit */
     _renderPhotoContinuation(personId, extraPhotos, name, pageLabel) {
-      const srcs = extraPhotos.map(p => p.src || p);
+      // extraPhotos are already enriched {src, note, bbox, isSolo} objects
       const footnotes = extraPhotos.map((p, i) => p.note ? { idx: i + 1, text: p.note } : null).filter(Boolean);
-      const photosHtml = this._renderPhotoMosaic(srcs, name, footnotes);
+      const photosHtml = this._renderPhotoMosaic(extraPhotos, name, footnotes);
       const footnotesHtml = footnotes.length
         ? `<div class="bio-photo-footnotes">${footnotes.map(f =>
             `<div class="bio-photo-footnote"><sup>${f.idx}</sup> ${esc(f.text)}</div>`).join('')}</div>` : '';
@@ -1060,21 +1188,13 @@
       if (!lead) return { type: 'chapter-right', title: '', famId, html: '<div class="livro-page-inner"></div>' };
 
       const bioPage = this._renderBioPage(leadId, chapterNum, famId);
-      if (!leanMemberIds || !leanMemberIds.length) return bioPage;
-
-      // Append mini-bios to the bio page html
-      const miniBlocks = leanMemberIds
-        .filter(id => id !== leadId)
-        .map(id => this._renderMiniBioBlock(id)).filter(Boolean).join('');
-      if (!miniBlocks) return bioPage;
-
-      const extraHtml = `<div class="mini-bios-section"><div class="mini-bios-divider">Outros membros da família</div>${miniBlocks}</div>`;
-      // Insert mini-bios before the closing outer </div> of the page
-      bioPage.html = bioPage.html.replace(/(<\/div>\s*)$/, extraHtml + '$1');
-      bioPage.leanIds = leanMemberIds.filter(id => id !== leadId);
-      bioPage.leanPeople = leanMemberIds
-        .filter(id => id !== leadId)
-        .map(id => ({ id, name: displayName(this.individuals[id]) }));
+      // 'Outros membros da família' section removed — lean members are indexed
+      // but not rendered as an extra block on the page.
+      if (leanMemberIds && leanMemberIds.length) {
+        bioPage.leanPeople = leanMemberIds
+          .filter(id => id !== leadId)
+          .map(id => ({ id, name: displayName(this.individuals[id]) }));
+      }
       return bioPage;
     }
 
@@ -1337,10 +1457,12 @@
           const pChunks = [];
           for (let ci = 0; ci < bioPage.photosExtra.length; ci += 6)
             pChunks.push(bioPage.photosExtra.slice(ci, ci + 6));
-          pChunks.forEach((chunk, ci) => {
+          // Max 3 pages per person (1 bio + 2 photo continuation)
+          const MAX_CONT = 2;
+          pChunks.slice(0, MAX_CONT).forEach((chunk, ci) => {
             pages.push({ ...this._renderPhotoContinuation(
               pid, chunk, bioPage.title,
-              `Fotografias (${ci + 2}/${pChunks.length + 1})`
+              `Fotografias (${ci + 2}/${Math.min(pChunks.length, MAX_CONT) + 1})`
             ), cssClass: 'page-bio' });
           });
         }
@@ -1363,15 +1485,16 @@
         if (right) {
           pages.push({ ...right, cssClass: 'page-bio' });
           if (right.personId) bioPersonIds.add(right.personId);
-          // Photo continuation pages for lead
+          // Photo continuation pages for lead (max 3 pages total: 1 bio + 2 continuation)
           if (right.photosExtra && right.photosExtra.length) {
             const chunks = [];
             for (let ci = 0; ci < right.photosExtra.length; ci += 6)
               chunks.push(right.photosExtra.slice(ci, ci + 6));
-            chunks.forEach((chunk, ci) => {
+            const MAX_CONT = 2;
+            chunks.slice(0, MAX_CONT).forEach((chunk, ci) => {
               pages.push({ ...this._renderPhotoContinuation(
                 right.personId, chunk, right.title,
-                `Fotografias (${ci + 2}/${chunks.length + 1})`
+                `Fotografias (${ci + 2}/${Math.min(chunks.length, MAX_CONT) + 1})`
               ), cssClass: 'page-bio' });
             });
           }
@@ -1446,6 +1569,20 @@
     if (totalEl) totalEl.textContent = '/ ' + total;
   }
 
+  // ── Face-crop helper: pans object-position to the tagged face zone ──────
+  window._livroFaceCrop = function (img) {
+    const raw = img.getAttribute('data-bbox');
+    if (!raw) return;
+    const [x1, y1, x2, y2] = raw.split(',').map(Number);
+    if (isNaN(x1)) return;
+    const nw = img.naturalWidth, nh = img.naturalHeight;
+    if (!nw || !nh) return;
+    // Centre of the zone as percentage of the image dimensions
+    const cx = ((x1 + x2) / 2 / nw * 100).toFixed(1);
+    const cy = ((y1 + y2) / 2 / nh * 100).toFixed(1);
+    img.style.objectPosition = cx + '% ' + cy + '%';
+  };
+
   function initBook(DB, rootId) {
     const compiler = new BookCompiler(DB, rootId);
     const pages = compiler.buildPages();
@@ -1465,11 +1602,19 @@
     const container = document.getElementById('livro-book-wrap');
     container.innerHTML = '';
 
-    // Determine page dimensions based on container
+    // Determine page dimensions based on container — strict A4 ratio (210/297)
     const stageEl = document.getElementById('livro-stage');
     const stageH = stageEl.clientHeight || window.innerHeight - 60;
-    const PAGE_H = Math.min(stageH - 30, 780);
-    const PAGE_W = Math.round(PAGE_H * 0.707); // A4 ratio
+    const stageW = stageEl.clientWidth  || window.innerWidth;
+    // Fit two pages side-by-side inside the stage with a small margin
+    const maxH = stageH - 30;
+    const maxW = Math.floor((stageW - 80) / 2); // space for two pages + nav buttons
+    const A4_RATIO = 210 / 297; // ≈ 0.7071
+    // Compute height constrained by both dimensions
+    const hFromH = Math.min(maxH, 860);
+    const hFromW = Math.round(maxW / A4_RATIO);
+    const PAGE_H = Math.min(hFromH, hFromW);
+    const PAGE_W = Math.round(PAGE_H * A4_RATIO); // exact A4 ratio
 
     // Create page elements
     const pageEls = pages.map((pg, i) => {

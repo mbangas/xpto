@@ -442,19 +442,19 @@ body.livro-body {
 /* ── Photo mosaic layouts ──────────────────────────────────── */
 .bio-photo-mosaic {
   display: flex;
-  gap: 12px;
+  gap: 18px;
   width: 100%;
   height: 100%;
   overflow: visible;
   align-items: stretch;
   border-radius: 0;
-  padding: 8px 4px;
+  padding: 12px 6px;
   box-sizing: border-box;
 }
 
 /* Slightly tighter gap for overlapping feel with multiple photos */
 .bio-photo-mosaic:not(.bio-photo-mosaic-1) {
-  gap: 6px;
+  gap: 9px;
 }
 
 /* Allow rotated photos and shadows to show beyond flex containers */
@@ -496,50 +496,52 @@ body.livro-body {
   min-height: 0;
 }
 
-/* Transparent plastic photo corner mounts — small & realistic */
+/* Transparent plastic photo corner mounts — raised & realistic */
 .album-corner {
   position: absolute;
   width: 0;
   height: 0;
   z-index: 5;
   pointer-events: none;
-  filter: drop-shadow(0 0.3px 0.5px rgba(0, 0, 0, 0.06));
+  filter:
+    drop-shadow(0 1.5px 3px rgba(0, 0, 0, 0.30))
+    drop-shadow(0 0.5px 1px rgba(0, 0, 0, 0.18));
 }
 .album-corner.tl {
-  top: -1px; left: -1px;
-  border-left: 9px solid rgba(220, 215, 200, 0.38);
-  border-bottom: 9px solid transparent;
+  top: -2px; left: -2px;
+  border-left: 13px solid rgba(230, 223, 208, 0.68);
+  border-bottom: 13px solid transparent;
 }
 .album-corner.tr {
-  top: -1px; right: -1px;
-  border-right: 9px solid rgba(220, 215, 200, 0.38);
-  border-bottom: 9px solid transparent;
+  top: -2px; right: -2px;
+  border-right: 13px solid rgba(230, 223, 208, 0.68);
+  border-bottom: 13px solid transparent;
 }
 .album-corner.bl {
-  bottom: -1px; left: -1px;
-  border-left: 9px solid rgba(220, 215, 200, 0.38);
-  border-top: 9px solid transparent;
+  bottom: -2px; left: -2px;
+  border-left: 13px solid rgba(230, 223, 208, 0.68);
+  border-top: 13px solid transparent;
 }
 .album-corner.br {
-  bottom: -1px; right: -1px;
-  border-right: 9px solid rgba(220, 215, 200, 0.38);
-  border-top: 9px solid transparent;
+  bottom: -2px; right: -2px;
+  border-right: 13px solid rgba(230, 223, 208, 0.68);
+  border-top: 13px solid transparent;
 }
 
-/* Subtle highlight on corner mounts for gloss/plastic realism */
+/* Glossy highlight dot on corner mounts */
 .album-corner::after {
   content: '';
   position: absolute;
-  width: 4px;
-  height: 4px;
-  background: rgba(255, 255, 255, 0.15);
+  width: 5px;
+  height: 5px;
+  background: rgba(255, 255, 255, 0.42);
   border-radius: 50%;
   pointer-events: none;
 }
-.album-corner.tl::after { top: -7px; left: -7px; }
-.album-corner.tr::after { top: -7px; right: -7px; }
-.album-corner.bl::after { bottom: -7px; left: -7px; }
-.album-corner.br::after { bottom: -7px; right: -7px; }
+.album-corner.tl::after { top: -10px; left: -10px; }
+.album-corner.tr::after { top: -10px; right: -10px; }
+.album-corner.bl::after { bottom: -10px; left: -10px; }
+.album-corner.br::after { bottom: -10px; right: -10px; }
 
 /* Vintage colour effect — slight desaturation, softened contrast, warm tone */
 .album-photo .bio-photo-mosaic-img {
@@ -1004,12 +1006,20 @@ body.livro-body {
   to { transform: rotate(360deg); }
 }
 
+/* ---- A4 page size declaration (applies when printing) ------- */
+@page {
+  size: A4 portrait;
+  margin: 0;
+}
+
 /* ---- Print styles ------------------------------------------- */
 @media print {
   body.livro-body {
     background: white;
-    overflow: auto;
+    overflow: visible;
     height: auto;
+    margin: 0;
+    padding: 0;
   }
 
   #livro-toolbar,
@@ -1023,24 +1033,65 @@ body.livro-body {
 
   #livro-print-pages {
     display: block !important;
+    margin: 0;
+    padding: 0;
   }
 
+  /* Each book page maps exactly to one A4 sheet */
   .print-page {
-    width: 100%;
-    min-height: 100vh;
+    width: 210mm;
+    height: 297mm;
     page-break-after: always;
-    overflow: visible;
-    padding: 40px 50px;
+    break-after: page;
+    overflow: hidden;
+    padding: 0;
     box-sizing: border-box;
     font-family: Georgia, 'Times New Roman', serif;
     color: #2c1810;
+    position: relative;
+    /* Aged-paper background — preserved in colour printing */
+    background-color: #c9bc9e;
+    background-image:
+      radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(60,35,10,0.28) 100%),
+      linear-gradient(160deg, #d4c9aa 0%, #bfb28c 40%, #c8bc97 65%, #b8ae87 100%);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
+  .print-page:last-child {
+    page-break-after: auto;
+    break-after: auto;
+  }
+
+  /* Override inner padding to A4-appropriate margins */
+  .print-page .livro-page-inner {
+    height: 297mm;
+    padding: 18mm 16mm 14mm;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+
+  /* Page number badge */
+  .print-page .livro-page-num {
+    bottom: 10mm;
+  }
+  .print-page .livro-page-num.left  { left: 16mm; }
+  .print-page .livro-page-num.right { right: 16mm; }
+
   .print-page.page-cover {
-    background: #2c1f0e !important;
+    background: linear-gradient(160deg, #2c1f0e 0%, #1a110a 100%) !important;
     color: #f0e0c0 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
+  }
+
+  /* White-mode body also prints white pages */
+  body.livro-white-mode .print-page {
+    background-color: #ffffff !important;
+    background-image: none !important;
+  }
+  body.livro-white-mode .print-page.page-cover {
+    background: linear-gradient(160deg, #2c1f0e 0%, #1a110a 100%) !important;
   }
 }
 

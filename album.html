@@ -37,6 +37,21 @@
         padding: 4px 12px;
         white-space: nowrap;
       }
+      .album-dedup-badge {
+        font-size: 0.72rem;
+        color: #f59e0b;
+        background: rgba(245,158,11,0.12);
+        border: 1px solid rgba(245,158,11,0.35);
+        border-radius: 20px;
+        padding: 4px 12px;
+        white-space: nowrap;
+        display: none;
+      }
+      #dedupToggleBtn.active {
+        background: rgba(245,158,11,0.15) !important;
+        border-color: rgba(245,158,11,0.50) !important;
+        color: #f59e0b !important;
+      }
       .album-empty {
         display: flex;
         flex-direction: column;
@@ -634,7 +649,11 @@
           <div style="flex:1;display:flex;justify-content:center;align-items:center;">
             <input type="search" class="album-search" id="albumSearch" placeholder="Pesquisar por nome ou pessoa..." />
           </div>
-          <div style="flex:1;display:flex;justify-content:flex-end;align-items:center;">
+          <div style="flex:1;display:flex;justify-content:flex-end;align-items:center;gap:8px;">
+            <span class="album-dedup-badge" id="dedupBadge"></span>
+            <button id="dedupToggleBtn" title="Ocultar fotos quase duplicadas" style="background:none;border:1px solid rgba(255,255,255,0.18);border-radius:8px;color:#ccc;padding:6px 14px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="if(!this.classList.contains('active'))this.style.background='none'">
+              <i class="mdi mdi-image-multiple-outline" aria-hidden="true"></i> Dedup
+            </button>
             <button id="refreshZonesBtn" title="Atualizar zonas de identificação" style="background:none;border:1px solid rgba(255,255,255,0.18);border-radius:8px;color:#ccc;padding:6px 14px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='none'">
               <i class="mdi mdi-face-recognition" aria-hidden="true"></i> Zonas
             </button>
@@ -805,6 +824,71 @@
       // Draw-mode state
       let _albumDrawMode    = false;
       let _albumPendingBbox = null;  // { x, y, w, h } normalized (0–1)
+      // Dedup state
+      let _dedupEnabled     = false;
+      let _dedupKept        = [];   // items after deduplication
+      let _dedupSkippedCount = 0;
+
+      // ── Perceptual-hash deduplication ────────────────────────────────
+      /**
+       * Computes an 8×8 average-hash for an image URL.
+       * Returns a 64-element Uint8Array (0 or 1) or null on failure.
+       */
+      function _computeImageHash(src){
+        if(!src) return Promise.resolve(null);
+        return new Promise(resolve => {
+          const SIZE = 8;
+          const img  = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            try{
+              const c   = document.createElement('canvas');
+              c.width   = SIZE;
+              c.height  = SIZE;
+              const ctx = c.getContext('2d');
+              ctx.drawImage(img, 0, 0, SIZE, SIZE);
+              const data = ctx.getImageData(0, 0, SIZE, SIZE).data;
+              const gray = new Array(SIZE * SIZE);
+              for(let i = 0; i < gray.length; i++){
+                gray[i] = 0.299 * data[i*4] + 0.587 * data[i*4+1] + 0.114 * data[i*4+2];
+              }
+              const mean = gray.reduce((a, b) => a + b, 0) / gray.length;
+              resolve(gray.map(v => v >= mean ? 1 : 0));
+            }catch(e){ resolve(null); }
+          };
+          img.onerror = () => resolve(null);
+          img.src = src;
+        });
+      }
+
+      function _hammingDistance(h1, h2){
+        if(!h1 || !h2 || h1.length !== h2.length) return Infinity;
+        let d = 0;
+        for(let i = 0; i < h1.length; i++) if(h1[i] !== h2[i]) d++;
+        return d;
+      }
+
+      /**
+       * Given an array of items, returns the subset with near-duplicates removed.
+       * Items already registered in multimedia (fromFs===false) take priority.
+       * Threshold: ≤5 different bits out of 64 (≈92% similarity).
+       */
+      async function _deduplicateItems(items){
+        const THRESHOLD = 5;
+        const hashes = await Promise.all(items.map(it => _computeImageHash(it.src)));
+        const kept   = [];
+        const skip   = new Set();
+        for(let i = 0; i < items.length; i++){
+          if(skip.has(i)) continue;
+          kept.push(items[i]);
+          if(!hashes[i]) continue;
+          for(let j = i + 1; j < items.length; j++){
+            if(skip.has(j)) continue;
+            if(_hammingDistance(hashes[i], hashes[j]) <= THRESHOLD) skip.add(j);
+          }
+        }
+        return { kept, duplicateCount: skip.size };
+      }
 
       // ── Render thumbnails ────────────────────────────────────────────
       function renderGrid(items){
@@ -1580,13 +1664,46 @@
         }
       });
 
+      // ── Dedup badge update ────────────────────────────────────────────
+      function _updateDedupBadge(){
+        const badge = document.getElementById('dedupBadge');
+        const btn   = document.getElementById('dedupToggleBtn');
+        if(_dedupSkippedCount > 0){
+          badge.textContent = _dedupSkippedCount + ' duplicad' + (_dedupSkippedCount === 1 ? 'a' : 'as') + ' ocultad' + (_dedupSkippedCount === 1 ? 'a' : 'as');
+          badge.style.display = _dedupEnabled ? 'inline-block' : 'none';
+        } else {
+          badge.style.display = 'none';
+        }
+        btn.classList.toggle('active', _dedupEnabled);
+        btn.title = _dedupEnabled ? 'Mostrar todas as fotos (incluindo duplicadas)' : 'Ocultar fotos quase duplicadas';
+      }
+
+      document.getElementById('dedupToggleBtn').addEventListener('click', function(){
+        _dedupEnabled = !_dedupEnabled;
+        _updateDedupBadge();
+        // Re-apply current search with the new base set
+        const q = (document.getElementById('albumSearch').value || '').trim().toLowerCase();
+        const base = _dedupEnabled ? _dedupKept : _allItems;
+        _filteredItems = q
+          ? base.filter(item =>
+              (item.name || '').toLowerCase().includes(q) ||
+              (item.fullPath || '').toLowerCase().includes(q) ||
+              (item.notes || '').toLowerCase().includes(q) ||
+              (item.persons || []).some(n => n.toLowerCase().includes(q)) ||
+              (item.tags || []).some(t => (t.personName||'').toLowerCase().includes(q))
+            )
+          : base;
+        renderGrid(_filteredItems);
+      });
+
       // ── Search / filter ──────────────────────────────────────────────
       document.getElementById('albumSearch').addEventListener('input', function(){
         const q = this.value.trim().toLowerCase();
+        const base = _dedupEnabled ? _dedupKept : _allItems;
         if(!q){
-          _filteredItems = _allItems;
+          _filteredItems = base;
         } else {
-          _filteredItems = _allItems.filter(item => {
+          _filteredItems = base.filter(item => {
             if((item.name || '').toLowerCase().includes(q)) return true;
             if((item.fullPath || '').toLowerCase().includes(q)) return true;
             if((item.notes || '').toLowerCase().includes(q)) return true;
@@ -1681,8 +1798,13 @@
           }
 
           _allItems      = items;
-          _filteredItems = items;
-          renderGrid(items);
+          // Pre-compute dedup result (hashes computed here once)
+          const dedupResult  = await _deduplicateItems(items);
+          _dedupKept         = dedupResult.kept;
+          _dedupSkippedCount = dedupResult.duplicateCount;
+          _updateDedupBadge();
+          _filteredItems = _dedupEnabled ? _dedupKept : items;
+          renderGrid(_filteredItems);
         }catch(e){
           console.error(e);
           content.innerHTML = `<div class="album-empty"><i class="mdi mdi-alert-outline" aria-hidden="true"></i><p>Erro ao carregar o álbum: ${escapeHtml(String(e))}</p></div>`;

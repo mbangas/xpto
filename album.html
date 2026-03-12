@@ -617,6 +617,67 @@
         transition: background var(--transition), color var(--transition);
       }
       .album-bbox-popup-cancel:hover { color: var(--text-main); background: var(--bg-surface-2); }
+
+      /* ── Photo selection ─────────────────────────────────────────────────── */
+      .album-thumb { position: relative; }
+      .album-thumb-select-btn {
+        position: absolute;
+        top: 7px;
+        left: 7px;
+        z-index: 5;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        border: 2px solid rgba(255,255,255,0.85);
+        background: rgba(0,0,0,0.30);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: transparent;
+        font-size: 0.82rem;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.15s, background 0.15s, border-color 0.15s;
+        flex-shrink: 0;
+        user-select: none;
+      }
+      .album-grid.selection-mode .album-thumb .album-thumb-select-btn { opacity: 0.55; }
+      .album-grid.selection-mode .album-thumb:hover .album-thumb-select-btn { opacity: 1; }
+      .album-thumb.selected .album-thumb-select-btn {
+        opacity: 1 !important;
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+      .album-thumb.selected {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow);
+      }
+      .album-grid.selection-mode .album-thumb { cursor: default; }
+      .album-grid.selection-mode .album-thumb:hover { transform: none; }
+      /* ── Selection bar ─────────────────────────────────────────────────── */
+      .album-selection-bar {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 20px;
+        background: var(--bg-surface-2);
+        border-bottom: 1px solid var(--border);
+        flex-wrap: wrap;
+      }
+      .album-selection-bar.visible { display: flex; }
+      .album-selection-count {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: var(--text-main);
+        flex: 1;
+        white-space: nowrap;
+      }
+      #albumSelectModeBtn.active {
+        background: var(--accent-soft) !important;
+        border-color: var(--accent) !important;
+        color: var(--accent) !important;
+      }
     </style>
     <script src="remote-storage.js"></script>
     <script src="auth.js"></script>
@@ -657,7 +718,22 @@
             <button id="refreshZonesBtn" title="Atualizar zonas de identificação" style="background:none;border:1px solid rgba(255,255,255,0.18);border-radius:8px;color:#ccc;padding:6px 14px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='none'">
               <i class="mdi mdi-face-recognition" aria-hidden="true"></i> Zonas
             </button>
+            <button id="albumSelectModeBtn" title="Ativar modo de seleção" style="background:none;border:1px solid rgba(255,255,255,0.18);border-radius:8px;color:#ccc;padding:6px 14px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:6px;" onmouseover="if(!this.classList.contains('active'))this.style.background='rgba(255,255,255,0.08)'" onmouseout="if(!this.classList.contains('active'))this.style.background='none'">
+              <i class="mdi mdi-checkbox-multiple-marked-outline" aria-hidden="true"></i> Seleção
+            </button>
           </div>
+        </div>
+
+        <!-- Selection bar -->
+        <div class="album-selection-bar" id="albumSelectionBar" aria-live="polite">
+          <span class="album-selection-count" id="albumSelectionCount">Nenhuma foto selecionada</span>
+          <button id="albumSelectAllBtn" style="background:none;border:1px solid var(--border);border-radius:7px;color:var(--text-main);padding:5px 13px;cursor:pointer;font-size:0.82rem;font-family:var(--font-main);display:flex;align-items:center;gap:5px;transition:background var(--transition);" onmouseover="this.style.background='var(--bg-surface)'" onmouseout="this.style.background='none'">
+            <i class="mdi mdi-checkbox-multiple-marked-outline" aria-hidden="true"></i>
+            <span id="albumSelectAllLabel">Selecionar todas</span>
+          </button>
+          <button id="albumClearSelectionBtn" title="Limpar seleção e sair do modo" style="background:none;border:1px solid var(--border);border-radius:7px;color:var(--text-secondary);padding:5px 13px;cursor:pointer;font-size:0.82rem;font-family:var(--font-main);display:flex;align-items:center;gap:5px;transition:background var(--transition);" onmouseover="this.style.background='var(--bg-surface)'" onmouseout="this.style.background='none'">
+            <i class="mdi mdi-close" aria-hidden="true"></i> Limpar
+          </button>
         </div>
 
         <!-- Content area -->
@@ -828,6 +904,10 @@
       let _dedupEnabled     = false;
       let _dedupKept        = [];   // items after deduplication
       let _dedupSkippedCount = 0;
+      // Selection state
+      const _SELECTION_KEY = 'myLineage-album-selection';
+      let _selectionMode   = false;
+      let _selectedIds     = new Set();
 
       // ── Perceptual-hash deduplication ────────────────────────────────
       /**
@@ -890,6 +970,72 @@
         return { kept, duplicateCount: skip.size };
       }
 
+      // ── Selection helpers ─────────────────────────────────────────────
+      function _loadSelection(){
+        try {
+          const saved = localStorage.getItem(_SELECTION_KEY);
+          _selectedIds = saved ? new Set(JSON.parse(saved)) : new Set();
+        } catch(e) { _selectedIds = new Set(); }
+      }
+
+      function _saveSelection(){
+        localStorage.setItem(_SELECTION_KEY, JSON.stringify([..._selectedIds]));
+      }
+
+      function _togglePhotoSelection(itemId){
+        if(_selectedIds.has(itemId)){
+          _selectedIds.delete(itemId);
+        } else {
+          _selectedIds.add(itemId);
+        }
+        _saveSelection();
+        _updateSelectionUI();
+      }
+
+      function _updateSelectionUI(){
+        const bar       = document.getElementById('albumSelectionBar');
+        const countEl   = document.getElementById('albumSelectionCount');
+        const selAllLbl = document.getElementById('albumSelectAllLabel');
+        const modeBtn   = document.getElementById('albumSelectModeBtn');
+        const grid      = document.querySelector('.album-grid');
+
+        const count      = _selectedIds.size;
+        const hasAny     = count > 0;
+        bar.classList.toggle('visible', _selectionMode || hasAny);
+        if(modeBtn) modeBtn.classList.toggle('active', _selectionMode);
+        if(grid) grid.classList.toggle('selection-mode', _selectionMode);
+
+        countEl.textContent = count === 0
+          ? 'Nenhuma foto selecionada'
+          : count + ' foto' + (count !== 1 ? 's' : '') + ' selecionada' + (count !== 1 ? 's' : '');
+
+        const allSelected = _filteredItems.length > 0 &&
+                            _filteredItems.every(i => _selectedIds.has(i.id));
+        selAllLbl.textContent = allSelected ? 'Desselecionar todas' : 'Selecionar todas';
+
+        // Sync each thumbnail's visual state without re-rendering
+        document.querySelectorAll('.album-thumb[data-id]').forEach(card => {
+          card.classList.toggle('selected', _selectedIds.has(card.dataset.id));
+        });
+      }
+
+      function _toggleSelectionMode(){
+        _selectionMode = !_selectionMode;
+        _updateSelectionUI();
+      }
+
+      function _selectAllVisible(){
+        const allSelected = _filteredItems.length > 0 &&
+                            _filteredItems.every(i => _selectedIds.has(i.id));
+        if(allSelected){
+          _filteredItems.forEach(i => _selectedIds.delete(i.id));
+        } else {
+          _filteredItems.forEach(i => _selectedIds.add(i.id));
+        }
+        _saveSelection();
+        _updateSelectionUI();
+      }
+
       // ── Render thumbnails ────────────────────────────────────────────
       function renderGrid(items){
         const content = document.getElementById('albumContent');
@@ -912,18 +1058,32 @@
 
         const grid = document.createElement('div');
         grid.className = 'album-grid';
+        if(_selectionMode) grid.classList.add('selection-mode');
         for(const item of items){
           grid.appendChild(buildThumb(item));
         }
         content.innerHTML = '';
         content.appendChild(grid);
+        _updateSelectionUI();
       }
 
       function buildThumb(item){
         const card = document.createElement('div');
         card.className = 'album-thumb';
+        card.dataset.id = item.id;
         card.title = item.fullPath || item.name;
-        card.addEventListener('click', () => openModal(item));
+        if(_selectedIds.has(item.id)) card.classList.add('selected');
+        card.addEventListener('click', () => {
+          if(_selectionMode){ _togglePhotoSelection(item.id); } else { openModal(item); }
+        });
+
+        // Selection button (circle with check)
+        const selectBtn = document.createElement('span');
+        selectBtn.className = 'album-thumb-select-btn';
+        selectBtn.title = 'Selecionar foto';
+        selectBtn.innerHTML = '<i class="mdi mdi-check" aria-hidden="true"></i>';
+        selectBtn.addEventListener('click', e => { e.stopPropagation(); _togglePhotoSelection(item.id); });
+        card.appendChild(selectBtn);
 
         const wrap = document.createElement('div');
         wrap.className = 'album-thumb-img-wrap';
@@ -1717,6 +1877,7 @@
 
       // ── Load all photos ──────────────────────────────────────────────
       async function loadAlbum(){
+        _loadSelection();  // restore persisted selection
         const content   = document.getElementById('albumContent');
         const loaderEl  = document.getElementById('albumLoader');
         if(loaderEl) loaderEl.style.display = 'flex';
@@ -2010,6 +2171,15 @@
           btn.disabled = false;
           btn.innerHTML = '<i class="mdi mdi-face-recognition" aria-hidden="true"></i> Zonas';
         }
+      });
+      // ── Selection event listeners ─────────────────────────────────────
+      document.getElementById('albumSelectModeBtn').addEventListener('click', _toggleSelectionMode);
+      document.getElementById('albumSelectAllBtn').addEventListener('click', _selectAllVisible);
+      document.getElementById('albumClearSelectionBtn').addEventListener('click', function(){
+        _selectedIds.clear();
+        _selectionMode = false;
+        _saveSelection();
+        _updateSelectionUI();
       });
       // ── Init ─────────────────────────────────────────────────────────
       document.addEventListener('DOMContentLoaded', loadAlbum);

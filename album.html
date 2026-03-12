@@ -678,6 +678,149 @@
         border-color: var(--accent) !important;
         color: var(--accent) !important;
       }
+
+      /* ── Album print (same layout as galeria do livro) ─────────────── */
+      #album-print-pages { display: none; }
+
+      @media print {
+        body > .app-shell,
+        #deleteConfirmOverlay,
+        #albumModal { display: none !important; }
+
+        #album-print-pages {
+          display: block !important;
+          margin: 0;
+          padding: 0;
+        }
+
+        @page { size: A4 portrait; margin: 0; }
+
+        .album-print-page {
+          width: 210mm;
+          height: 297mm;
+          page-break-after: always;
+          break-after: page;
+          overflow: hidden;
+          padding: 0;
+          box-sizing: border-box;
+          font-family: Georgia, 'Times New Roman', serif;
+          color: #2c1810;
+          position: relative;
+          background-color: #c9bc9e;
+          background-image:
+            radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(60,35,10,0.28) 100%),
+            linear-gradient(160deg, #d4c9aa 0%, #bfb28c 40%, #c8bc97 65%, #b8ae87 100%);
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+        .album-print-page:last-child { page-break-after: auto; break-after: auto; }
+
+        .album-print-page .ap-inner {
+          height: 297mm;
+          padding: 18mm 16mm 14mm;
+          overflow: hidden;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .album-print-page .ap-title {
+          font-size: 18px;
+          font-weight: bold;
+          letter-spacing: 0.05em;
+          color: #5a2e0e;
+          text-transform: uppercase;
+          border-bottom: 2px solid #8b5a20;
+          padding-bottom: 6px;
+          margin-bottom: 18px;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .album-print-page .ap-grid {
+          display: flex;
+          flex-direction: column;
+          gap: 14px;
+          flex: 1;
+          min-height: 0;
+          overflow: hidden;
+        }
+
+        .album-print-page .ap-cell {
+          display: flex;
+          flex-direction: row;
+          align-items: flex-start;
+          gap: 14px;
+          flex: 1;
+          min-height: 0;
+        }
+
+        .album-print-page .ap-frame {
+          position: relative;
+          flex-shrink: 0;
+          width: 45%;
+          background: linear-gradient(145deg, #faf7f0, #f0e8d6, #ede3cc);
+          padding: 8px;
+          box-sizing: border-box;
+          box-shadow: 1px 2px 6px rgba(30,15,0,0.28), 0 0.5px 2px rgba(0,0,0,0.10);
+          border: 0.5px solid rgba(180,165,130,0.25);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: hidden;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+
+        .album-print-page .ap-img {
+          display: block;
+          width: 100%;
+          height: auto;
+          object-fit: contain;
+          background: transparent;
+          border-radius: 1px;
+          filter: saturate(0.80) contrast(0.88) sepia(0.08) brightness(1.03);
+        }
+
+        .album-print-page .ap-caption {
+          flex: 1;
+          align-self: flex-start;
+          text-align: left;
+          padding: 4px 0 2px;
+          line-height: 1.35;
+        }
+
+        .album-print-page .ap-caption-name {
+          font-size: 10px;
+          font-weight: bold;
+          color: #3c2010;
+          margin-bottom: 3px;
+        }
+
+        .album-print-page .ap-caption-people {
+          font-size: 9px;
+          font-weight: bold;
+          color: #3c2010;
+          line-height: 1.3;
+        }
+
+        .album-print-page .ap-caption-note {
+          font-size: 8px;
+          color: #7a5030;
+          font-style: italic;
+          margin-top: 1px;
+          line-height: 1.25;
+        }
+
+        .album-print-page .ap-pagenum {
+          position: absolute;
+          bottom: 10mm;
+          right: 16mm;
+          font-size: 11px;
+          color: #5a3810;
+          letter-spacing: 0.04em;
+        }
+      }
     </style>
     <script src="remote-storage.js"></script>
     <script src="auth.js"></script>
@@ -733,6 +876,9 @@
           </button>
           <button id="albumClearSelectionBtn" title="Limpar seleção e sair do modo" style="background:none;border:1px solid var(--border);border-radius:7px;color:var(--text-secondary);padding:5px 13px;cursor:pointer;font-size:0.82rem;font-family:var(--font-main);display:flex;align-items:center;gap:5px;transition:background var(--transition);" onmouseover="this.style.background='var(--bg-surface)'" onmouseout="this.style.background='none'">
             <i class="mdi mdi-close" aria-hidden="true"></i> Limpar
+          </button>
+          <button id="albumPrintBtn" title="Imprimir / Guardar PDF das fotos selecionadas" style="display:none;background:none;border:1px solid rgba(255,255,255,0.18);border-radius:7px;color:#ccc;padding:5px 13px;cursor:pointer;font-size:0.82rem;font-family:var(--font-main);align-items:center;gap:5px;transition:background var(--transition);" onmouseover="this.style.background='rgba(255,255,255,0.08)'" onmouseout="this.style.background='none'">
+            <i class="mdi mdi-printer" aria-hidden="true"></i> Imprimir
           </button>
         </div>
 
@@ -1012,6 +1158,10 @@
         const allSelected = _filteredItems.length > 0 &&
                             _filteredItems.every(i => _selectedIds.has(i.id));
         selAllLbl.textContent = allSelected ? 'Desselecionar todas' : 'Selecionar todas';
+
+        // Show / hide print button
+        const printBtn = document.getElementById('albumPrintBtn');
+        if (printBtn) printBtn.style.display = hasAny ? 'flex' : 'none';
 
         // Sync each thumbnail's visual state without re-rendering
         document.querySelectorAll('.album-thumb[data-id]').forEach(card => {
@@ -2172,6 +2322,68 @@
           btn.innerHTML = '<i class="mdi mdi-face-recognition" aria-hidden="true"></i> Zonas';
         }
       });
+      // ── Print selected photos (same gallery layout as livro) ──────────
+      function _albumPrintSelected() {
+        if (_selectedIds.size === 0) { alert('Não há fotos selecionadas para imprimir.'); return; }
+
+        const selectedItems = _filteredItems.filter(i => _selectedIds.has(i.id));
+        const items = selectedItems.length > 0
+          ? selectedItems
+          : _allItems.filter(i => _selectedIds.has(i.id));
+
+        const PHOTOS_PER_PAGE = 2;
+        const totalPages = Math.ceil(items.length / PHOTOS_PER_PAGE);
+
+        function esc(s) {
+          return String(s || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+        }
+
+        const pages = [];
+        for (let start = 0; start < items.length; start += PHOTOS_PER_PAGE) {
+          const slice = items.slice(start, start + PHOTOS_PER_PAGE);
+          const isFirst = start === 0;
+          const title = isFirst ? 'Galeria de Fotografias' : 'Galeria de Fotografias (cont.)';
+          const pageNum = Math.floor(start / PHOTOS_PER_PAGE) + 1;
+
+          const cells = slice.map(item => {
+            const tagPersons = (item.tags || [])
+              .filter(t => t.personName)
+              .map(t => t.personName);
+            const allPersons = [...new Set([...(item.persons || []), ...tagPersons])];
+            const personList = allPersons.join(', ');
+            const noteText = (item.notes || '').trim();
+            const altText = personList || item.name;
+            const src = item.src || '';
+            const imgHtml = src
+              ? `<img src="${esc(src)}" alt="${esc(altText)}" class="ap-img">`
+              : `<div style="width:100%;height:80px;background:#e0d8c8;display:flex;align-items:center;justify-content:center;color:#a08060;font-size:11px;">Sem imagem</div>`;
+            return `<div class="ap-cell">
+  <div class="ap-frame">${imgHtml}</div>
+  <div class="ap-caption">
+    <div class="ap-caption-name">${esc(item.name)}</div>
+    ${personList ? `<div class="ap-caption-people">${esc(personList)}</div>` : ''}
+    ${noteText  ? `<div class="ap-caption-note">${esc(noteText)}</div>`   : ''}
+  </div>
+</div>`;
+          }).join('');
+
+          pages.push(`<div class="album-print-page">
+  <div class="ap-inner">
+    <div class="ap-title">${esc(title)}</div>
+    <div class="ap-grid">${cells}</div>
+  </div>
+  <div class="ap-pagenum">${pageNum}</div>
+</div>`);
+        }
+
+        document.getElementById('album-print-pages').innerHTML = pages.join('');
+        window.print();
+      }
+
       // ── Selection event listeners ─────────────────────────────────────
       document.getElementById('albumSelectModeBtn').addEventListener('click', _toggleSelectionMode);
       document.getElementById('albumSelectAllBtn').addEventListener('click', _selectAllVisible);
@@ -2181,9 +2393,12 @@
         _saveSelection();
         _updateSelectionUI();
       });
+      document.getElementById('albumPrintBtn').addEventListener('click', _albumPrintSelected);
       // ── Init ─────────────────────────────────────────────────────────
       document.addEventListener('DOMContentLoaded', loadAlbum);
     </script>
+    <!-- Print container for selected photos (populated on print trigger) -->
+    <div id="album-print-pages"></div>
     <script src="history-logger.js"></script>
     <script src="back-to-top.js"></script>
   </body>

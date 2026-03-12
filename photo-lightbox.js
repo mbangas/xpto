@@ -661,6 +661,11 @@
     _initPersonPickerEvents();
     _initDrawMode();
 
+    // Re-fit tag overlay whenever the image pane is resized (maximize, restore, window resize)
+    if ('ResizeObserver' in window) {
+      new ResizeObserver(() => _fitTagOverlay()).observe(document.getElementById('plbImgPane'));
+    }
+
     document.addEventListener('keydown', e => {
       if (!_overlay.classList.contains('plb-open')) return;
       if (e.key === 'Escape')           { close(); }
@@ -1468,6 +1473,8 @@
       icon.classList.replace('mdi-arrow-collapse', 'mdi-arrow-expand');
       btn.title = 'Maximizar (F)';
     }
+    // Re-fit overlay after CSS transition completes (transition is 0.2s)
+    setTimeout(_fitTagOverlay, 220);
   }
 
   /* ── Download ────────────────────────────────────────────────────────── */

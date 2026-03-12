@@ -128,12 +128,6 @@
       {
         "personId": "I1",
         "personName": "Maria do Rosario Alves Ferreira",
-        "pixelCoords": {
-          "x1": 2571,
-          "y1": 1175,
-          "x2": 2975,
-          "y2": 1652
-        },
         "objeProps": {
           "position": "2571 1175 2975 1652",
           "cutout": false,
@@ -146,17 +140,17 @@
           "note": "",
           "photoDate": "",
           "photoPlace": ""
+        },
+        "bbox": {
+          "x": 0.71525,
+          "y": 0.4982,
+          "w": 0.10983,
+          "h": 0.19691
         }
       },
       {
         "personId": "I116",
         "personName": "António Alves Ferreira",
-        "pixelCoords": {
-          "x1": 2470,
-          "y1": 445,
-          "x2": 2805,
-          "y2": 826
-        },
         "objeProps": {
           "position": "2470 445 2805 826",
           "cutout": false,
@@ -169,6 +163,12 @@
           "note": "",
           "photoDate": "",
           "photoPlace": ""
+        },
+        "bbox": {
+          "x": 0.68631,
+          "y": 0.18559,
+          "w": 0.09107,
+          "h": 0.15728
         }
       },
       {
@@ -197,12 +197,6 @@
       {
         "personId": "I124",
         "personName": "Francisco Alves Ferreira",
-        "pixelCoords": {
-          "x1": 1556,
-          "y1": 422,
-          "x2": 1950,
-          "y2": 835
-        },
         "objeProps": {
           "position": "1556 422 1950 835",
           "cutout": false,
@@ -215,17 +209,17 @@
           "note": "",
           "photoDate": "",
           "photoPlace": ""
+        },
+        "bbox": {
+          "x": 0.43932,
+          "y": 0.17835,
+          "w": 0.10711,
+          "h": 0.17049
         }
       },
       {
         "personId": "I125",
         "personName": "Benedito Alves Ferreira",
-        "pixelCoords": {
-          "x1": 307,
-          "y1": 629,
-          "x2": 637,
-          "y2": 1042
-        },
         "objeProps": {
           "position": "307 629 637 1042",
           "cutout": false,
@@ -238,17 +232,17 @@
           "note": "",
           "photoDate": "",
           "photoPlace": ""
+        },
+        "bbox": {
+          "x": 0.09236,
+          "y": 0.25704,
+          "w": 0.08971,
+          "h": 0.17049
         }
       },
       {
         "personId": "I127",
         "personName": "João Alves Ferreira",
-        "pixelCoords": {
-          "x1": 1992,
-          "y1": 1290,
-          "x2": 2386,
-          "y2": 1707
-        },
         "objeProps": {
           "position": "1992 1290 2386 1707",
           "cutout": false,
@@ -261,17 +255,17 @@
           "note": "",
           "photoDate": "",
           "photoPlace": ""
+        },
+        "bbox": {
+          "x": 0.55488,
+          "y": 0.54342,
+          "w": 0.10711,
+          "h": 0.17214
         }
       },
       {
         "personId": "I128",
         "personName": "Carlos Alves Ferreira",
-        "pixelCoords": {
-          "x1": 987,
-          "y1": 463,
-          "x2": 1317,
-          "y2": 871
-        },
         "objeProps": {
           "position": "987 463 1317 871",
           "cutout": false,
@@ -284,17 +278,17 @@
           "note": "",
           "photoDate": "",
           "photoPlace": ""
+        },
+        "bbox": {
+          "x": 0.28019,
+          "y": 0.19753,
+          "w": 0.08971,
+          "h": 0.16842
         }
       },
       {
         "personId": "I129",
         "personName": "Maria da Conceição Alves Ferreira Feliciano",
-        "pixelCoords": {
-          "x1": 2906,
-          "y1": 505,
-          "x2": 3264,
-          "y2": 913
-        },
         "objeProps": {
           "position": "2906 505 3264 913",
           "cutout": false,
@@ -307,17 +301,17 @@
           "note": "",
           "photoDate": "",
           "photoPlace": ""
+        },
+        "bbox": {
+          "x": 0.81225,
+          "y": 0.21261,
+          "w": 0.09732,
+          "h": 0.16842
         }
       },
       {
         "personId": "I130",
         "personName": "Maria Nazaré Alves Ferreira Coelho",
-        "pixelCoords": {
-          "x1": 1322,
-          "y1": 1267,
-          "x2": 1730,
-          "y2": 1712
-        },
         "objeProps": {
           "position": "1322 1267 1730 1712",
           "cutout": false,
@@ -330,17 +324,17 @@
           "note": "",
           "photoDate": "",
           "photoPlace": ""
+        },
+        "bbox": {
+          "x": 0.36977,
+          "y": 0.53618,
+          "w": 0.11091,
+          "h": 0.1837
         }
       },
       {
         "personId": "I131",
         "personName": "Lúcia Maria Alves Ferreira",
-        "pixelCoords": {
-          "x1": 422,
-          "y1": 1290,
-          "x2": 830,
-          "y2": 1707
-        },
         "objeProps": {
           "position": "422 1290 830 1707",
           "cutout": false,
@@ -353,11 +347,17 @@
           "note": "",
           "photoDate": "",
           "photoPlace": ""
+        },
+        "bbox": {
+          "x": 0.12808,
+          "y": 0.55695,
+          "w": 0.11091,
+          "h": 0.17214
         }
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
+    "updatedAt": "2026-03-12T11:54:39.048Z",
     "deletedAt": null
   },
   "M_I3_0": {

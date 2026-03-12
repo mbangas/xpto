@@ -605,6 +605,8 @@
 
       const BOX_W = 120, BOX_H = 42, RX = 6;
       const COL_GAP = 18, ROW_GAP = 44;
+      // Grandparent boxes are narrower so two fit above each spouse
+      const GP_BOX_W = 90, GP_GAP = 10;
 
       const husb = this.individuals[fam.husb];
       const wife = this.individuals[fam.wife];
@@ -626,8 +628,20 @@
       // ── Calculate canvas width ─────────────────────────────────
       const numChildren = children.length;
       const childRowW = numChildren * BOX_W + Math.max(0, numChildren - 1) * COL_GAP;
-      const couplePairW = (husb ? BOX_W : 0) + (wife ? BOX_W : 0) + (husb && wife ? COL_GAP * 3 : 0);
-      const W = Math.max(couplePairW + 40, childRowW + 40, 320);
+
+      // Widen couple gap when GP rows are present so the two GP pairs don't overlap.
+      // Required couple gap = 2*GP_BOX_W + GP_GAP + 10 (min gap between pairs) - BOX_W = 80
+      const coupleGap = (hasGP && husb && wife)
+        ? Math.max(COL_GAP * 3, 2 * GP_BOX_W + GP_GAP + 10 - BOX_W)
+        : COL_GAP * 3;
+
+      const couplePairW = (husb ? BOX_W : 0) + (wife ? BOX_W : 0) + (husb && wife ? coupleGap : 0);
+
+      // Minimum W so that GP pairs (centered above each spouse) stay within canvas margins.
+      // Derived: W >= BOX_W + coupleGap + 2*GP_BOX_W + GP_GAP + 8
+      const gpMinW = hasGP ? (BOX_W + coupleGap + 2 * GP_BOX_W + GP_GAP + 8) : 0;
+
+      const W = Math.max(couplePairW + 40, numChildren ? childRowW + 40 : 0, gpMinW, 320);
 
       // ── Y positions ────────────────────────────────────────────
       const gpRowY = 12;
@@ -638,30 +652,44 @@
       const H = numChildren ? childRowY + BOX_H + 16 : coupleRowY + BOX_H + 16;
 
       // ── Couple X positions ─────────────────────────────────────
-      const coupleTotalW = (husb ? BOX_W : 0) + (wife ? BOX_W : 0) + (husb && wife ? COL_GAP * 3 : 0);
-      const coupleStartX = Math.round((W - coupleTotalW) / 2);
+      const coupleStartX = Math.round((W - couplePairW) / 2);
       const hX = coupleStartX;
-      const wX = husb ? coupleStartX + BOX_W + COL_GAP * 3 : coupleStartX;
+      const wX = husb ? coupleStartX + BOX_W + coupleGap : coupleStartX;
 
-      // ── Grandparent boxes ──────────────────────────────────────
-      if (husb && husbParFam) {
-        const h = this.individuals[husbParFam.husb];
-        const w = this.individuals[husbParFam.wife];
-        const lbl = [h && surname(h), w && surname(w)].filter(Boolean).join(' & ') || 'Pais';
-        const gpCx = hX + BOX_W / 2;
-        const gpX = Math.max(4, gpCx - BOX_W / 2);
-        parts.push(this._svgBox(gpX, gpRowY, BOX_W, BOX_H, RX, esc(lbl), '', false));
-        parts.push(`<line x1="${gpCx}" y1="${gpRowY + BOX_H}" x2="${hX + BOX_W / 2}" y2="${coupleRowY}" stroke="#c8a96ecc" stroke-width="1.5" stroke-dasharray="4,3"/>`);
-      }
-      if (wife && wifeParFam) {
-        const h = this.individuals[wifeParFam.husb];
-        const w = this.individuals[wifeParFam.wife];
-        const lbl = [h && surname(h), w && surname(w)].filter(Boolean).join(' & ') || 'Pais';
-        const gpCx = wX + BOX_W / 2;
-        const gpX = Math.min(W - BOX_W - 4, gpCx - BOX_W / 2);
-        parts.push(this._svgBox(gpX, gpRowY, BOX_W, BOX_H, RX, esc(lbl), '', false));
-        parts.push(`<line x1="${gpCx}" y1="${gpRowY + BOX_H}" x2="${wX + BOX_W / 2}" y2="${coupleRowY}" stroke="#c8a96ecc" stroke-width="1.5" stroke-dasharray="4,3"/>`);
-      }
+      // ── Grandparent boxes: two individuals per side ────────────
+      // Renders father and mother boxes side-by-side, centered above childCenterX,
+      // connected by a marriage line and a dashed descent to the child.
+      const renderGpSide = (parFam, childCenterX) => {
+        if (!parFam) return;
+        const gpF = this.individuals[parFam.husb];
+        const gpM = this.individuals[parFam.wife];
+        if (!gpF && !gpM) return;
+
+        if (gpF && gpM) {
+          // Two individual boxes centred over the child
+          const pairW = 2 * GP_BOX_W + GP_GAP;
+          const pairLeft = Math.round(childCenterX - pairW / 2);
+          const fBoxX = pairLeft;
+          const mBoxX = pairLeft + GP_BOX_W + GP_GAP;
+          const midY = gpRowY + Math.round(BOX_H / 2);
+
+          parts.push(this._svgBoxGp(fBoxX, gpRowY, GP_BOX_W, BOX_H, RX, esc(displayName(gpF)), esc(lifeYearsSvg(gpF))));
+          parts.push(this._svgBoxGp(mBoxX, gpRowY, GP_BOX_W, BOX_H, RX, esc(displayName(gpM)), esc(lifeYearsSvg(gpM))));
+          // Horizontal couple line between the two boxes
+          parts.push(`<line x1="${fBoxX + GP_BOX_W}" y1="${midY}" x2="${mBoxX}" y2="${midY}" stroke="#7a4e18" stroke-width="1.2"/>`);
+          // Dashed descent from centre of GP pair to child (straight vertical)
+          parts.push(`<line x1="${childCenterX}" y1="${gpRowY + BOX_H}" x2="${childCenterX}" y2="${coupleRowY}" stroke="#c8a96ecc" stroke-width="1.5" stroke-dasharray="4,3"/>`);
+        } else {
+          // Only one parent known: single box centred above child
+          const gpInd = gpF || gpM;
+          const boxX = Math.round(childCenterX - GP_BOX_W / 2);
+          parts.push(this._svgBoxGp(boxX, gpRowY, GP_BOX_W, BOX_H, RX, esc(displayName(gpInd)), esc(lifeYearsSvg(gpInd))));
+          parts.push(`<line x1="${childCenterX}" y1="${gpRowY + BOX_H}" x2="${childCenterX}" y2="${coupleRowY}" stroke="#c8a96ecc" stroke-width="1.5" stroke-dasharray="4,3"/>`);
+        }
+      };
+
+      if (husb) renderGpSide(husbParFam, hX + BOX_W / 2);
+      if (wife) renderGpSide(wifeParFam, wX + BOX_W / 2);
 
       // ── Couple boxes ───────────────────────────────────────────
       if (husb) parts.push(this._svgBox(hX, coupleRowY, BOX_W, BOX_H, RX, esc(displayName(husb)), esc(lifeYearsSvg(husb)), true));
@@ -718,6 +746,17 @@
       const nameY = showYears && years ? y + h/2 - 1 : y + h/2 + 5;
       return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="none" stroke="#7a4e18" stroke-width="2"/>`
            + `<text x="${x+w/2}" y="${nameY}" text-anchor="middle" font-size="11" font-weight="500" fill="#3c2010">${shortName}</text>`
+           + yearStr;
+    }
+
+    /** Smaller SVG box used for grandparent individuals (narrower, lighter stroke) */
+    _svgBoxGp(x, y, w, h, rx, name, years) {
+      const shortName = name.length > 15 ? name.slice(0, 14) + '…' : name;
+      const yearStr = years
+        ? `<text x="${x+w/2}" y="${y+h-7}" text-anchor="middle" font-size="8" fill="#7a4e18">${years}</text>` : '';
+      const nameY = years ? y + h/2 - 1 : y + h/2 + 5;
+      return `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="${rx}" fill="none" stroke="#7a4e18" stroke-width="1.5"/>`
+           + `<text x="${x+w/2}" y="${nameY}" text-anchor="middle" font-size="10" font-weight="500" fill="#3c2010">${shortName}</text>`
            + yearStr;
     }
 

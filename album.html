@@ -635,6 +635,22 @@
       .album-tag-zone-handle.sw { bottom:-5px; left:-5px;  cursor: nesw-resize; }
       .album-tag-zone-handle.se { bottom:-5px; right:-5px; cursor: nwse-resize; }
       .album-tag-zone.zone-dragging { cursor: move !important; user-select: none; opacity: 0.85; }
+      .album-tag-zone.album-highlight {
+        background: rgba(59,130,246,0.32);
+        border-color: rgba(99,179,255,1);
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.28);
+      }
+      .album-person-chip.album-highlight {
+        background: rgba(59,130,246,0.28);
+        color: #93c5fd;
+        border-color: rgba(59,130,246,0.65);
+        box-shadow: 0 0 0 2px rgba(59,130,246,0.22);
+      }
+      .album-person-chip.album-bbox-chip.album-highlight {
+        background: rgba(59,130,246,0.32);
+        color: #93c5fd;
+        border-color: rgba(59,130,246,0.72);
+      }
       #albumBboxPersonPopup {
         position: fixed;
         background: var(--bg-surface);
@@ -1381,6 +1397,11 @@
           zone.style.height = height + '%';
           zone.setAttribute('tabindex', '0');
           zone.setAttribute('title', t.personName || t.name || 'Pessoa identificada');
+          // Cross-highlight with sidebar chip
+          const zonePid = t.personId || ('__idx_' + idx);
+          zone.dataset.albumPid = zonePid;
+          zone.addEventListener('mouseenter', () => _albumHighlightByPid(zonePid, true,  zone));
+          zone.addEventListener('mouseleave', () => _albumHighlightByPid(zonePid, false, zone));
           const lbl = document.createElement('div');
           lbl.className = 'album-tag-zone-label';
           lbl.textContent = t.personName || t.name || 'Pessoa';
@@ -1596,6 +1617,50 @@
       }
 
       /**
+       * Toggle highlight on all tag zones and person chips sharing the same pid,
+       * excluding the element that triggered the hover.
+       * @param {string}  pid    – person key (personId or '__idx_N')
+       * @param {boolean} on     – true = highlight, false = remove
+       * @param {Element} source – element that triggered the event (skip it)
+       */
+      function _albumHighlightByPid(pid, on, source) {
+        const overlay = document.getElementById('modalTagOverlay');
+        const section = document.getElementById('_albumPeopleSection');
+        if (overlay) {
+          overlay.querySelectorAll('.album-tag-zone').forEach(el => {
+            if (el !== source && el.dataset.albumPid === pid) {
+              if (on) {
+                el.style.background  = 'rgba(59,130,246,0.38)';
+                el.style.borderColor = 'rgba(99,179,255,1)';
+                el.style.boxShadow   = '0 0 0 3px rgba(59,130,246,0.32)';
+              } else {
+                el.style.background  = '';
+                el.style.borderColor = '';
+                el.style.boxShadow   = '';
+              }
+            }
+          });
+        }
+        if (section) {
+          section.querySelectorAll('.album-person-chip').forEach(el => {
+            if (el !== source && el.dataset.albumPid === pid) {
+              if (on) {
+                el.style.background  = 'rgba(59,130,246,0.38)';
+                el.style.color       = '#93c5fd';
+                el.style.borderColor = 'rgba(59,130,246,0.75)';
+                el.style.boxShadow   = '0 0 0 2px rgba(59,130,246,0.32)';
+              } else {
+                el.style.background  = '';
+                el.style.color       = '';
+                el.style.borderColor = '';
+                el.style.boxShadow   = '';
+              }
+            }
+          });
+        }
+      }
+
+      /**
        * Render the interactive people list in the modal sidebar.
        * @param {object} item – album item
        */
@@ -1642,6 +1707,13 @@
             chip.className = 'album-person-chip' + (p.source === 'tag' ? ' album-bbox-chip' : '');
             chip.title = p.source === 'tag' ? 'Marcação por região' : 'Associação direta';
             chip.textContent = p.name;
+            // Cross-highlight with tag zone on photo
+            const chipPid = p.id || ('__idx_' + p.tagIdx);
+            if (chipPid) {
+              chip.dataset.albumPid = chipPid;
+              chip.addEventListener('mouseover', e => { e.stopPropagation(); _albumHighlightByPid(chipPid, true,  chip); });
+              chip.addEventListener('mouseout',  e => { e.stopPropagation(); _albumHighlightByPid(chipPid, false, chip); });
+            }
 
             const unlinkBtn = document.createElement('button');
             unlinkBtn.className = 'album-person-unlink-btn';

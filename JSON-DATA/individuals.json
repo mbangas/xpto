@@ -4725,9 +4725,8 @@
         "prefix": "",
         "suffix": "",
         "nickname": "",
-        "marriedName": "",
         "aka": "Miguel Bangueses",
-        "type": "BIRTH"
+        "type": "birth"
       }
     ],
     "sex": "M",
@@ -4792,7 +4791,7 @@
     "fams": [
       "F29"
     ],
-    "notes": [],
+    "notes": "era uma vez a minha biografia",
     "sourceRefs": [],
     "multimediaRefs": [
       "M_I112_0",
@@ -4836,7 +4835,7 @@
       "M_I3_5"
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
+    "updatedAt": "2026-03-12T14:46:34.573Z",
     "deletedAt": null
   },
   "I113": {
@@ -71006,6 +71005,11 @@
         "cause": "",
         "age": "",
         "description": ""
+      },
+      {
+        "type": "BAPM",
+        "date": "1728",
+        "place": "alí"
       }
     ],
     "attributes": [
@@ -71031,7 +71035,7 @@
     "sourceRefs": [],
     "multimediaRefs": [],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
+    "updatedAt": "2026-03-12T15:01:25.512Z",
     "deletedAt": null
   },
   "I500282": {

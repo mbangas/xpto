@@ -1,5 +1,38 @@
 [
   {
+    "ts": "2026-03-12T15:01:25.419Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "actionType": "update",
+    "id": "I500281",
+    "detail": "Evento editado: Batismo",
+    "category": "pessoas",
+    "subjectName": "Manuel Fernandes Boyno",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-12T15:00:28.468Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "actionType": "update",
+    "id": "I500281",
+    "detail": "Novo evento: Batismo",
+    "category": "pessoas",
+    "subjectName": "Manuel Fernandes Boyno",
+    "actor": "+351931018263"
+  },
+  {
+    "ts": "2026-03-12T14:46:34.213Z",
+    "entity": "Individual",
+    "action": "Actualizar Indivíduo",
+    "actionType": "update",
+    "id": "I112",
+    "detail": "Dados pessoais actualizados",
+    "category": "pessoas",
+    "subjectName": "Miguel Filipe do Amaral Bangueses",
+    "actor": "+351931018263"
+  },
+  {
     "ts": "2026-03-12T12:13:06.912Z",
     "entity": "Multimedia",
     "action": "Actualizar Multimédia",

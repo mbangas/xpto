@@ -25,9 +25,6 @@
   <span class="mdi mdi-book-open-variant" style="font-size:20px;color:#c8a96e;"></span>
   <span class="lbr-title" id="lbrTitle">Family History Book</span>
   <div class="lbr-sep"></div>
-  <label style="color:#a08060;font-size:12px;white-space:nowrap;">Pessoa foco:</label>
-  <select id="lbrPersonSelect" title="Mudar pessoa foco"></select>
-  <div class="lbr-sep"></div>
   <!-- Person search with live filter -->
   <div style="position:relative;display:inline-block;" id="lbrSearchWrap">
     <input id="lbrSearchInput" type="text" placeholder="Pesquisar pessoa…" autocomplete="off"
@@ -44,9 +41,6 @@
     <span id="lbrPageTotal" style="color:#a08060;font-size:12px;white-space:nowrap;">/ …</span>
   </div>
   <div class="lbr-sep"></div>
-  <button id="lbrWhiteBgBtn" title="Alternar fundo: pergaminho / branco">
-    <span class="mdi mdi-file-outline"></span><span id="lbrWhiteBgLabel"> Fundo branco</span>
-  </button>
   <button id="lbrPrintBtn" title="Imprimir / Guardar PDF">
     <span class="mdi mdi-printer"></span> Imprimir
   </button>
@@ -970,34 +964,6 @@
         }
       });
 
-      // Bio meta grid — all events, vitals first, then chronological, death-events last
-      const _EL = {
-        BIRT:'Nascimento', CHR:'Batismo', BAPM:'Baptismo', CONF:'Confirmação',
-        ADOP:'Adopção', NATU:'Naturalização', EMIG:'Emigração', IMMI:'Imigração',
-        OCCU:'Profissão', EDUC:'Educação', GRAD:'Graduação', MILI:'Serviço Militar',
-        RESI:'Residência', RETI:'Reforma', ENGA:'Noivado', MARR:'Casamento', DIV:'Divórcio',
-        WILL:'Testamento', PROB:'Inventário', EVEN:'Evento',
-        DEAT:'Falecimento', CREM:'Cremação', BURI:'Sepultamento',
-      };
-      const _VITAL = ['BIRT','CHR','BAPM','CONF'];
-      const _DEATH = ['DEAT','CREM','BURI'];
-      const _evVital  = (ind.events || []).filter(e => _VITAL.includes(e.type));
-      const _evDeath  = (ind.events || []).filter(e => _DEATH.includes(e.type));
-      const _evOther  = (ind.events || []).filter(e => !_VITAL.includes(e.type) && !_DEATH.includes(e.type));
-      _evOther.sort((a, b) => (parseYear(a.date) || 9999) - (parseYear(b.date) || 9999));
-      const metaItems = [..._evVital, ..._evOther, ..._evDeath]
-        .filter(e => e.date || e.place)
-        .map(e => {
-          const label = _EL[e.type] || e.type;
-          const datePart  = e.date  ? fmtDate(e.date) : '';
-          const placePart = e.place ? (datePart ? ', ' + e.place : e.place) : '';
-          return { l: label, v: datePart + placePart || '–' };
-        });
-
-      const metaHtml = metaItems.map(m =>
-        `<div class="bio-meta-item"><span class="bio-meta-label">${esc(m.l)}</span><span class="bio-meta-value">${esc(m.v)}</span></div>`
-      ).join('');
-
       // Build photo footnotes for photos that have notes
       const photoFootnotes = [];
       photosPage1.forEach((p, i) => {
@@ -1173,6 +1139,73 @@
       return pages;
     }
 
+    /** Renders one person's full bio as an HTML block without photo mosaic.
+     *  Used to stack multiple bios on a single combined page. */
+    _renderPersonBioBlock(personId, famId) {
+      const DB = this.DB;
+      const ind = this.individuals[personId];
+      if (!ind) return '';
+      const name = displayName(ind);
+      const years = lifeYears(ind);
+      const notes = gatherNotes(DB, ind);
+      const pgRef = (pid) => `<span class="bio-pg-ref" data-pgref="${pid}"></span>`;
+
+      let relations = '';
+      if (ind.famc && this.families[ind.famc]) {
+        const pfam = this.families[ind.famc];
+        const parents = [pfam.husb, pfam.wife].filter(Boolean).map(pid => {
+          const p = this.individuals[pid];
+          return p ? `${esc(displayName(p))}${pgRef(pid)}` : null;
+        }).filter(Boolean);
+        if (parents.length)
+          relations += `<div class="bio-relations"><strong>Pais:</strong> ${parents.join(' &amp; ')}</div>`;
+      }
+      (ind.fams || []).forEach(fid => {
+        const sfam = this.families[fid];
+        if (!sfam) return;
+        const spId = sfam.husb === personId ? sfam.wife : sfam.husb;
+        const spouse = this.individuals[spId];
+        if (spouse) {
+          const marrEv = (sfam.events || []).find(e => e.type === 'MARR');
+          relations += `<div class="bio-relations"><strong>Cônjuge:</strong> ${esc(displayName(spouse))}${pgRef(spId)}${marrEv && marrEv.date ? ' <span style="color:#5a3010;font-size:11px;">(' + esc(fmtDate(marrEv.date)) + ')</span>' : ''}</div>`;
+        }
+        const kids = (sfam.children || []).map(c => this.individuals[c]).filter(Boolean);
+        if (kids.length)
+          relations += `<div class="bio-relations"><strong>Filhos:</strong> ${kids.map(k => `${esc(displayName(k))}${pgRef(k.id)}`).join(', ')}</div>`;
+      });
+
+      return `<div class="combined-bio-person" id="ind_${esc(personId)}">
+  <div class="chapter-heading combined-bio-heading">${esc(name)}</div>
+  ${years ? `<div class="chapter-years">${esc(years)}</div>` : ''}
+  <div class="chapter-divider"></div>
+  <div class="bio-relations-wrap">${relations}</div>
+  ${notes ? `<div class="bio-notes">${esc(notes).replace(/\n/g,'<br/>')}</div>` : ''}
+</div>`;
+    }
+
+    /** Renders multiple people's bios on a single page (when none have photos) */
+    _renderCombinedBioPage(personIds, famId) {
+      const primaryId = personIds[0];
+      const secondaryIds = personIds.slice(1);
+      const blocks = personIds.map(pid => this._renderPersonBioBlock(pid, famId)).filter(Boolean);
+      if (!blocks.length) return null;
+      if (!this.individuals[primaryId]) return null;
+      const title = personIds
+        .map(pid => { const ind = this.individuals[pid]; return ind ? displayName(ind) : null; })
+        .filter(Boolean).join(' & ');
+      return {
+        type: 'combined-bio',
+        title,
+        ref: 'ind_' + primaryId,
+        personId: primaryId,
+        leanIds: secondaryIds,
+        leanPeople: secondaryIds
+          .map(id => { const ind = this.individuals[id]; return ind ? { id, name: displayName(ind) } : null; })
+          .filter(Boolean),
+        html: `<div class="livro-page-inner page-bio">${blocks.join('\n<div class="combined-bio-sep"></div>\n')}</div>`,
+      };
+    }
+
     _renderChapterRight(famId, chapterNum) {
       const fam = this.families[famId];
       if (!fam) return null;
@@ -1182,6 +1215,11 @@
         return { type: 'chapter-right', title: '', famId, html: '<div class="livro-page-inner"></div>' };
       }
       return this._renderBioPage(leadId, chapterNum, famId);
+    }
+
+    /** Returns true if a person has at least one multimedia/photo reference */
+    _hasPhotos(ind) {
+      return !!(ind && ind.multimediaRefs && ind.multimediaRefs.length);
     }
 
     /** Returns true if a person has no photos and minimal biographical info */
@@ -1230,12 +1268,11 @@
       if (!lead) return { type: 'chapter-right', title: '', famId, html: '<div class="livro-page-inner"></div>' };
 
       const bioPage = this._renderBioPage(leadId, chapterNum, famId);
-      // 'Outros membros da família' section removed — lean members are indexed
-      // but not rendered as an extra block on the page.
+      // Lean members are indexed via leanIds (for page-ref map) and leanPeople (for search).
       if (leanMemberIds && leanMemberIds.length) {
-        bioPage.leanPeople = leanMemberIds
-          .filter(id => id !== leadId)
-          .map(id => ({ id, name: displayName(this.individuals[id]) }));
+        const lean = leanMemberIds.filter(id => id !== leadId);
+        bioPage.leanIds   = lean;
+        bioPage.leanPeople = lean.map(id => ({ id, name: displayName(this.individuals[id]) }));
       }
       return bioPage;
     }
@@ -1395,12 +1432,13 @@
       this.personPageMap = map;
       pages.forEach(p => {
         if (!p) return;
+        // First occurrence wins — do not overwrite an already-mapped person
         if (p.ref && p.ref.startsWith('ind_') && p.personId && p.pageNum) {
-          map[p.personId] = p.pageNum;
+          if (!map[p.personId]) map[p.personId] = p.pageNum;
         }
-        // Lean people merged into this page also get mapped here
+        // Lean people merged into this page also get mapped here (first occurrence wins)
         if (p.leanIds && p.pageNum) {
-          p.leanIds.forEach(lid => { map[lid] = p.pageNum; });
+          p.leanIds.forEach(lid => { if (!map[lid]) map[lid] = p.pageNum; });
         }
       });
       // Replace placeholders in all page HTML strings
@@ -1543,15 +1581,7 @@
         if (!fam) return;
         const leadId = fam.husb || fam.wife;
         const leanIds = [];
-        // Check spouse
-        const spouseId = fam.husb === leadId ? fam.wife : fam.husb;
-        if (spouseId) {
-          const sp = this.individuals[spouseId];
-          if (sp && this._isLeanPerson(sp) && !chapterLeadIds.has(spouseId)) {
-            leanIds.push(spouseId);
-            mergedPersonIds.add(spouseId);
-          }
-        }
+        // Spouse always gets a standalone bio page — never merged as lean
         // Check children
         (fam.children || []).forEach(cid => {
           const child = this.individuals[cid];
@@ -1596,16 +1626,53 @@
         const leanIds = familyLeanMap[famId] || [];
 
         const left  = this._renderChapterLeft(famId, chapterNum);
-        const right = leanIds.length
-          ? this._renderChapterRightWithMini(famId, chapterNum, leanIds)
-          : this._renderChapterRight(famId, chapterNum);
+        const spouseId = fam.husb === leadId ? fam.wife : fam.husb;
+
+        // ── Decide whether to combine lead + spouse on one page (no photos for either) ──
+        const leadHasPhotos   = this._hasPhotos(this.individuals[leadId]);
+        const spouseHasPhotos = spouseId ? this._hasPhotos(this.individuals[spouseId]) : false;
+        const leadAlreadyHasBio = bioPersonIds.has(leadId);
+        const combineCouple   = !leadAlreadyHasBio && spouseId
+          && !mergedPersonIds.has(spouseId) && !bioPersonIds.has(spouseId)
+          && !leadHasPhotos && !spouseHasPhotos;
+
+        // ── Build lean-children list to attach to the right page (for index/map) ──
+        const attachLeanIds = (page) => {
+          if (!leanIds.length || !page) return;
+          const extra = leanIds.filter(id => id !== leadId && id !== spouseId);
+          if (!extra.length) return;
+          page.leanIds   = [...(page.leanIds   || []), ...extra];
+          page.leanPeople = [...(page.leanPeople || []),
+            ...extra.map(id => { const ind = this.individuals[id]; return ind ? { id, name: displayName(ind) } : null; }).filter(Boolean)];
+        };
+
+        let right;
+        if (leadAlreadyHasBio) {
+          // Lead's bio was already published in a previous family chapter.
+          // Use the spouse's bio as the right page for this chapter instead.
+          if (spouseId && !mergedPersonIds.has(spouseId) && !bioPersonIds.has(spouseId)) {
+            right = this._renderBioPage(spouseId, 0, famId);
+            attachLeanIds(right);
+          } else {
+            right = null;
+          }
+        } else if (combineCouple) {
+          right = this._renderCombinedBioPage([leadId, spouseId], famId);
+          attachLeanIds(right);
+        } else {
+          right = leanIds.length
+            ? this._renderChapterRightWithMini(famId, chapterNum, leanIds)
+            : this._renderChapterRight(famId, chapterNum);
+        }
 
         if (left)  pages.push({ ...left,  cssClass: 'page-chapter' });
         if (right) {
           pages.push({ ...right, cssClass: 'page-bio' });
           if (right.personId) bioPersonIds.add(right.personId);
-          // Photo continuation pages for lead (max 3 pages total: 1 bio + 2 continuation)
-          if (right.photosExtra && right.photosExtra.length) {
+          if (combineCouple && spouseId) bioPersonIds.add(spouseId);
+          if (leadAlreadyHasBio && spouseId) bioPersonIds.add(spouseId);
+          // Photo continuation pages (only for single-person bio pages)
+          if (!combineCouple && !leadAlreadyHasBio && right.photosExtra && right.photosExtra.length) {
             const chunks = [];
             for (let ci = 0; ci < right.photosExtra.length; ci += 6)
               chunks.push(right.photosExtra.slice(ci, ci + 6));
@@ -1619,21 +1686,37 @@
           }
         }
 
-        // ── Spouse bio immediately after lead ──────────────────
-        const spouseId = fam.husb === leadId ? fam.wife : fam.husb;
-        if (spouseId && !mergedPersonIds.has(spouseId) && !bioPersonIds.has(spouseId))
+        // ── Spouse bio (skip if already handled above) ──────────
+        const spouseHandled = combineCouple || leadAlreadyHasBio;
+        if (!spouseHandled && spouseId && !mergedPersonIds.has(spouseId) && !bioPersonIds.has(spouseId))
           pushBioPages(spouseId, famId);
 
-        // ── Children bios (non-lead, non-lean) ─────────────────
-        (fam.children || []).forEach(cid => {
-          if (!mergedPersonIds.has(cid) && !bioPersonIds.has(cid) && !chapterLeadIds.has(cid))
-            pushBioPages(cid, famId);
-        });
+        // ── Children bios — batch those without photos together ──
+        const childrenToPush = (fam.children || []).filter(cid =>
+          !mergedPersonIds.has(cid) && !bioPersonIds.has(cid) && !chapterLeadIds.has(cid)
+        );
+        const childrenWithPhotos = childrenToPush.filter(cid =>  this._hasPhotos(this.individuals[cid]));
+        const childrenNoPhotos   = childrenToPush.filter(cid => !this._hasPhotos(this.individuals[cid]));
+
+        childrenWithPhotos.forEach(cid => pushBioPages(cid, famId));
+
+        // Batch up to 3 photo-less children per page
+        const BATCH = 3;
+        for (let i = 0; i < childrenNoPhotos.length; i += BATCH) {
+          const batch = childrenNoPhotos.slice(i, i + BATCH);
+          if (batch.length === 1) {
+            pushBioPages(batch[0], famId);
+          } else {
+            const combinedPage = this._renderCombinedBioPage(batch, famId);
+            if (combinedPage) {
+              pages.push({ ...combinedPage, cssClass: 'page-bio' });
+              batch.forEach(cid => bioPersonIds.add(cid));
+            }
+          }
+        }
       });
 
-      // ── Photo Gallery (all photos, full-size, upright, with captions) ──
-      const galleryPages = this._renderPhotoGallery();
-      galleryPages.forEach(p => pages.push({ ...p, cssClass: 'page-gallery' }));
+
 
       // ── Layout pass: assign page numbers ──────────────────────
       pages.forEach((p, i) => {
@@ -1869,43 +1952,6 @@
     });
   }
 
-  function populatePersonSelect(DB, currentId) {
-    const sel = document.getElementById('lbrPersonSelect');
-    sel.innerHTML = '';
-    try {
-      const all = DB.getIndividuals ? DB.getIndividuals() : [];
-      all.filter(i => !i.deletedAt).forEach(ind => {
-        const opt = document.createElement('option');
-        opt.value = ind.id;
-        opt.textContent = displayName(ind) + (lifeYears(ind) ? ' ' + lifeYears(ind) : '');
-        if (ind.id === currentId) opt.selected = true;
-        sel.appendChild(opt);
-      });
-    } catch(e) {
-      // fallback: leave empty
-    }
-
-    sel.addEventListener('change', () => {
-      const newId = sel.value;
-      if (!newId) return;
-      const loadingEl = document.getElementById('livro-loading');
-      loadingEl.style.display = 'flex';
-      // Double rAF ensures the browser paints the loading overlay
-      // before the synchronous (and potentially slow) book build starts
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        if (pageFlip) { try { pageFlip.destroy(); } catch(e){} pageFlip = null; }
-        const container = document.getElementById('livro-book-wrap');
-        container.innerHTML = '';
-        try {
-          initBook(DB, newId);
-        } catch(e) {
-          console.error('Book build error:', e);
-          loadingEl.style.display = 'none';
-        }
-      }));
-    });
-  }
-
   // ── Boot ──────────────────────────────────────────────────────
   window.addEventListener('DOMContentLoaded', () => {
     MLAuth.requireAuth();
@@ -1937,7 +1983,6 @@
         return;
       }
 
-      populatePersonSelect(DB, rootId);
       try {
         initBook(DB, rootId);
       } catch (e) {
@@ -1979,16 +2024,6 @@
     };
     gotoInput.addEventListener('keydown', e => { if (e.key === 'Enter') { doGoto(); gotoInput.blur(); } });
     gotoInput.addEventListener('change', doGoto);
-
-    // White background toggle
-    const whiteBgBtn = document.getElementById('lbrWhiteBgBtn');
-    const whiteBgLabel = document.getElementById('lbrWhiteBgLabel');
-    whiteBgBtn.addEventListener('click', () => {
-      const isWhite = document.body.classList.toggle('livro-white-mode');
-      whiteBgBtn.querySelector('.mdi').className =
-        isWhite ? 'mdi mdi-file-document-outline' : 'mdi mdi-file-outline';
-      whiteBgLabel.textContent = isWhite ? ' Fundo original' : ' Fundo branco';
-    });
 
     // Keyboard navigation
     document.addEventListener('keydown', e => {

@@ -130,19 +130,9 @@ body.livro-body {
   color: #2c1810;
   box-sizing: border-box;
 
-  /* ── Aged album page texture ──────────────────────────────── */
-  background-color: #c9bc9e;
-  background-image:
-    /* vignette — darker edges, lighter centre */
-    radial-gradient(ellipse at 50% 50%,
-      transparent 40%,
-      rgba(60,35,10,0.28) 100%),
-    /* fine paper grain via SVG noise */
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.72' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.12'/%3E%3C/svg%3E"),
-    /* coarse canvas weave */
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8'%3E%3Crect width='8' height='8' fill='none'/%3E%3Cline x1='0' y1='0' x2='8' y2='8' stroke='rgba(80,50,10,0.07)' stroke-width='0.8'/%3E%3Cline x1='8' y1='0' x2='0' y2='8' stroke='rgba(80,50,10,0.05)' stroke-width='0.8'/%3E%3C/svg%3E"),
-    /* warm base gradient — aged paper tones */
-    linear-gradient(160deg, #d4c9aa 0%, #bfb28c 40%, #c8bc97 65%, #b8ae87 100%);
+  /* ── White page background ─────────────────────────────────── */
+  background-color: #ffffff;
+  background-image: none;
 }
 
 .livro-page-inner {
@@ -765,6 +755,22 @@ body.livro-body {
   color: #5a3810;
   min-width: 54px;
   text-align: right;
+  flex-shrink: 0;
+}
+
+/* ── Combined bio pages (multiple people, no photos) ──────── */
+.combined-bio-person {
+  flex-shrink: 0;
+}
+
+.combined-bio-heading {
+  font-size: 16px !important;
+}
+
+.combined-bio-sep {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, #8b5a2060, transparent);
+  margin: 14px 0;
   flex-shrink: 0;
 }
 

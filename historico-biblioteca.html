@@ -30,6 +30,25 @@
       }
       .form-field textarea { resize:vertical; min-height:60px; }
       .empty-state { text-align:center; padding:40px 16px; color:var(--text-secondary); font-size:0.88rem; }
+
+      /* Import progress overlay */
+      .import-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity .25s; pointer-events:none; }
+      .import-overlay.visible { opacity:1; pointer-events:auto; }
+      .import-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:12px; padding:28px 32px; width:420px; max-width:92vw; box-shadow:0 8px 32px rgba(0,0,0,0.4); }
+      .import-card h3 { margin:0 0 18px; font-size:1rem; color:var(--text-main); display:flex; align-items:center; gap:8px; }
+      .import-card h3 .mdi { font-size:1.3rem; color:#4493f8; }
+      .import-progress-bar { width:100%; height:8px; background:rgba(255,255,255,0.08); border-radius:4px; overflow:hidden; margin-bottom:14px; }
+      .import-progress-fill { height:100%; width:0%; background:linear-gradient(90deg,#4493f8,#3fb950); border-radius:4px; transition:width .2s ease; }
+      .import-stats { display:flex; gap:16px; margin-bottom:10px; font-size:0.82rem; }
+      .import-stat { display:flex; align-items:center; gap:5px; color:var(--text-secondary); }
+      .import-stat .val { font-weight:700; font-size:0.92rem; }
+      .import-stat.ok .val { color:#3fb950; }
+      .import-stat.err .val { color:#f05252; }
+      .import-status { font-size:0.8rem; color:var(--text-secondary); margin-bottom:16px; min-height:1.2em; }
+      .import-status .mdi-spin { margin-right:4px; }
+      .import-close { display:none; width:100%; padding:8px; border:none; border-radius:6px; background:#4493f8; color:#fff; font-size:0.85rem; font-weight:600; cursor:pointer; transition:background .15s; }
+      .import-close:hover { background:#3a82e0; }
+      .import-close.show { display:block; }
     </style>
   </head>
   <body>
@@ -64,15 +83,12 @@
 
         <!-- Add form -->
         <div class="card centered-panel" style="max-width:900px;width:100%;padding-bottom:20px;">
-          <h2 style="margin:0 0 14px;font-size:1rem;"><i class="mdi mdi-plus-circle-outline" style="color:#4493f8;margin-right:8px;"></i>Adicionar facto histórico</h2>
+          <h2 style="margin:0 0 14px;font-size:1rem;" id="formTitle"><i class="mdi mdi-plus-circle-outline" style="color:#4493f8;margin-right:8px;" id="formIcon"></i><span id="formTitleText">Adicionar facto histórico</span></h2>
           <div class="add-form-grid" id="addFormGrid">
             <div class="form-field">
               <label>País *</label>
-              <select id="fPais">
-                <option value="PT">PT — Portugal</option>
-                <option value="ES">ES — Espanha</option>
-                <option value="WORLD" selected>WORLD — Mundial</option>
-              </select>
+              <input type="text" id="fPais" list="fPaisDatalist" autocomplete="off" placeholder="Escreva para procurar..." />
+              <datalist id="fPaisDatalist"></datalist>
             </div>
             <div class="form-field">
               <label>Dia</label>
@@ -101,30 +117,43 @@
           </div>
           <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
             <button class="btn btn-ghost btn-sm" id="addBtn"><i class="mdi mdi-check"></i> Adicionar</button>
+            <button class="btn btn-ghost btn-sm" id="cancelEditBtn" style="display:none;"><i class="mdi mdi-close"></i> Cancelar</button>
             <span id="addMsg" style="font-size:0.78rem;color:var(--text-secondary);"></span>
           </div>
         </div>
 
         <!-- Facts list -->
         <div class="card centered-panel" style="max-width:900px;width:100%;margin-top:16px;padding-bottom:20px;">
-          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-            <h2 style="margin:0;font-size:1rem;"><i class="mdi mdi-text-box-multiple-outline" style="color:#4493f8;margin-right:8px;"></i>Factos registados</h2>
-            <div style="display:flex;gap:8px;align-items:center;">
+          <div style="margin-bottom:14px;">
+            <h2 style="margin:0 0 10px;font-size:1rem;"><i class="mdi mdi-text-box-multiple-outline" style="color:#4493f8;margin-right:8px;"></i>Factos registados</h2>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
               <input type="search" id="filterInput" placeholder="Filtrar..." style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-surface);color:var(--text-main);font-size:0.8rem;width:160px;" />
-              <select id="filterPais" style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-surface);color:var(--text-main);font-size:0.8rem;">
-                <option value="">Todos os países</option>
-                <option value="PT">PT</option>
-                <option value="ES">ES</option>
-                <option value="WORLD">WORLD</option>
-              </select>
+              <input type="text" id="filterPais" list="filterPaisDatalist" autocomplete="off" placeholder="País..." style="padding:5px 8px;border:1px solid var(--border);border-radius:4px;background:var(--bg-surface);color:var(--text-main);font-size:0.8rem;width:130px;" />
+              <datalist id="filterPaisDatalist"></datalist>
               <span id="countBadge" style="font-size:0.78rem;color:var(--text-secondary);white-space:nowrap;"></span>
               <button class="btn btn-ghost btn-sm" id="exportBtn" title="Exportar para Excel"><i class="mdi mdi-microsoft-excel"></i> Exportar</button>
               <button class="btn btn-ghost btn-sm" id="importBtn" title="Importar de Excel"><i class="mdi mdi-upload"></i> Importar</button>
               <input type="file" id="importFile" accept=".xlsx,.xls,.ods,.csv" style="display:none;" />
-              <span id="importMsg" style="font-size:0.78rem;color:var(--text-secondary);"></span>
+              <button class="btn btn-ghost btn-sm" id="deleteAllBtn" title="Apagar todos os factos" style="color:#f05252;"><i class="mdi mdi-delete-sweep-outline"></i> Apagar todos</button>
+
             </div>
           </div>
           <div id="listArea"><div class="empty-state"><i class="mdi mdi-loading mdi-spin"></i> A carregar...</div></div>
+
+          <!-- Import progress overlay -->
+          <div class="import-overlay" id="importOverlay">
+            <div class="import-card">
+              <h3><i class="mdi mdi-upload"></i> Importação de Excel</h3>
+              <div class="import-progress-bar"><div class="import-progress-fill" id="importProgressFill"></div></div>
+              <div class="import-stats">
+                <span class="import-stat ok"><i class="mdi mdi-check-circle-outline"></i> Importados: <span class="val" id="importDone">0</span></span>
+                <span class="import-stat err"><i class="mdi mdi-alert-circle-outline"></i> Ignorados: <span class="val" id="importErrs">0</span></span>
+                <span class="import-stat"><i class="mdi mdi-file-document-outline"></i> Total: <span class="val" id="importTotal">0</span></span>
+              </div>
+              <div class="import-status" id="importStatus"></div>
+              <button class="import-close" id="importClose">Fechar</button>
+            </div>
+          </div>
         </div>
 
       </main>
@@ -135,6 +164,41 @@
       'use strict';
 
       let allFacts = [];
+      let editingId = null;
+
+      /* Full country list — matches edit-person-drawer.js */
+      var COUNTRY_LIST = ['Mundial','Portugal','Brasil','Angola','Moçambique','Cabo Verde','Guiné-Bissau',
+        'São Tomé e Príncipe','Timor-Leste','Macau','Espanha','Alemanha','França',
+        'Reino Unido','Itália','Países Baixos','Bélgica','Suíça','Áustria','Suécia',
+        'Noruega','Dinamarca','Finlândia','Polónia','República Checa','Hungria',
+        'Roménia','Grécia','Irlanda','Luxemburgo','Rússia','Ucrânia',
+        'Estados Unidos','Canadá','Argentina','Chile','Peru','Colômbia','Venezuela',
+        'Uruguai','Paraguai','Bolívia','Equador','México','África do Sul',
+        'Marrocos','Egito','Nigéria','Quénia','Etiópia','Ghana','Senegal',
+        'China','Índia','Japão','Coreia do Sul','Austrália','Nova Zelândia',
+        'Indonésia','Vietname','Tailândia','Singapura'];
+
+      /* Backward compat — normalise old codes to full names */
+      var LEGACY_MAP = { 'PT':'Portugal', 'ES':'Espanha', 'WORLD':'Mundial' };
+      function normPais(v) { return LEGACY_MAP[v] || v || 'Mundial'; }
+
+      function populateCountrySelects() {
+        var opts = COUNTRY_LIST.map(function(c) { return '<option value="' + c + '">'; }).join('');
+        document.getElementById('fPaisDatalist').innerHTML = opts;
+        document.getElementById('filterPaisDatalist').innerHTML = opts;
+        document.getElementById('fPais').value = 'Mundial';
+      }
+      populateCountrySelects();
+
+      function sortFactsDesc(arr) {
+        arr.sort((a,b) => {
+          const ya = +a.anoInicio || 0, yb = +b.anoInicio || 0;
+          if (ya !== yb) return yb - ya;
+          const ma = +a.mes || 0, mb = +b.mes || 0;
+          if (ma !== mb) return mb - ma;
+          return (+b.dia || 0) - (+a.dia || 0);
+        });
+      }
 
       function escHtml(s) {
         return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -144,12 +208,9 @@
         fetch('/api/historical-facts')
           .then(r => r.ok ? r.json() : Promise.reject(r.status))
           .then(data => {
-            allFacts = (data || []).filter(n => !n.deletedAt).sort((a,b) => {
-              const pa = a.pais === 'PT' ? 0 : a.pais === 'ES' ? 1 : 2;
-              const pb = b.pais === 'PT' ? 0 : b.pais === 'ES' ? 1 : 2;
-              if (pa !== pb) return pa - pb;
-              return (+a.anoInicio || 0) - (+b.anoInicio || 0);
-            });
+            allFacts = (data || []).filter(n => !n.deletedAt);
+            allFacts.forEach(n => { n.pais = normPais(n.pais); });
+            sortFactsDesc(allFacts);
             renderList();
           })
           .catch(err => {
@@ -160,9 +221,9 @@
 
       function renderList() {
         const q = (document.getElementById('filterInput').value || '').toLowerCase();
-        const pFilter = document.getElementById('filterPais').value;
+        const pFilter = document.getElementById('filterPais').value.trim();
         const filtered = allFacts.filter(n => {
-          if (pFilter && n.pais !== pFilter) return false;
+          if (pFilter && normPais(n.pais) !== pFilter) return false;
           if (q && !(n.facto || '').toLowerCase().includes(q) && !(n.titulo || '').toLowerCase().includes(q)) return false;
           return true;
         });
@@ -192,6 +253,9 @@
               <div class="facto-preview" title="Clique para expandir">${escHtml(n.facto)}</div>
             </td>
             <td style="white-space:nowrap;">
+              <button class="btn btn-ghost btn-sm edit-btn" data-id="${escHtml(n.id)}" title="Editar facto">
+                <i class="mdi mdi-pencil-outline"></i>
+              </button>
               <button class="btn btn-ghost btn-sm del-btn" data-id="${escHtml(n.id)}" title="Apagar facto">
                 <i class="mdi mdi-delete-outline"></i>
               </button>
@@ -205,6 +269,30 @@
         // expand on click
         document.querySelectorAll('.facto-preview').forEach(el => {
           el.addEventListener('click', function() { this.classList.toggle('expanded'); });
+        });
+
+        // edit buttons
+        document.querySelectorAll('.edit-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            const id = this.getAttribute('data-id');
+            const fact = allFacts.find(f => f.id === id);
+            if (!fact) return;
+            editingId = id;
+            document.getElementById('fPais').value = normPais(fact.pais);
+            document.getElementById('fDia').value = fact.dia != null ? fact.dia : '';
+            document.getElementById('fMes').value = fact.mes != null ? fact.mes : '';
+            document.getElementById('fAnoInicio').value = fact.anoInicio != null ? fact.anoInicio : '';
+            document.getElementById('fAnoFim').value = fact.anoFim != null ? fact.anoFim : '';
+            document.getElementById('fTitulo').value = fact.titulo || '';
+            document.getElementById('fFacto').value = fact.facto || '';
+            document.getElementById('formIcon').className = 'mdi mdi-pencil-outline';
+            document.getElementById('formIcon').style.color = '#d29922';
+            document.getElementById('formTitleText').textContent = 'Editar facto histórico';
+            document.getElementById('addBtn').innerHTML = '<i class="mdi mdi-check"></i> Guardar alterações';
+            document.getElementById('cancelEditBtn').style.display = '';
+            document.getElementById('addMsg').textContent = '';
+            document.querySelector('.card.centered-panel').scrollIntoView({ behavior: 'smooth' });
+          });
         });
 
         // delete buttons
@@ -224,18 +312,84 @@
       }
 
       document.getElementById('filterInput').addEventListener('input', renderList);
+      document.getElementById('filterPais').addEventListener('input', renderList);
       document.getElementById('filterPais').addEventListener('change', renderList);
+
+      document.getElementById('deleteAllBtn').addEventListener('click', function() {
+        if (!allFacts.length) return;
+        if (!confirm('Tem a certeza que pretende apagar TODOS os ' + allFacts.length + ' factos históricos?\n\nEsta ação não pode ser desfeita.')) return;
+        const overlay  = document.getElementById('importOverlay');
+        const fill     = document.getElementById('importProgressFill');
+        const elDone   = document.getElementById('importDone');
+        const elErrs   = document.getElementById('importErrs');
+        const elTotal  = document.getElementById('importTotal');
+        const elStatus = document.getElementById('importStatus');
+        const elClose  = document.getElementById('importClose');
+        const elTitle  = overlay.querySelector('h3');
+        elTitle.innerHTML = '<i class="mdi mdi-delete-sweep-outline" style="color:#f05252"></i> A apagar factos';
+        fill.style.width = '0%'; elDone.textContent = '0'; elErrs.textContent = '0';
+        elTotal.textContent = allFacts.length;
+        elStatus.innerHTML = '<i class="mdi mdi-loading mdi-spin"></i> A apagar ' + allFacts.length + ' facto(s)...';
+        elClose.classList.remove('show');
+        overlay.classList.add('visible');
+
+        const ids = allFacts.map(f => f.id);
+        const total = ids.length;
+        let done = 0, errs = 0;
+        function updateProgress() {
+          fill.style.width = Math.round(((done + errs) / total) * 100) + '%';
+          elDone.textContent = done; elErrs.textContent = errs;
+        }
+        Promise.all(ids.map(id =>
+          fetch('/api/historical-facts/' + encodeURIComponent(id), { method: 'DELETE' })
+            .then(r => { if (r.ok) done++; else errs++; updateProgress(); })
+            .catch(() => { errs++; updateProgress(); })
+        )).then(() => {
+          fill.style.width = '100%';
+          allFacts = [];
+          if (errs) {
+            elStatus.innerHTML = '<i class="mdi mdi-alert-circle" style="color:#f05252"></i> Apagados: ' + done + ' | Erros: ' + errs;
+            loadFacts();
+          } else {
+            elStatus.innerHTML = '<i class="mdi mdi-check-circle" style="color:#3fb950"></i> Todos os factos foram apagados.';
+          }
+          elClose.classList.add('show');
+          elTitle.innerHTML = '<i class="mdi mdi-delete-sweep-outline" style="color:#f05252"></i> Remoção concluída';
+          resetForm();
+          renderList();
+        });
+      });
+
+      function resetForm() {
+        editingId = null;
+        document.getElementById('fPais').value = 'Mundial';
+        document.getElementById('fDia').value = '';
+        document.getElementById('fMes').value = '';
+        document.getElementById('fAnoInicio').value = '';
+        document.getElementById('fAnoFim').value = '';
+        document.getElementById('fTitulo').value = '';
+        document.getElementById('fFacto').value = '';
+        document.getElementById('formIcon').className = 'mdi mdi-plus-circle-outline';
+        document.getElementById('formIcon').style.color = '#4493f8';
+        document.getElementById('formTitleText').textContent = 'Adicionar facto histórico';
+        document.getElementById('addBtn').innerHTML = '<i class="mdi mdi-check"></i> Adicionar';
+        document.getElementById('cancelEditBtn').style.display = 'none';
+        document.getElementById('addMsg').textContent = '';
+      }
+
+      document.getElementById('cancelEditBtn').addEventListener('click', resetForm);
 
       document.getElementById('addBtn').addEventListener('click', function() {
         const dia = document.getElementById('fDia').value.trim();
         const mes = document.getElementById('fMes').value.trim();
         const anoInicio = document.getElementById('fAnoInicio').value.trim();
         const anoFim = document.getElementById('fAnoFim').value.trim();
-        const pais = document.getElementById('fPais').value;
+        const pais = document.getElementById('fPais').value.trim() || 'Mundial';
         const titulo = document.getElementById('fTitulo').value.trim();
         const facto = document.getElementById('fFacto').value.trim();
         const msg = document.getElementById('addMsg');
 
+        if (!COUNTRY_LIST.includes(pais)) { msg.textContent = 'País inválido. Escolha da lista.'; msg.style.color = '#f05252'; return; }
         if (!anoInicio) { msg.textContent = 'O ano de início é obrigatório.'; msg.style.color = '#f05252'; return; }
         if (!facto) { msg.textContent = 'O texto do facto é obrigatório.'; msg.style.color = '#f05252'; return; }
 
@@ -250,6 +404,29 @@
         };
 
         msg.textContent = 'A guardar...'; msg.style.color = 'var(--text-secondary)';
+
+        if (editingId) {
+          // ── UPDATE existing fact via PUT ──
+          fetch('/api/historical-facts/' + encodeURIComponent(editingId), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          })
+            .then(r => r.ok ? r.json() : Promise.reject(r.status))
+            .then(updated => {
+              const idx = allFacts.findIndex(f => f.id === editingId);
+              if (idx >= 0) allFacts[idx] = updated; else allFacts.push(updated);
+              sortFactsDesc(allFacts);
+              resetForm();
+              msg.textContent = 'Facto atualizado!'; msg.style.color = '#3fb950';
+              setTimeout(() => { msg.textContent = ''; }, 3000);
+              renderList();
+            })
+            .catch(err => { msg.textContent = 'Erro ao atualizar: ' + err; msg.style.color = '#f05252'; });
+          return;
+        }
+
+        // ── CREATE new fact via POST ──
         fetch('/api/historical-facts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -258,18 +435,8 @@
           .then(r => r.ok ? r.json() : Promise.reject(r.status))
           .then(created => {
             allFacts.push(created);
-            allFacts.sort((a,b) => {
-              const pa = a.pais === 'PT' ? 0 : a.pais === 'ES' ? 1 : 2;
-              const pb = b.pais === 'PT' ? 0 : b.pais === 'ES' ? 1 : 2;
-              if (pa !== pb) return pa - pb;
-              return (+a.anoInicio || 0) - (+b.anoInicio || 0);
-            });
-            document.getElementById('fDia').value = '';
-            document.getElementById('fMes').value = '';
-            document.getElementById('fAnoInicio').value = '';
-            document.getElementById('fAnoFim').value = '';
-            document.getElementById('fTitulo').value = '';
-            document.getElementById('fFacto').value = '';
+            sortFactsDesc(allFacts);
+            resetForm();
             msg.textContent = 'Facto adicionado!'; msg.style.color = '#3fb950';
             setTimeout(() => { msg.textContent = ''; }, 3000);
             renderList();
@@ -300,15 +467,30 @@
 
       function importExcel(file) {
         if (!window.XLSX) { alert('Módulo Excel não carregado.'); return; }
-        const msg = document.getElementById('importMsg');
-        msg.textContent = 'A ler ficheiro...'; msg.style.color = 'var(--text-secondary)';
-        const reader = new FileReader();
-        reader.onload = function(e) {
+        const overlay = document.getElementById('importOverlay');
+        const fill    = document.getElementById('importProgressFill');
+        const elDone  = document.getElementById('importDone');
+        const elErrs  = document.getElementById('importErrs');
+        const elTotal = document.getElementById('importTotal');
+        const elStatus= document.getElementById('importStatus');
+        const elClose = document.getElementById('importClose');
+
+        // reset & show
+        fill.style.width = '0%'; elDone.textContent = '0'; elErrs.textContent = '0'; elTotal.textContent = '0';
+        elStatus.innerHTML = '<i class="mdi mdi-loading mdi-spin"></i> A ler ficheiro...';
+        elClose.classList.remove('show');
+        overlay.classList.add('visible');
+
+        const isCsv = /\.(csv|tsv|txt)$/i.test(file.name);
+
+        function processWorkbook(wb) {
           try {
-            const wb = XLSX.read(e.target.result, { type: 'array' });
             const ws = wb.Sheets[wb.SheetNames[0]];
             const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
-            if (rows.length < 2) { msg.textContent = 'Ficheiro sem dados.'; msg.style.color = '#f05252'; return; }
+            if (rows.length < 2) {
+              elStatus.innerHTML = '<i class="mdi mdi-alert-circle" style="color:#f05252"></i> Ficheiro sem dados.';
+              elClose.classList.add('show'); return;
+            }
             const norm = s => String(s||'').trim().toLowerCase()
               .replace(/á|à|â|ã/g,'a').replace(/é|è|ê/g,'e').replace(/í|ì|î/g,'i')
               .replace(/ó|ò|ô|õ/g,'o').replace(/ú|ù|û/g,'u').replace(/ç/g,'c').replace(/ñ/g,'n');
@@ -325,15 +507,28 @@
               facto:     pos(col('descri','facto','description','text'), 6)
             };
             const dataRows = rows.slice(1).filter(r => r.some(c => String(c).trim() !== ''));
-            if (!dataRows.length) { msg.textContent = 'Nenhuma linha de dados.'; msg.style.color = '#f05252'; return; }
-            msg.textContent = 'A importar ' + dataRows.length + ' linha(s)...';
+            if (!dataRows.length) {
+              elStatus.innerHTML = '<i class="mdi mdi-alert-circle" style="color:#f05252"></i> Nenhuma linha de dados.';
+              elClose.classList.add('show'); return;
+            }
+            const total = dataRows.length;
+            elTotal.textContent = total;
+            elStatus.innerHTML = '<i class="mdi mdi-loading mdi-spin"></i> A importar ' + total + ' linha(s)...';
             let done = 0, errs = 0;
+
+            function updateProgress() {
+              const pct = Math.round(((done + errs) / total) * 100);
+              fill.style.width = pct + '%';
+              elDone.textContent = done;
+              elErrs.textContent = errs;
+            }
+
             const promises = dataRows.map(row => {
               const pais = String(row[C.pais]||'WORLD').trim().toUpperCase();
               const anoInicioRaw = row[C.anoInicio];
               const anoInicio = String(anoInicioRaw).trim() !== '' ? +anoInicioRaw : null;
               const facto = String(row[C.facto]||'').trim();
-              if (!facto || !anoInicio) { errs++; return Promise.resolve(); }
+              if (!facto || !anoInicio) { errs++; updateProgress(); return Promise.resolve(); }
               const body = {
                 pais: ['PT','ES','WORLD'].includes(pais) ? pais : 'WORLD',
                 dia:  String(row[C.dia]).trim() !== '' ? (+row[C.dia] || null) : null,
@@ -347,25 +542,52 @@
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body)
               }).then(r => r.ok ? r.json() : null)
-                .then(c => { if (c) { allFacts.push(c); done++; } else errs++; })
-                .catch(() => { errs++; });
+                .then(c => { if (c) { allFacts.push(c); done++; } else errs++; updateProgress(); })
+                .catch(() => { errs++; updateProgress(); });
             });
             Promise.all(promises).then(() => {
-              allFacts.sort((a,b) => {
-                const pa = a.pais === 'PT' ? 0 : a.pais === 'ES' ? 1 : 2;
-                const pb = b.pais === 'PT' ? 0 : b.pais === 'ES' ? 1 : 2;
-                if (pa !== pb) return pa - pb;
-                return (+a.anoInicio || 0) - (+b.anoInicio || 0);
-              });
-              msg.textContent = 'Importados: ' + done + (errs ? ' | Ignorados: ' + errs : '');
-              msg.style.color = (errs && !done) ? '#f05252' : '#3fb950';
-              setTimeout(() => { msg.textContent = ''; }, 6000);
+              sortFactsDesc(allFacts);
+              fill.style.width = '100%';
+              if (errs && !done) {
+                elStatus.innerHTML = '<i class="mdi mdi-alert-circle" style="color:#f05252"></i> Nenhum registo importado.';
+              } else {
+                elStatus.innerHTML = '<i class="mdi mdi-check-circle" style="color:#3fb950"></i> Importação concluída!';
+              }
+              elClose.classList.add('show');
               document.getElementById('importFile').value = '';
               renderList();
             });
-          } catch(err) { msg.textContent = 'Erro: ' + err; msg.style.color = '#f05252'; }
-        };
-        reader.readAsArrayBuffer(file);
+          } catch(err) {
+            elStatus.innerHTML = '<i class="mdi mdi-alert-circle" style="color:#f05252"></i> Erro: ' + err;
+            elClose.classList.add('show');
+          }
+        }
+
+        if (isCsv) {
+          /* CSV/TSV: detect encoding — try UTF-8 first, fall back to Windows-1252 */
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            var text = e.target.result;
+            if (text.indexOf('\ufffd') !== -1) {
+              /* UTF-8 produced replacement chars → re-read as Windows-1252 (typical Portuguese Excel) */
+              var r2 = new FileReader();
+              r2.onload = function(ev) {
+                processWorkbook(XLSX.read(ev.target.result, { type: 'string' }));
+              };
+              r2.readAsText(file, 'windows-1252');
+            } else {
+              processWorkbook(XLSX.read(text, { type: 'string' }));
+            }
+          };
+          reader.readAsText(file, 'utf-8');
+        } else {
+          /* XLSX / XLS / ODS: binary format, encoding is embedded */
+          var reader = new FileReader();
+          reader.onload = function(e) {
+            processWorkbook(XLSX.read(e.target.result, { type: 'array', codepage: 65001 }));
+          };
+          reader.readAsArrayBuffer(file);
+        }
       }
 
       document.getElementById('exportBtn').addEventListener('click', exportExcel);
@@ -373,9 +595,13 @@
       document.getElementById('importFile').addEventListener('change', function() {
         if (this.files && this.files[0]) importExcel(this.files[0]);
       });
+      document.getElementById('importClose').addEventListener('click', () => {
+        document.getElementById('importOverlay').classList.remove('visible');
+      });
 
       loadFacts();
     })();
     </script>
+    <script src="back-to-top.js"></script>
   </body>
 </html>

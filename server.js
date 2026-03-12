@@ -167,7 +167,7 @@ app.use('/api/notes',        entityRoutes('notes','N',defaultNote));
 app.use('/api/submitters',   entityRoutes('submitters','U',defaultSubmitter));
 
 function defaultHistoricalFact() {
-  return { id:'', titulo:'', dia:null, mes:null, anoInicio:null, anoFim:null, facto:'', pais:'WORLD', createdAt:'', updatedAt:'', deletedAt:null };
+  return { id:'', titulo:'', dia:null, mes:null, anoInicio:null, anoFim:null, facto:'', pais:'Mundial', createdAt:'', updatedAt:'', deletedAt:null };
 }
 app.use('/api/historical-facts', entityRoutes('historical-facts','H',defaultHistoricalFact));
 

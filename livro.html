@@ -280,7 +280,7 @@
     }
 
     _detectRegionForFamily(fam) {
-      // Look for place strings in family and people events to find Portugal/Spain
+      // Look for place strings in family and people events to detect country
       const places = [];
       const pushPlacesFromInd = (ind) => {
         if (!ind || !ind.events) return;
@@ -292,6 +292,14 @@
       const allPlaces = places.join(' ');
       if (/portugal|pt\b|lisboa|porto|leiria|coimbra|faro|braga|aveiro/.test(allPlaces)) return 'PT';
       if (/espa(nha|ol)|españa|madrid|barcelona|sevilla|valencia|bilbao|zaragoza/.test(allPlaces)) return 'ES';
+      if (/brasil|brazil|são paulo|rio de janeiro|bahia|minas gerais/.test(allPlaces)) return 'BR';
+      if (/angola|luanda|benguela|huambo/.test(allPlaces)) return 'AO';
+      if (/moçambique|mozambique|maputo|beira/.test(allPlaces)) return 'MZ';
+      if (/cabo verde|cape verde|praia|mindelo/.test(allPlaces)) return 'CV';
+      if (/frança|france|paris|lyon|marseille/.test(allPlaces)) return 'FR';
+      if (/alemanha|germany|berlin|münchen|hamburg/.test(allPlaces)) return 'DE';
+      if (/reino unido|united kingdom|london|manchester|birmingham/.test(allPlaces)) return 'GB';
+      if (/estados unidos|united states|usa|new york|los angeles|chicago/.test(allPlaces)) return 'US';
       return 'WORLD';
     }
 
@@ -2260,10 +2268,23 @@
         .then(r => r.ok ? r.json() : [])
         .catch(() => [])
         .then(apiData => {
+          /* Map country name → region code used by _detectRegionForFamily */
+          const _nameToRegion = { 'Portugal':'PT','PT':'PT','Brasil':'BR','Angola':'AO','Moçambique':'MZ',
+            'Cabo Verde':'CV','Guiné-Bissau':'GW','São Tomé e Príncipe':'ST','Timor-Leste':'TL','Macau':'MO',
+            'Espanha':'ES','ES':'ES','Alemanha':'DE','França':'FR','Reino Unido':'GB','Itália':'IT',
+            'Países Baixos':'NL','Bélgica':'BE','Suíça':'CH','Áustria':'AT','Suécia':'SE','Noruega':'NO',
+            'Dinamarca':'DK','Finlândia':'FI','Polónia':'PL','República Checa':'CZ','Hungria':'HU',
+            'Roménia':'RO','Grécia':'GR','Irlanda':'IE','Luxemburgo':'LU','Rússia':'RU','Ucrânia':'UA',
+            'Estados Unidos':'US','Canadá':'CA','Argentina':'AR','Chile':'CL','Peru':'PE','Colômbia':'CO',
+            'Venezuela':'VE','Uruguai':'UY','Paraguai':'PY','Bolívia':'BO','Equador':'EC','México':'MX',
+            'África do Sul':'ZA','Marrocos':'MA','Egito':'EG','Nigéria':'NG','Quénia':'KE','Etiópia':'ET',
+            'Ghana':'GH','Senegal':'SN','China':'CN','Índia':'IN','Japão':'JP','Coreia do Sul':'KR',
+            'Austrália':'AU','Nova Zelândia':'NZ','Indonésia':'ID','Vietname':'VN','Tailândia':'TH',
+            'Singapura':'SG','Mundial':'WORLD','WORLD':'WORLD' };
           const histNotes = (apiData || [])
             .filter(n => !n.deletedAt)
             .map(n => ({
-              region: n.pais,
+              region: _nameToRegion[n.pais] || n.pais || 'WORLD',
               startYear: +n.anoInicio,
               endYear: +(n.anoFim || n.anoInicio),
               text: n.facto

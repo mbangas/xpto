@@ -1648,6 +1648,24 @@
     if (totalEl) totalEl.textContent = '/ ' + total;
   }
 
+  // ── Gallery photo frame: set aspect-ratio after image loads so margins are equal on all sides ──
+  function fixGalleryFrame(img) {
+    const frame = img.closest('.gallery-photo-frame');
+    if (!frame || !img.naturalWidth || !img.naturalHeight) return;
+    frame.style.aspectRatio = img.naturalWidth + ' / ' + img.naturalHeight;
+  }
+  function fixAllGalleryFrames() {
+    document.querySelectorAll('.gallery-photo-img').forEach(img => {
+      if (img.complete && img.naturalWidth) fixGalleryFrame(img);
+    });
+  }
+  // Capturing listener handles lazy-loaded images
+  document.addEventListener('load', e => {
+    if (e.target.classList && e.target.classList.contains('gallery-photo-img')) {
+      fixGalleryFrame(e.target);
+    }
+  }, true);
+
   // ── Face-crop helper: pans object-position to the tagged face zone ──────
   window._livroFaceCrop = function (img) {
     const raw = img.getAttribute('data-bbox');
@@ -1741,6 +1759,9 @@
 
     updateIndicator();
     document.getElementById('livro-loading').style.display = 'none';
+
+    // Fix gallery frames that may already have cached images
+    fixAllGalleryFrames();
   }
 
   // ── Person search ─────────────────────────────────────────────

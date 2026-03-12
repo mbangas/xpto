@@ -45,7 +45,7 @@
       box-shadow: none;
       border: none;
     }
-    #plbOverlay.plb-maximized #plbImg { max-height: calc(100vh - 57px); }
+    #plbOverlay.plb-maximized #plbImg { max-height: 100%; }
     @keyframes plbIn {
       from { opacity: 0; transform: scale(0.96) translateY(8px); }
       to   { opacity: 1; transform: scale(1) translateY(0); }
@@ -106,22 +106,24 @@
       min-width: 0;
       background: #000;
       display: flex;
-      align-items: center;
-      justify-content: center;
+      align-items: stretch;
       overflow: hidden;
       padding: 12px;
       position: relative;
     }
     #plbPhotoWrap {
       position: relative;
-      display: inline-block;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
       line-height: 0;
-      max-width: 100%;
     }
     #plbImg {
       display: block;
       max-width: 100%;
-      max-height: calc(80vh - 57px);
+      max-height: 100%;
       object-fit: contain;
       border-radius: 6px;
     }

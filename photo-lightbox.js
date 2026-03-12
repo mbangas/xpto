@@ -533,6 +533,25 @@
       color: var(--text-main, #e6edf3);
       background: var(--bg-surface-2, #21262d);
     }
+    /* ── Zone move/resize handles ─────────────────────────────────────── */
+    .plb-tag-zone-handle {
+      position: absolute;
+      width: 10px; height: 10px;
+      background: #3b82f6;
+      border: 2px solid #fff;
+      border-radius: 2px;
+      z-index: 7;
+      opacity: 0;
+      transition: opacity 0.12s;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+      pointer-events: auto;
+    }
+    .plb-tag-zone:hover .plb-tag-zone-handle { opacity: 1; }
+    .plb-tag-zone-handle.nw { top:-5px;    left:-5px;  cursor: nwse-resize; }
+    .plb-tag-zone-handle.ne { top:-5px;    right:-5px; cursor: nesw-resize; }
+    .plb-tag-zone-handle.sw { bottom:-5px; left:-5px;  cursor: nesw-resize; }
+    .plb-tag-zone-handle.se { bottom:-5px; right:-5px; cursor: nwse-resize; }
+    .plb-tag-zone.plb-zone-dragging { cursor: move !important; user-select: none; opacity: 0.85; }
   `;
 
   /* ── HTML ─────────────────────────────────────────────────────────────── */
@@ -750,7 +769,28 @@
   }
 
   /* ── Tag zones ────────────────────────────────────────────────────────── */
+
+  /**
+   * Resize #plbTagOverlay to match the rendered image exactly so that
+   * zone percentages are relative to the image, not the surrounding wrap.
+   */
+  function _fitTagOverlay() {
+    const img  = document.getElementById('plbImg');
+    const wrap = document.getElementById('plbPhotoWrap');
+    if (!img || !wrap) return;
+    const wrapRect = wrap.getBoundingClientRect();
+    const imgRect  = img.getBoundingClientRect();
+    const el = document.getElementById('plbTagOverlay');
+    if (!el) return;
+    el.style.inset  = 'auto';
+    el.style.top    = (imgRect.top    - wrapRect.top)  + 'px';
+    el.style.left   = (imgRect.left   - wrapRect.left) + 'px';
+    el.style.width  = imgRect.width   + 'px';
+    el.style.height = imgRect.height  + 'px';
+  }
+
   function _renderTagZones(m) {
+    _fitTagOverlay();
     const overlay = document.getElementById('plbTagOverlay');
     overlay.innerHTML = '';
     const img  = document.getElementById('plbImg');
@@ -792,6 +832,23 @@
       zone.dataset.plbPid = pid;
       zone.addEventListener('mouseenter', () => _highlightByPid(pid, true,  zone));
       zone.addEventListener('mouseleave', () => _highlightByPid(pid, false, zone));
+      // Corner resize handles + drag-to-move
+      zone.style.cursor = 'move';
+      ['nw', 'ne', 'sw', 'se'].forEach(corner => {
+        const h = document.createElement('div');
+        h.className = 'plb-tag-zone-handle ' + corner;
+        h.addEventListener('mousedown', e => {
+          e.stopPropagation(); e.preventDefault();
+          _startZoneEdit(e, 'resize', corner, m, t, zone);
+        });
+        zone.appendChild(h);
+      });
+      zone.addEventListener('mousedown', e => {
+        if (e.target.classList.contains('plb-tag-zone-handle')) return;
+        if (e.target.classList.contains('plb-tag-remove-btn')) return;
+        e.stopPropagation(); e.preventDefault();
+        _startZoneEdit(e, 'move', null, m, t, zone);
+      });
       overlay.appendChild(zone);
     });
 
@@ -809,6 +866,99 @@
         if (z && z.dataset.plbPid) _highlightByPid(z.dataset.plbPid, false, z);
       });
     }
+  }
+
+  /**
+   * Drag-move or corner-resize an existing tag zone.
+   * @param {MouseEvent}      e       - initiating mousedown event
+   * @param {'move'|'resize'} mode
+   * @param {string|null}     corner  - 'nw'|'ne'|'sw'|'se', null for move
+   * @param {object}          m       - multimedia record (mutated on save)
+   * @param {object}          tag     - the tag object (mutated in place)
+   * @param {HTMLElement}     zoneEl  - the zone DOM element
+   */
+  function _startZoneEdit(e, mode, corner, m, tag, zoneEl) {
+    const imgEl   = document.getElementById('plbImg');
+    const overlay = document.getElementById('plbTagOverlay');
+    if (!imgEl || !overlay) return;
+
+    const overlayRect = overlay.getBoundingClientRect();
+    const startMouseX = e.clientX;
+    const startMouseY = e.clientY;
+    const MIN = 0.03; // minimum dimension (3 % of overlay)
+
+    // Snapshot current zone dimensions as fractions of overlay
+    const s = {
+      l: parseFloat(zoneEl.style.left)   / 100,
+      t: parseFloat(zoneEl.style.top)    / 100,
+      w: parseFloat(zoneEl.style.width)  / 100,
+      h: parseFloat(zoneEl.style.height) / 100
+    };
+
+    zoneEl.classList.add('plb-zone-dragging');
+
+    function onMove(mv) {
+      const dx = (mv.clientX - startMouseX) / overlayRect.width;
+      const dy = (mv.clientY - startMouseY) / overlayRect.height;
+      let l = s.l, t = s.t, w = s.w, h = s.h;
+
+      if (mode === 'move') {
+        l = Math.max(0, Math.min(1 - w, l + dx));
+        t = Math.max(0, Math.min(1 - h, t + dy));
+      } else {
+        if (corner === 'se') {
+          w = Math.max(MIN, Math.min(1 - l, w + dx));
+          h = Math.max(MIN, Math.min(1 - t, h + dy));
+        } else if (corner === 'sw') {
+          const nl = Math.max(0, Math.min(l + w - MIN, l + dx));
+          w = l + w - nl; l = nl;
+          h = Math.max(MIN, Math.min(1 - t, h + dy));
+        } else if (corner === 'ne') {
+          w = Math.max(MIN, Math.min(1 - l, w + dx));
+          const nt = Math.max(0, Math.min(t + h - MIN, t + dy));
+          h = t + h - nt; t = nt;
+        } else if (corner === 'nw') {
+          const nl = Math.max(0, Math.min(l + w - MIN, l + dx));
+          w = l + w - nl; l = nl;
+          const nt = Math.max(0, Math.min(t + h - MIN, t + dy));
+          h = t + h - nt; t = nt;
+        }
+      }
+      zoneEl.style.left   = (l * 100) + '%';
+      zoneEl.style.top    = (t * 100) + '%';
+      zoneEl.style.width  = (w * 100) + '%';
+      zoneEl.style.height = (h * 100) + '%';
+    }
+
+    function onUp() {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup',   onUp);
+      zoneEl.classList.remove('plb-zone-dragging');
+
+      // Convert final overlay-% position back to image-relative bbox (0–1)
+      const imgRect = imgEl.getBoundingClientRect();
+      const newL = parseFloat(zoneEl.style.left)   / 100;
+      const newT = parseFloat(zoneEl.style.top)    / 100;
+      const newW = parseFloat(zoneEl.style.width)  / 100;
+      const newH = parseFloat(zoneEl.style.height) / 100;
+
+      const screenX = overlayRect.left + newL * overlayRect.width  - imgRect.left;
+      const screenY = overlayRect.top  + newT * overlayRect.height - imgRect.top;
+
+      tag.bbox = {
+        x: parseFloat(Math.max(0, screenX / imgRect.width ).toFixed(5)),
+        y: parseFloat(Math.max(0, screenY / imgRect.height).toFixed(5)),
+        w: parseFloat((newW * overlayRect.width  / imgRect.width ).toFixed(5)),
+        h: parseFloat((newH * overlayRect.height / imgRect.height).toFixed(5))
+      };
+      delete tag.pixelCoords; // normalise to bbox
+
+      const DB = window.GedcomDB;
+      if (DB && DB.saveMultimedia) DB.saveMultimedia(m);
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup',   onUp);
   }
 
   /**

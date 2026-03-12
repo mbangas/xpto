@@ -2994,12 +2994,6 @@
       {
         "personId": "I4",
         "personName": "Daniel Ferreira Isidoro",
-        "pixelCoords": {
-          "x1": 393,
-          "y1": 258,
-          "x2": 795,
-          "y2": 744
-        },
         "objeProps": {
           "position": "393 258 795 744",
           "cutout": false,
@@ -3012,17 +3006,17 @@
           "note": "",
           "photoDate": "",
           "photoPlace": ""
+        },
+        "bbox": {
+          "x": 0.4707,
+          "y": 0.16457,
+          "w": 0.48696,
+          "h": 0.39325
         }
       },
       {
         "personId": "I500016",
         "personName": "Ana Filipa",
-        "pixelCoords": {
-          "x1": 0,
-          "y1": 324,
-          "x2": 481,
-          "y2": 805
-        },
         "objeProps": {
           "position": "0 324 481 805",
           "cutout": false,
@@ -3035,11 +3029,17 @@
           "note": "",
           "photoDate": "",
           "photoPlace": ""
+        },
+        "bbox": {
+          "x": 0,
+          "y": 0.19212,
+          "w": 0.51738,
+          "h": 0.37942
         }
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
+    "updatedAt": "2026-03-12T11:42:09.336Z",
     "deletedAt": null
   },
   "M_I8_0": {
@@ -3132,15 +3132,15 @@
           "photoPlace": ""
         },
         "bbox": {
-          "x": 0.55531,
-          "y": 0.15261,
-          "w": 0.28757,
-          "h": 0.18932
+          "x": 0.59362,
+          "y": 0.17713,
+          "w": 0.18148,
+          "h": 0.13402
         }
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-12T11:29:43.485Z",
+    "updatedAt": "2026-03-12T11:41:13.292Z",
     "deletedAt": null
   },
   "M_I9_0": {

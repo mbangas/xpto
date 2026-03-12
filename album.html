@@ -290,6 +290,39 @@
         overflow-y: auto;
         line-height: 1.5;
       }
+      .album-notes-textarea {
+        width: 100%;
+        min-height: 80px;
+        resize: vertical;
+        font-size: 0.85rem;
+        font-family: var(--font-main);
+        color: var(--text-main);
+        background: var(--bg-surface-2);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 8px 10px;
+        box-sizing: border-box;
+        outline: none;
+        line-height: 1.5;
+        transition: border-color var(--transition);
+      }
+      .album-notes-textarea:focus { border-color: var(--accent); }
+      .album-notes-save-btn {
+        margin-top: 6px;
+        padding: 5px 14px;
+        border-radius: 7px;
+        border: none;
+        background: var(--accent);
+        color: #fff;
+        font-size: 0.82rem;
+        font-family: var(--font-main);
+        cursor: pointer;
+        font-weight: 600;
+        transition: background var(--transition);
+        display: none;
+      }
+      .album-notes-save-btn:hover { background: var(--accent-hover, var(--accent)); filter: brightness(1.12); }
+      .album-notes-save-btn.visible { display: inline-block; }
       .album-info-chips {
         display: flex;
         flex-wrap: wrap;
@@ -1397,20 +1430,54 @@
           sidebar.appendChild(drawBtnWrap);
         }
 
-        // Notes
+        // Notes — editable for DB records, read-only for filesystem items
         const notesSection = document.createElement('div');
         notesSection.className = 'album-info-section';
         notesSection.innerHTML = '<div class="album-info-label">Notas</div>';
-        if(item.notes && item.notes.trim()){
-          const notesEl = document.createElement('div');
-          notesEl.className = 'album-info-notes';
-          notesEl.textContent = item.notes;
-          notesSection.appendChild(notesEl);
+
+        if(item.fromFs){
+          // Read-only
+          if(item.notes && item.notes.trim()){
+            const notesEl = document.createElement('div');
+            notesEl.className = 'album-info-notes';
+            notesEl.textContent = item.notes;
+            notesSection.appendChild(notesEl);
+          } else {
+            const noNotes = document.createElement('div');
+            noNotes.className = 'album-info-value muted';
+            noNotes.textContent = 'Sem notas.';
+            notesSection.appendChild(noNotes);
+          }
         } else {
-          const noNotes = document.createElement('div');
-          noNotes.className = 'album-info-value muted';
-          noNotes.textContent = 'Sem notas.';
-          notesSection.appendChild(noNotes);
+          // Editable textarea
+          const notesTA = document.createElement('textarea');
+          notesTA.className = 'album-notes-textarea';
+          notesTA.id = '_albumNotesTA';
+          notesTA.placeholder = 'Adicionar notas…';
+          notesTA.value = item.notes || '';
+          notesSection.appendChild(notesTA);
+
+          const saveNotesBtn = document.createElement('button');
+          saveNotesBtn.className = 'album-notes-save-btn';
+          saveNotesBtn.textContent = 'Guardar notas';
+          notesSection.appendChild(saveNotesBtn);
+
+          const originalNotes = item.notes || '';
+          notesTA.addEventListener('input', () => {
+            saveNotesBtn.classList.toggle('visible', notesTA.value !== originalNotes);
+          });
+          saveNotesBtn.addEventListener('click', () => {
+            const newNotes = notesTA.value.trim();
+            const m = DB.getMultimediaItem(item.id);
+            if(m){
+              m.notes = newNotes || undefined;
+              DB.saveMultimedia(m);
+              item.notes = newNotes;
+            }
+            saveNotesBtn.classList.remove('visible');
+            saveNotesBtn.textContent = 'Guardado ✓';
+            setTimeout(() => { saveNotesBtn.textContent = 'Guardar notas'; }, 1800);
+          });
         }
         sidebar.appendChild(notesSection);
 

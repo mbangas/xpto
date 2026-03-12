@@ -2064,8 +2064,7 @@
           const dedupResult  = await _deduplicateItems(items);
           _dedupKept         = dedupResult.kept;
           _dedupSkippedCount = dedupResult.duplicateCount;
-          _updateDedupBadge();
-          _filteredItems = _dedupEnabled ? _dedupKept : items;
+          _filteredItems = items;
           renderGrid(_filteredItems);
         }catch(e){
           console.error(e);

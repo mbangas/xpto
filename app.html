@@ -75,8 +75,8 @@
                   <th>Nascimento</th>
                   <th>Idade</th>
                   <th>Parentesco</th>
-                  <th>Apelido</th>
-                  <th style="text-align:right;">Acções</th>
+                  <th style="text-align:right;">Apelido</th>
+                  <th style="text-align:right;">Árvore</th>
                 </tr>
               </thead>
               <tbody></tbody>
@@ -113,7 +113,6 @@
       <div class="drawer-header">
         <button class="btn btn-ghost btn-sm" id="drawerBackBtn" style="display:none;padding:2px 6px;margin-right:4px;" title="Voltar"><i class="mdi mdi-arrow-left"></i></button>
         <h2 id="drawerTitle" style="flex:1;">Detalhes da Pessoa</h2>
-        <button class="btn btn-ghost btn-sm" id="drawerTreeBtn" style="display:none;padding:2px 6px;margin-right:4px;" title="Ver na Árvore"><i class="mdi mdi-sitemap"></i></button>
         <button class="drawer-close" id="drawerCloseBtn" aria-label="Fechar painel"><i class="mdi mdi-close"></i></button>
       </div>
       <div class="drawer-person-header" id="drawerPersonHeader">
@@ -122,6 +121,7 @@
           <div class="drawer-person-name" id="drawerPersonName">—</div>
           <div class="drawer-person-sub" id="drawerPersonSub"></div>
         </div>
+        <a id="drawerTreeBtn" style="display:none;margin-left:auto;width:32px;height:32px;border-radius:6px;background:rgba(82,148,226,0.10);border:1px solid rgba(82,148,226,0.25);color:#5294e2;font-size:1.1rem;text-decoration:none;flex-shrink:0;cursor:pointer;align-items:center;justify-content:center;" title="Ver na Árvore"><i class="mdi mdi-sitemap" aria-hidden="true"></i></a>
       </div>
       <div class="drawer-body" id="drawerBody"></div>
       <div class="drawer-footer">
@@ -227,6 +227,10 @@
           const name=_esc(DB.getDisplayName(indi));
           const avatarBg=indi.sex==='F'?'#e26aa6':indi.sex==='M'?'#4493f8':'#555';
           const avatarChar=indi.sex==='F'?'♀':indi.sex==='M'?'♂':'?';
+          const thumb=DB.getThumbnailForPerson&&DB.getThumbnailForPerson(indi.id);
+          const avatarHTML=thumb
+            ?`<div style="width:28px;height:28px;border-radius:50%;background:url('${_esc(thumb)}') center/cover no-repeat;flex-shrink:0;"></div>`
+            :`<div style="width:28px;height:28px;border-radius:50%;background:${avatarBg};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;color:#fff;font-weight:600;">${avatarChar}</div>`;
           const birth=DB.getBirthEvent(indi);
           const death=DB.getDeathEvent(indi);
           const birthParsed=birth&&birth.date?parseGedcomDate(birth.date):null;
@@ -245,8 +249,8 @@
             :'<span style="color:var(--text-disabled);font-size:0.82rem;">—</span>';
           const relHTML=relMap.has(indi.id)?_relBadgeHtml(relMap.get(indi.id),_focusedId,indi.id):'<span style="color:var(--text-disabled);font-size:0.8rem;">—</span>';
           const surnameRaw=DB.getSurname(indi);
-          const surnameSearchHTML=surnameRaw?`<button class="surname-research-btn icon-btn" data-surname="${_esc(surnameRaw)}" title="Pesquisar história do apelido ${_esc(surnameRaw)}"><i class="mdi mdi-book-search-outline" style="font-size:1.1rem;"></i></button>`:'<span style="color:var(--text-disabled);font-size:0.82rem;">—</span>';
-          tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:10px;"><div style="width:28px;height:28px;border-radius:50%;background:${avatarBg};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:0.75rem;color:#fff;font-weight:600;">${avatarChar}</div><a href="#" class="person-link" data-id="${indi.id}" style="font-weight:500;">${name}</a></div></td><td style="color:var(--text-secondary);font-size:0.82rem;font-variant-numeric:tabular-nums;">${birthYear||'—'}</td><td>${ageHTML}</td><td>${relHTML}</td><td style="text-align:center;">${surnameSearchHTML}</td><td style="text-align:right;" class="actions"><button data-id="${indi.id}" class="tree-focus icon-btn" title="Ver na Árvore"><i class="mdi mdi-sitemap"></i></button></td>`;
+          const surnameSearchHTML=surnameRaw?`<div style="display:inline-flex;align-items:center;gap:6px;"><span style="font-size:0.82rem;color:var(--text-secondary);">${_esc(surnameRaw)}</span><a class="surname-research-btn" data-surname="${_esc(surnameRaw)}" title="Pesquisar história do apelido ${_esc(surnameRaw)}" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;background:rgba(82,148,226,0.10);border:1px solid rgba(82,148,226,0.25);color:#5294e2;font-size:1.1rem;text-decoration:none;flex-shrink:0;cursor:pointer;"><i class="mdi mdi-book-search-outline"></i></a></div>`:'<span style="color:var(--text-disabled);font-size:0.82rem;">—</span>';
+          tr.innerHTML=`<td><div style="display:flex;align-items:center;gap:10px;">${avatarHTML}<a href="#" class="person-link" data-id="${indi.id}" style="font-weight:500;">${name}</a></div></td><td style="color:var(--text-secondary);font-size:0.82rem;font-variant-numeric:tabular-nums;">${birthYear||'—'}</td><td>${ageHTML}</td><td>${relHTML}</td><td style="text-align:right;">${surnameSearchHTML}</td><td style="text-align:right;" class="actions"><a data-id="${indi.id}" class="tree-focus" title="Ver na Árvore" style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;background:rgba(82,148,226,0.10);border:1px solid rgba(82,148,226,0.25);color:#5294e2;font-size:1.1rem;text-decoration:none;flex-shrink:0;cursor:pointer;"><i class="mdi mdi-sitemap"></i></a></td>`;
           tbody.appendChild(tr);
         });
         renderPagination(totalPages);

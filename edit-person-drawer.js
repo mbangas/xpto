@@ -104,7 +104,7 @@
     var treeBtn  = document.getElementById('drawerTreeBtn');
     if (treeBtn) {
       var showTree = (mode === 'edit' && personId && typeof cfg.treeBtnAction === 'function');
-      treeBtn.style.display = showTree ? '' : 'none';
+      treeBtn.style.display = showTree ? 'flex' : 'none';
       treeBtn.onclick = showTree ? function () { cfg.treeBtnAction(_drawerPersonId); } : null;
     }
 

@@ -8,6 +8,7 @@
   'use strict';
   const LEGACY_TREE_ID = '00000000-0000-0000-0000-000000000000';
   let _currentTreeId = LEGACY_TREE_ID;
+  let _currentTreeRole = 'owner'; // default for legacy tree
 
   /** Build tree-scoped API path, e.g. /api/trees/<treeId>/individuals */
   function treeApi(sub) { return '/api/trees/' + _currentTreeId + sub; }
@@ -452,11 +453,22 @@
   DB.setCurrentTree = function(treeId) {
     if (treeId && treeId !== _currentTreeId) {
       _currentTreeId = treeId;
+      // Fetch tree details to get the user's role
+      var treeInfo = syncGet('/api/trees/' + treeId);
+      _currentTreeRole = (treeInfo && treeInfo.role) ? treeInfo.role : 'reader';
       loadAll();
     }
   };
   DB.listTrees = function() {
     return syncGet('/api/trees') || [];
+  };
+
+  /** Get the current user's role in the active tree. */
+  DB.getTreeRole = function() { return _currentTreeRole; };
+
+  /** Check if the current user can edit data (writer, owner, or admin). */
+  DB.canEdit = function() {
+    return _currentTreeRole === 'owner' || _currentTreeRole === 'writer' || _currentTreeRole === 'admin';
   };
 
   /* ── Expose ──────────────────────────────────────────────────────────── */

@@ -141,10 +141,14 @@ router.get('/:treeId', async (req, res) => {
     const { rows } = await query('SELECT * FROM trees WHERE id = $1', [treeId]);
     if (!rows.length) return res.status(404).json({ error: 'Árvore não encontrada' });
 
-    // Check access
-    if (!req.user.isAdmin) {
-      const role = await getMemberRole(treeId, req.user.id);
-      if (!role) return res.status(403).json({ error: 'Sem acesso a esta árvore' });
+    // Check access and determine role
+    let userRole;
+    if (req.user.isAdmin) {
+      const membership = await getMemberRole(treeId, req.user.id);
+      userRole = membership || 'admin';
+    } else {
+      userRole = await getMemberRole(treeId, req.user.id);
+      if (!userRole) return res.status(403).json({ error: 'Sem acesso a esta árvore' });
     }
 
     const tree = rows[0];
@@ -159,6 +163,7 @@ router.get('/:treeId', async (req, res) => {
       name: tree.name,
       description: tree.description,
       ownerId: tree.owner_id,
+      role: userRole,
       memberCount: countResult.rows[0].total,
       createdAt: tree.created_at,
       updatedAt: tree.updated_at,

@@ -6,7 +6,11 @@
  */
 (function(){
   'use strict';
-  const API = '/api';
+  const LEGACY_TREE_ID = '00000000-0000-0000-0000-000000000000';
+  let _currentTreeId = LEGACY_TREE_ID;
+
+  /** Build tree-scoped API path, e.g. /api/trees/<treeId>/individuals */
+  function treeApi(sub) { return '/api/trees/' + _currentTreeId + sub; }
 
   /* ── Auth token helper ────────────────────────────────────────────────── */
   function _authToken() {
@@ -57,15 +61,15 @@
 
   /* ── Load all data synchronously at init ─────────────────────────────── */
   function loadAll() {
-    _individuals  = toMap(syncGet(API + '/individuals?includeDeleted=true'));
-    _families     = toMap(syncGet(API + '/families?includeDeleted=true'));
-    _sources      = toMap(syncGet(API + '/sources?includeDeleted=true'));
-    _repositories = toMap(syncGet(API + '/repositories?includeDeleted=true'));
-    _multimedia   = toMap(syncGet(API + '/multimedia?includeDeleted=true'));
-    _notes        = toMap(syncGet(API + '/notes?includeDeleted=true'));
-    _submitters   = toMap(syncGet(API + '/submitters?includeDeleted=true'));
-    _settings     = syncGet(API + '/settings') || {};
-    _history      = syncGet(API + '/history') || [];
+    _individuals  = toMap(syncGet(treeApi('/individuals?includeDeleted=true')));
+    _families     = toMap(syncGet(treeApi('/families?includeDeleted=true')));
+    _sources      = toMap(syncGet(treeApi('/sources?includeDeleted=true')));
+    _repositories = toMap(syncGet(treeApi('/repositories?includeDeleted=true')));
+    _multimedia   = toMap(syncGet(treeApi('/multimedia?includeDeleted=true')));
+    _notes        = toMap(syncGet(treeApi('/notes?includeDeleted=true')));
+    _submitters   = toMap(syncGet(treeApi('/submitters?includeDeleted=true')));
+    _settings     = syncGet(treeApi('/settings')) || {};
+    _history      = syncGet(treeApi('/history')) || [];
   }
   loadAll();
 
@@ -83,7 +87,7 @@
     const now = nowISO();
     const rec = { ...data, id, createdAt: data.createdAt || now, updatedAt: now, deletedAt: null };
     cache[id] = rec;
-    asyncJson('POST', API + endpoint, rec);
+    asyncJson('POST', treeApi(endpoint), rec);
     return rec;
   }
 
@@ -91,14 +95,14 @@
     if (!cache[id]) return null;
     const rec = { ...cache[id], ...data, id, updatedAt: nowISO() };
     cache[id] = rec;
-    asyncJson('PUT', API + endpoint + '/' + id, rec);
+    asyncJson('PUT', treeApi(endpoint) + '/' + id, rec);
     return rec;
   }
 
   function deleteEntity(cache, endpoint, id) {
     if (!cache[id]) return false;
     cache[id] = { ...cache[id], deletedAt: nowISO(), updatedAt: nowISO() };
-    asyncJson('DELETE', API + endpoint + '/' + id);
+    asyncJson('DELETE', treeApi(endpoint) + '/' + id);
     return true;
   }
 
@@ -189,7 +193,7 @@
   DB.setSetting = function(key, value) {
     _settings[key] = value;
     const patch = {}; patch[key] = value;
-    asyncJson('PUT', API + '/settings', patch);
+    asyncJson('PUT', treeApi('/settings'), patch);
   };
   DB.getSettings = function() { return { ..._settings }; };
 
@@ -198,11 +202,12 @@
   DB.addHistory = function(entries) {
     const arr = Array.isArray(entries) ? entries : [entries];
     _history = arr.concat(_history).slice(0, 500);
-    asyncJson('POST', API + '/history', arr);
+    asyncJson('POST', treeApi('/history'), arr);
   };
   DB.clearHistory = function() {
     _history = [];
-    fetch(API + '/history', { method: 'DELETE' }).catch(() => {});
+    const hdrs = {}; const tk = _authToken(); if (tk) hdrs['Authorization'] = 'Bearer ' + tk;
+    fetch(treeApi('/history'), { method: 'DELETE', headers: hdrs }).catch(() => {});
   };
 
   /* ═══════════════════════════════════════════════════════════════════════
@@ -428,7 +433,7 @@
     if (data.multimedia) _multimedia = data.multimedia || {};
     if (data.notes) _notes = data.notes || {};
     if (data.submitters) _submitters = data.submitters || {};
-    asyncJson('POST', API + '/bulk-replace', data);
+    asyncJson('POST', treeApi('/bulk-replace'), data);
   };
 
   /** Reload from server */
@@ -440,6 +445,18 @@
     const svg = `<?xml version='1.0' encoding='UTF-8'?><svg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 120 120'><rect width='100%' height='100%' fill='${color}' rx='12'/><g fill='#ffffff' transform='translate(30,20)'><circle cx='30' cy='24' r='16'/><path d='M6 80c0-18 36-18 48-18s48 0 48 18v6H6v-6z'/></g></svg>`;
     try { return 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svg))); }
     catch (e) { return 'data:image/svg+xml;base64,' + btoa(svg); }
+  };
+
+  /* ── Tree management ──────────────────────────────────────────────────── */
+  DB.getCurrentTree = function() { return _currentTreeId; };
+  DB.setCurrentTree = function(treeId) {
+    if (treeId && treeId !== _currentTreeId) {
+      _currentTreeId = treeId;
+      loadAll();
+    }
+  };
+  DB.listTrees = function() {
+    return syncGet('/api/trees') || [];
   };
 
   /* ── Expose ──────────────────────────────────────────────────────────── */

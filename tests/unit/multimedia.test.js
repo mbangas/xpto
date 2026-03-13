@@ -11,9 +11,16 @@ const fs   = require('fs');
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ml-media-'));
 process.env.DATA_DIR = tmpDir;
+process.env.JWT_SECRET = 'test-secret-for-unit-tests';
 
 const request = require('supertest');
 const app     = require('../../server.js');
+
+const jwt = require('jsonwebtoken');
+const _testToken = jwt.sign(
+  { sub: '00000000-0000-0000-0000-000000000001', email: 'test@test.com', isAdmin: true },
+  process.env.JWT_SECRET, { expiresIn: '1h' });
+const AUTH = { Authorization: 'Bearer ' + _testToken };
 
 afterAll(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -30,7 +37,7 @@ const OBJE_BASE = {
 
 describe('Multimedia — CREATE', () => {
   test('creates a multimedia object (OBJE) with 201', async () => {
-    const res = await request(app).post('/api/multimedia').send(OBJE_BASE);
+    const res = await request(app).post('/api/multimedia').set(AUTH).send(OBJE_BASE);
     expect(res.status).toBe(201);
     expect(res.body.type).toBe('OBJE');
     expect(res.body.id).toMatch(/^M\d+$/);
@@ -38,13 +45,13 @@ describe('Multimedia — CREATE', () => {
   });
 
   test('stores files array correctly', async () => {
-    const res = await request(app).post('/api/multimedia').send(OBJE_BASE);
+    const res = await request(app).post('/api/multimedia').set(AUTH).send(OBJE_BASE);
     expect(res.body.files).toHaveLength(1);
     expect(res.body.files[0]).toMatchObject({ file: 'foto1.jpg', form: 'image/jpeg' });
   });
 
   test('stores multiple files', async () => {
-    const res = await request(app).post('/api/multimedia').send({
+    const res = await request(app).post('/api/multimedia').set(AUTH).send({
       files: [
         { file: 'foto1.jpg', form: 'image/jpeg' },
         { file: 'doc.pdf',   form: 'application/pdf' },
@@ -55,13 +62,13 @@ describe('Multimedia — CREATE', () => {
   });
 
   test('stores tags array', async () => {
-    const res = await request(app).post('/api/multimedia').send(OBJE_BASE);
+    const res = await request(app).post('/api/multimedia').set(AUTH).send(OBJE_BASE);
     expect(res.body.tags).toContain('Casamento');
   });
 
   test('stores dataUrl if provided', async () => {
     const dataUrl = 'data:image/png;base64,iVBORw0KGgo=';
-    const res = await request(app).post('/api/multimedia').send({ ...OBJE_BASE, dataUrl });
+    const res = await request(app).post('/api/multimedia').set(AUTH).send({ ...OBJE_BASE, dataUrl });
     expect(res.status).toBe(201);
     expect(res.body.dataUrl).toBe(dataUrl);
   });
@@ -71,25 +78,25 @@ describe('Multimedia — READ', () => {
   let objId;
 
   beforeAll(async () => {
-    const res = await request(app).post('/api/multimedia').send(OBJE_BASE);
+    const res = await request(app).post('/api/multimedia').set(AUTH).send(OBJE_BASE);
     objId = res.body.id;
   });
 
   test('GET /api/multimedia returns array', async () => {
-    const res = await request(app).get('/api/multimedia');
+    const res = await request(app).get('/api/multimedia').set(AUTH);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
 
   test('GET /api/multimedia/:id returns the object', async () => {
-    const res = await request(app).get(`/api/multimedia/${objId}`);
+    const res = await request(app).get(`/api/multimedia/${objId}`).set(AUTH);
     expect(res.status).toBe(200);
     expect(res.body.id).toBe(objId);
     expect(res.body.type).toBe('OBJE');
   });
 
   test('GET on non-existent id returns 404', async () => {
-    const res = await request(app).get('/api/multimedia/MNOPE');
+    const res = await request(app).get('/api/multimedia/MNOPE').set(AUTH);
     expect(res.status).toBe(404);
   });
 });
@@ -98,19 +105,19 @@ describe('Multimedia — UPDATE', () => {
   let objId;
 
   beforeAll(async () => {
-    const res = await request(app).post('/api/multimedia').send(OBJE_BASE);
+    const res = await request(app).post('/api/multimedia').set(AUTH).send(OBJE_BASE);
     objId = res.body.id;
   });
 
   test('updates files array', async () => {
     const res = await request(app).put(`/api/multimedia/${objId}`)
-      .send({ files: [{ file: 'nova.jpg', form: 'image/jpeg' }] });
+      .set(AUTH).send({ files: [{ file: 'nova.jpg', form: 'image/jpeg' }] });
     expect(res.status).toBe(200);
     expect(res.body.files[0].file).toBe('nova.jpg');
   });
 
   test('updates tags', async () => {
-    const res = await request(app).put(`/api/multimedia/${objId}`).send({ tags: ['Baptizado'] });
+    const res = await request(app).put(`/api/multimedia/${objId}`).set(AUTH).send({ tags: ['Baptizado'] });
     expect(res.status).toBe(200);
     expect(res.body.tags).toContain('Baptizado');
   });
@@ -118,21 +125,21 @@ describe('Multimedia — UPDATE', () => {
 
 describe('Multimedia — DELETE', () => {
   test('DELETE soft-deletes a multimedia object', async () => {
-    const post = await request(app).post('/api/multimedia').send(OBJE_BASE);
+    const post = await request(app).post('/api/multimedia').set(AUTH).send(OBJE_BASE);
     const id   = post.body.id;
 
-    const del = await request(app).delete(`/api/multimedia/${id}`);
+    const del = await request(app).delete(`/api/multimedia/${id}`).set(AUTH);
     expect(del.status).toBe(200);
     expect(del.body.ok).toBe(true);
 
-    const record = (await request(app).get(`/api/multimedia/${id}`)).body;
+    const record = (await request(app).get(`/api/multimedia/${id}`).set(AUTH)).body;
     expect(record.deletedAt).toBeTruthy();
   });
 });
 
 describe('Multimedia — GEDCOM 7 compliance', () => {
   test('OBJE record has correct GEDCOM 7 type and structure', async () => {
-    const res = await request(app).post('/api/multimedia').send(OBJE_BASE);
+    const res = await request(app).post('/api/multimedia').set(AUTH).send(OBJE_BASE);
     const obje = res.body;
     expect(obje.type).toBe('OBJE');
     expect(obje).toHaveProperty('files');

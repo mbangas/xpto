@@ -19,9 +19,16 @@ const fs   = require('fs');
 /* ── Isolated environment ─────────────────────────────────────────────── */
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ml-int-flow-'));
 process.env.DATA_DIR = tmpDir;
+process.env.JWT_SECRET = 'test-secret-for-unit-tests';
 
 const request = require('supertest');
 const app     = require('../../server.js');
+
+const jwt = require('jsonwebtoken');
+const _testToken = jwt.sign(
+  { sub: '00000000-0000-0000-0000-000000000001', email: 'test@test.com', isAdmin: true },
+  process.env.JWT_SECRET, { expiresIn: '1h' });
+const AUTH = { Authorization: 'Bearer ' + _testToken };
 
 afterAll(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -30,22 +37,22 @@ afterAll(() => {
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 async function post(url, body) {
-  const res = await request(app).post(url).send(body);
+  const res = await request(app).post(url).set(AUTH).send(body);
   return res.body;
 }
 
 async function get(url) {
-  const res = await request(app).get(url);
+  const res = await request(app).get(url).set(AUTH);
   return res.body;
 }
 
 async function put(url, body) {
-  const res = await request(app).put(url).send(body);
+  const res = await request(app).put(url).set(AUTH).send(body);
   return res.body;
 }
 
 async function del(url) {
-  const res = await request(app).delete(url);
+  const res = await request(app).delete(url).set(AUTH);
   return res.body;
 }
 
@@ -238,7 +245,7 @@ describe('Integration — Bulk-replace endpoint', () => {
       },
     };
 
-    const res = await request(app).post('/api/bulk-replace').send(bulkData);
+    const res = await request(app).post('/api/bulk-replace').set(AUTH).send(bulkData);
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
 
@@ -257,7 +264,7 @@ describe('Integration — Utility endpoints', () => {
 
   test('PUT /api/header persists data', async () => {
     const customHeader = { gedc: { vers: '7.0' }, sour: { name: 'myLineage', vers: '2.0' }, charset: 'UTF-8', note: 'Test note' };
-    const res = await request(app).put('/api/header').send(customHeader);
+    const res = await request(app).put('/api/header').set(AUTH).send(customHeader);
     expect(res.status).toBe(200);
 
     const back = await get('/api/header');
@@ -266,7 +273,7 @@ describe('Integration — Utility endpoints', () => {
 
   test('PUT /api/settings stores and GET retrieves', async () => {
     const settings = { focusedPerson: { id: 'IBULK1', name: 'Bulk Um' }, theme: 'dark' };
-    await request(app).put('/api/settings').send(settings);
+    await request(app).put('/api/settings').set(AUTH).send(settings);
 
     const back = await get('/api/settings');
     expect(back.focusedPerson.id).toBe('IBULK1');
@@ -274,7 +281,7 @@ describe('Integration — Utility endpoints', () => {
   });
 
   test('POST /api/history adds entries; GET retrieves them', async () => {
-    await request(app).post('/api/history').send({ action: 'test', entity: 'individual', page: 'app', when: new Date().toISOString() });
+    await request(app).post('/api/history').set(AUTH).send({ action: 'test', entity: 'individual', page: 'app', when: new Date().toISOString() });
 
     const hist = await get('/api/history');
     expect(Array.isArray(hist)).toBe(true);

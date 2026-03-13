@@ -11,9 +11,16 @@ const fs   = require('fs');
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ml-repo-'));
 process.env.DATA_DIR = tmpDir;
+process.env.JWT_SECRET = 'test-secret-for-unit-tests';
 
 const request = require('supertest');
 const app     = require('../../server.js');
+
+const jwt = require('jsonwebtoken');
+const _testToken = jwt.sign(
+  { sub: '00000000-0000-0000-0000-000000000001', email: 'test@test.com', isAdmin: true },
+  process.env.JWT_SECRET, { expiresIn: '1h' });
+const AUTH = { Authorization: 'Bearer ' + _testToken };
 
 afterAll(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -30,7 +37,7 @@ const REPO_BASE = {
 
 describe('Repositories — CREATE', () => {
   test('creates a repository with 201 and correct fields', async () => {
-    const res = await request(app).post('/api/repositories').send(REPO_BASE);
+    const res = await request(app).post('/api/repositories').set(AUTH).send(REPO_BASE);
     expect(res.status).toBe(201);
     expect(res.body.type).toBe('REPO');
     expect(res.body.id).toMatch(/^R\d+$/);
@@ -39,7 +46,7 @@ describe('Repositories — CREATE', () => {
   });
 
   test('creates minimal repository with just a name', async () => {
-    const res = await request(app).post('/api/repositories').send({ name: 'Arquivo Simples' });
+    const res = await request(app).post('/api/repositories').set(AUTH).send({ name: 'Arquivo Simples' });
     expect(res.status).toBe(201);
     expect(res.body.name).toBe('Arquivo Simples');
   });
@@ -49,24 +56,24 @@ describe('Repositories — READ', () => {
   let repoId;
 
   beforeAll(async () => {
-    const res = await request(app).post('/api/repositories').send(REPO_BASE);
+    const res = await request(app).post('/api/repositories').set(AUTH).send(REPO_BASE);
     repoId = res.body.id;
   });
 
   test('GET /api/repositories returns array', async () => {
-    const res = await request(app).get('/api/repositories');
+    const res = await request(app).get('/api/repositories').set(AUTH);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
 
   test('GET /api/repositories/:id returns the repository', async () => {
-    const res = await request(app).get(`/api/repositories/${repoId}`);
+    const res = await request(app).get(`/api/repositories/${repoId}`).set(AUTH);
     expect(res.status).toBe(200);
     expect(res.body.id).toBe(repoId);
   });
 
   test('GET /api/repositories/:id returns 404 for unknown id', async () => {
-    const res = await request(app).get('/api/repositories/RNOPE');
+    const res = await request(app).get('/api/repositories/RNOPE').set(AUTH);
     expect(res.status).toBe(404);
   });
 });
@@ -75,13 +82,13 @@ describe('Repositories — UPDATE', () => {
   let repoId;
 
   beforeAll(async () => {
-    const res = await request(app).post('/api/repositories').send(REPO_BASE);
+    const res = await request(app).post('/api/repositories').set(AUTH).send(REPO_BASE);
     repoId = res.body.id;
   });
 
   test('updates a repository name', async () => {
     const res = await request(app).put(`/api/repositories/${repoId}`)
-      .send({ name: 'Arquivo Nacional Torre do Tombo' });
+      .set(AUTH).send({ name: 'Arquivo Nacional Torre do Tombo' });
     expect(res.status).toBe(200);
     expect(res.body.name).toBe('Arquivo Nacional Torre do Tombo');
   });
@@ -89,21 +96,21 @@ describe('Repositories — UPDATE', () => {
 
 describe('Repositories — DELETE', () => {
   test('DELETE soft-deletes a repository', async () => {
-    const post = await request(app).post('/api/repositories').send({ name: 'A Apagar' });
+    const post = await request(app).post('/api/repositories').set(AUTH).send({ name: 'A Apagar' });
     const id   = post.body.id;
 
-    const del = await request(app).delete(`/api/repositories/${id}`);
+    const del = await request(app).delete(`/api/repositories/${id}`).set(AUTH);
     expect(del.status).toBe(200);
     expect(del.body.ok).toBe(true);
 
-    const record = (await request(app).get(`/api/repositories/${id}`)).body;
+    const record = (await request(app).get(`/api/repositories/${id}`).set(AUTH)).body;
     expect(record.deletedAt).toBeTruthy();
   });
 });
 
 describe('Repositories — GEDCOM 7 compliance', () => {
   test('repository has REPO type and expected fields', async () => {
-    const res = await request(app).post('/api/repositories').send(REPO_BASE);
+    const res = await request(app).post('/api/repositories').set(AUTH).send(REPO_BASE);
     const repo = res.body;
     expect(repo.type).toBe('REPO');
     expect(repo).toHaveProperty('name');

@@ -19,9 +19,16 @@ const fs   = require('fs');
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ml-comp-'));
 process.env.DATA_DIR = tmpDir;
+process.env.JWT_SECRET = 'test-secret-for-unit-tests';
 
 const request = require('supertest');
 const app     = require('../../server.js');
+
+const jwt = require('jsonwebtoken');
+const _testToken = jwt.sign(
+  { sub: '00000000-0000-0000-0000-000000000001', email: 'test@test.com', isAdmin: true },
+  process.env.JWT_SECRET, { expiresIn: '1h' });
+const AUTH = { Authorization: 'Bearer ' + _testToken };
 
 const { buildGedcomText }   = require('../../lib/gedcom-builder');
 const { parseGedcomToJson } = require('../../lib/gedcom-parser');
@@ -33,7 +40,7 @@ afterAll(() => {
 
 /* ── Helpers ──────────────────────────────────────────────────────────── */
 async function createIndi(given, surname, sex = 'M', extra = {}) {
-  const res = await request(app).post('/api/individuals').send({
+  const res = await request(app).post('/api/individuals').set(AUTH).send({
     names: [{ given, surname, prefix: '', suffix: '', nickname: '', type: 'BIRTH' }],
     sex,
     events: [],
@@ -43,16 +50,16 @@ async function createIndi(given, surname, sex = 'M', extra = {}) {
 }
 
 async function createFam(husb = null, wife = null, children = [], events = []) {
-  const res = await request(app).post('/api/families').send({ husb, wife, children, events });
+  const res = await request(app).post('/api/families').set(AUTH).send({ husb, wife, children, events });
   return res.body.id;
 }
 
 async function linkFamToIndi(indiId, famId, role) {
-  const rec = (await request(app).get(`/api/individuals/${indiId}`)).body;
+  const rec = (await request(app).get(`/api/individuals/${indiId}`).set(AUTH)).body;
   if (role === 'fams') {
-    await request(app).put(`/api/individuals/${indiId}`).send({ fams: [...(rec.fams || []), famId] });
+    await request(app).put(`/api/individuals/${indiId}`).set(AUTH).send({ fams: [...(rec.fams || []), famId] });
   } else {
-    await request(app).put(`/api/individuals/${indiId}`).send({ famc: famId });
+    await request(app).put(`/api/individuals/${indiId}`).set(AUTH).send({ famc: famId });
   }
 }
 
@@ -77,9 +84,9 @@ describe('GEDCOM 7 Compliance — Spouse relationship', () => {
     await linkFamToIndi(husbId, famId, 'fams');
     await linkFamToIndi(wifeId, famId, 'fams');
 
-    const fam  = (await request(app).get(`/api/families/${famId}`)).body;
-    const husb = (await request(app).get(`/api/individuals/${husbId}`)).body;
-    const wife = (await request(app).get(`/api/individuals/${wifeId}`)).body;
+    const fam  = (await request(app).get(`/api/families/${famId}`).set(AUTH)).body;
+    const husb = (await request(app).get(`/api/individuals/${husbId}`).set(AUTH)).body;
+    const wife = (await request(app).get(`/api/individuals/${wifeId}`).set(AUTH)).body;
 
     // JSON model compliance
     expect(fam.husb).toBe(husbId);
@@ -99,7 +106,7 @@ describe('GEDCOM 7 Compliance — Spouse relationship', () => {
     const w = await createIndi('W2', 'Fam', 'F');
     const famId = await createFam(h, w, [], [{ type: 'MARR', date: '15 AUG 2015', place: 'Braga' }]);
 
-    const fam = (await request(app).get(`/api/families/${famId}`)).body;
+    const fam = (await request(app).get(`/api/families/${famId}`).set(AUTH)).body;
     const gedcom = buildGedcomText({ families: { [famId]: fam } });
 
     expect(gedcom).toContain('1 MARR');
@@ -121,9 +128,9 @@ describe('GEDCOM 7 Compliance — Parent-child relationship', () => {
     await linkFamToIndi(motherId, famId, 'fams');
     await linkFamToIndi(childId,  famId, 'famc');
 
-    const fam    = (await request(app).get(`/api/families/${famId}`)).body;
-    const father = (await request(app).get(`/api/individuals/${fatherId}`)).body;
-    const child  = (await request(app).get(`/api/individuals/${childId}`)).body;
+    const fam    = (await request(app).get(`/api/families/${famId}`).set(AUTH)).body;
+    const father = (await request(app).get(`/api/individuals/${fatherId}`).set(AUTH)).body;
+    const child  = (await request(app).get(`/api/individuals/${childId}`).set(AUTH)).body;
 
     expect(fam.children).toContain(childId);
     expect(child.famc).toBe(famId);
@@ -151,10 +158,10 @@ describe('GEDCOM 7 Compliance — Sibling relationship', () => {
     await linkFamToIndi(s2, famId, 'famc');
     await linkFamToIndi(s3, famId, 'famc');
 
-    const fam = (await request(app).get(`/api/families/${famId}`)).body;
-    const sibling1 = (await request(app).get(`/api/individuals/${s1}`)).body;
-    const sibling2 = (await request(app).get(`/api/individuals/${s2}`)).body;
-    const sibling3 = (await request(app).get(`/api/individuals/${s3}`)).body;
+    const fam = (await request(app).get(`/api/families/${famId}`).set(AUTH)).body;
+    const sibling1 = (await request(app).get(`/api/individuals/${s1}`).set(AUTH)).body;
+    const sibling2 = (await request(app).get(`/api/individuals/${s2}`).set(AUTH)).body;
+    const sibling3 = (await request(app).get(`/api/individuals/${s3}`).set(AUTH)).body;
 
     // All share same FAMC
     expect(sibling1.famc).toBe(famId);
@@ -180,7 +187,7 @@ describe('GEDCOM 7 Compliance — SEX values', () => {
 
   test.each(gedcom7SexValues)('SEX value %s is stored and emitted correctly', async (sex) => {
     const id  = await createIndi(`Pessoa_${sex}`, 'Teste', sex);
-    const rec = (await request(app).get(`/api/individuals/${id}`)).body;
+    const rec = (await request(app).get(`/api/individuals/${id}`).set(AUTH)).body;
     expect(rec.sex).toBe(sex);
 
     const text = buildGedcomText({ individuals: { [id]: rec } });
@@ -325,8 +332,8 @@ describe('GEDCOM 7 Compliance — Adoptive child', () => {
     const famId = await createFam(fatherId, null, [childId]);
     await linkFamToIndi(childId, famId, 'famc');
 
-    const child = (await request(app).get(`/api/individuals/${childId}`)).body;
-    const fam   = (await request(app).get(`/api/families/${famId}`)).body;
+    const child = (await request(app).get(`/api/individuals/${childId}`).set(AUTH)).body;
+    const fam   = (await request(app).get(`/api/families/${famId}`).set(AUTH)).body;
 
     expect(child.famc).toBe(famId);
     expect(fam.children).toContain(childId);

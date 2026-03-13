@@ -13,9 +13,16 @@ const fs   = require('fs');
 /* ── Isolated environment ─────────────────────────────────────────────── */
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ml-int-rtip-'));
 process.env.DATA_DIR = tmpDir;
+process.env.JWT_SECRET = 'test-secret-for-unit-tests';
 
 const request = require('supertest');
 const app     = require('../../server.js');
+
+const jwt = require('jsonwebtoken');
+const _testToken = jwt.sign(
+  { sub: '00000000-0000-0000-0000-000000000001', email: 'test@test.com', isAdmin: true },
+  process.env.JWT_SECRET, { expiresIn: '1h' });
+const AUTH = { Authorization: 'Bearer ' + _testToken };
 
 afterAll(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -93,7 +100,7 @@ describe('GEDCOM Round-trip — import → export → re-import', () => {
     const res = await request(app)
       .post('/api/gedcom/import')
       .set('Content-Type', 'text/plain')
-      .send(ROUNDTRIP_GEDCOM);
+      .set(AUTH).send(ROUNDTRIP_GEDCOM);
 
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
@@ -102,14 +109,14 @@ describe('GEDCOM Round-trip — import → export → re-import', () => {
   });
 
   test('2. After import, all individuals are retrievable', async () => {
-    const list = await (await request(app).get('/api/individuals')).body;
+    const list = await (await request(app).get('/api/individuals').set(AUTH)).body;
     expect(Array.isArray(list)).toBe(true);
     const ids = list.map(i => i.id);
     ['I1', 'I2', 'I3', 'I4'].forEach(id => expect(ids).toContain(id));
   });
 
   test('3. After import, family F1 is retrievable with correct links', async () => {
-    const fam = (await request(app).get('/api/families/F1')).body;
+    const fam = (await request(app).get('/api/families/F1').set(AUTH)).body;
     expect(fam.husb).toBe('I1');
     expect(fam.wife).toBe('I2');
     expect(fam.children).toContain('I3');
@@ -117,15 +124,15 @@ describe('GEDCOM Round-trip — import → export → re-import', () => {
   });
 
   test('4. After import, individuals have correct cross-links', async () => {
-    const i1 = (await request(app).get('/api/individuals/I1')).body;
-    const i3 = (await request(app).get('/api/individuals/I3')).body;
+    const i1 = (await request(app).get('/api/individuals/I1').set(AUTH)).body;
+    const i3 = (await request(app).get('/api/individuals/I3').set(AUTH)).body;
 
     expect(i1.fams).toContain('F1');
     expect(i3.famc).toBe('F1');
   });
 
   test('5. Export produces valid GEDCOM 7 text', async () => {
-    const res = await request(app).get('/api/gedcom/export');
+    const res = await request(app).get('/api/gedcom/export').set(AUTH);
     expect(res.status).toBe(200);
     exportedGedcom = res.text;
 
@@ -172,37 +179,37 @@ describe('GEDCOM Round-trip — import → export → re-import', () => {
     const res = await request(app)
       .post('/api/gedcom/import')
       .set('Content-Type', 'text/plain')
-      .send(exportedGedcom);
+      .set(AUTH).send(exportedGedcom);
 
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
   });
 
   test('13. After re-import, individual count is preserved', async () => {
-    const list = (await request(app).get('/api/individuals')).body;
+    const list = (await request(app).get('/api/individuals').set(AUTH)).body;
     expect(list.filter(i => !i.deletedAt)).toHaveLength(4);
   });
 
   test('14. After re-import, family count is preserved', async () => {
-    const list = (await request(app).get('/api/families')).body;
+    const list = (await request(app).get('/api/families').set(AUTH)).body;
     expect(list.filter(f => !f.deletedAt)).toHaveLength(1);
   });
 
   test('15. After re-import, I1 name is preserved', async () => {
-    const i1 = (await request(app).get('/api/individuals/I1')).body;
+    const i1 = (await request(app).get('/api/individuals/I1').set(AUTH)).body;
     expect(i1.names[0].given).toBe('António');
     expect(i1.names[0].surname).toBe('Rodrigues');
   });
 
   test('16. After re-import, SEX values are preserved', async () => {
-    const i1 = (await request(app).get('/api/individuals/I1')).body;
-    const i2 = (await request(app).get('/api/individuals/I2')).body;
+    const i1 = (await request(app).get('/api/individuals/I1').set(AUTH)).body;
+    const i2 = (await request(app).get('/api/individuals/I2').set(AUTH)).body;
     expect(i1.sex).toBe('M');
     expect(i2.sex).toBe('F');
   });
 
   test('17. After re-import, BIRT events are preserved', async () => {
-    const i1 = (await request(app).get('/api/individuals/I1')).body;
+    const i1 = (await request(app).get('/api/individuals/I1').set(AUTH)).body;
     const birt = i1.events.find(e => e.type === 'BIRT');
     expect(birt).toBeDefined();
     expect(birt.date).toBe('3 MAR 1945');
@@ -210,13 +217,13 @@ describe('GEDCOM Round-trip — import → export → re-import', () => {
   });
 
   test('18. /api/topola-json returns correct data after round-trip', async () => {
-    const topola = (await request(app).get('/api/topola-json')).body;
+    const topola = (await request(app).get('/api/topola-json').set(AUTH)).body;
     expect(topola.indis.length).toBe(4);
     expect(topola.fams.length).toBe(1);
   });
 
   test('19. /api/stats returns correct counts after round-trip', async () => {
-    const stats = (await request(app).get('/api/stats')).body;
+    const stats = (await request(app).get('/api/stats').set(AUTH)).body;
     expect(stats.individuals).toBe(4);
     expect(stats.families).toBe(1);
     expect(stats.males).toBe(2);
@@ -269,11 +276,11 @@ describe('GEDCOM Round-trip — large GEDCOM with multiple event types', () => {
     const importRes = await request(app)
       .post('/api/gedcom/import')
       .set('Content-Type', 'text/plain')
-      .send(EVENTS_GEDCOM);
+      .set(AUTH).send(EVENTS_GEDCOM);
     expect(importRes.body.ok).toBe(true);
 
     // Export
-    const exportRes = await request(app).get('/api/gedcom/export');
+    const exportRes = await request(app).get('/api/gedcom/export').set(AUTH);
     const exported  = exportRes.text;
 
     // Key event tags present

@@ -12,9 +12,16 @@ const fs   = require('fs');
 /* ── Isolated env ─────────────────────────────────────────────────────── */
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ml-gexp-'));
 process.env.DATA_DIR = tmpDir;
+process.env.JWT_SECRET = 'test-secret-for-unit-tests';
 
 const request = require('supertest');
 const app     = require('../../server.js');
+
+const jwt = require('jsonwebtoken');
+const _testToken = jwt.sign(
+  { sub: '00000000-0000-0000-0000-000000000001', email: 'test@test.com', isAdmin: true },
+  process.env.JWT_SECRET, { expiresIn: '1h' });
+const AUTH = { Authorization: 'Bearer ' + _testToken };
 
 /* ── Pure lib ─────────────────────────────────────────────────────────── */
 const { buildGedcomText }   = require('../../lib/gedcom-builder');
@@ -360,32 +367,32 @@ describe('GEDCOM Export — GET /api/gedcom/export (API)', () => {
   });
 
   test('GET /api/gedcom/export returns 200', async () => {
-    const res = await request(app).get('/api/gedcom/export');
+    const res = await request(app).get('/api/gedcom/export').set(AUTH);
     expect(res.status).toBe(200);
   });
 
   test('exported text starts with "0 HEAD"', async () => {
-    const res = await request(app).get('/api/gedcom/export');
+    const res = await request(app).get('/api/gedcom/export').set(AUTH);
     expect(res.text.trim().startsWith('0 HEAD')).toBe(true);
   });
 
   test('exported text ends with "0 TRLR"', async () => {
-    const res = await request(app).get('/api/gedcom/export');
+    const res = await request(app).get('/api/gedcom/export').set(AUTH);
     expect(res.text.trim().endsWith('0 TRLR')).toBe(true);
   });
 
   test('exported text contains seeded INDI', async () => {
-    const res = await request(app).get('/api/gedcom/export');
+    const res = await request(app).get('/api/gedcom/export').set(AUTH);
     expect(res.text).toMatch(/0 @I1@ INDI/);
   });
 
   test('exported text contains seeded FAM', async () => {
-    const res = await request(app).get('/api/gedcom/export');
+    const res = await request(app).get('/api/gedcom/export').set(AUTH);
     expect(res.text).toMatch(/0 @F2@ FAM/);
   });
 
   test('format=file sets Content-Disposition header', async () => {
-    const res = await request(app).get('/api/gedcom/export?format=file');
+    const res = await request(app).get('/api/gedcom/export?format=file').set(AUTH);
     expect(res.status).toBe(200);
     expect(res.headers['content-disposition']).toContain('attachment');
   });

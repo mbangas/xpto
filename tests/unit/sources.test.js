@@ -11,9 +11,16 @@ const fs   = require('fs');
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ml-sour-'));
 process.env.DATA_DIR = tmpDir;
+process.env.JWT_SECRET = 'test-secret-for-unit-tests';
 
 const request = require('supertest');
 const app     = require('../../server.js');
+
+const jwt = require('jsonwebtoken');
+const _testToken = jwt.sign(
+  { sub: '00000000-0000-0000-0000-000000000001', email: 'test@test.com', isAdmin: true },
+  process.env.JWT_SECRET, { expiresIn: '1h' });
+const AUTH = { Authorization: 'Bearer ' + _testToken };
 
 afterAll(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -30,7 +37,7 @@ const SOURCE_BASE = {
 
 describe('Sources — CREATE', () => {
   test('creates a source and returns 201 with correct fields', async () => {
-    const res = await request(app).post('/api/sources').send(SOURCE_BASE);
+    const res = await request(app).post('/api/sources').set(AUTH).send(SOURCE_BASE);
     expect(res.status).toBe(201);
     expect(res.body.type).toBe('SOUR');
     expect(res.body.id).toMatch(/^S\d+$/);
@@ -40,7 +47,7 @@ describe('Sources — CREATE', () => {
   });
 
   test('creates a minimal source with only title', async () => {
-    const res = await request(app).post('/api/sources').send({ title: 'Apenas Título' });
+    const res = await request(app).post('/api/sources').set(AUTH).send({ title: 'Apenas Título' });
     expect(res.status).toBe(201);
     expect(res.body.title).toBe('Apenas Título');
   });
@@ -50,25 +57,25 @@ describe('Sources — READ', () => {
   let srcId;
 
   beforeAll(async () => {
-    const res = await request(app).post('/api/sources').send(SOURCE_BASE);
+    const res = await request(app).post('/api/sources').set(AUTH).send(SOURCE_BASE);
     srcId = res.body.id;
   });
 
   test('GET /api/sources returns array', async () => {
-    const res = await request(app).get('/api/sources');
+    const res = await request(app).get('/api/sources').set(AUTH);
     expect(res.status).toBe(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
 
   test('GET /api/sources/:id returns the source', async () => {
-    const res = await request(app).get(`/api/sources/${srcId}`);
+    const res = await request(app).get(`/api/sources/${srcId}`).set(AUTH);
     expect(res.status).toBe(200);
     expect(res.body.id).toBe(srcId);
     expect(res.body.type).toBe('SOUR');
   });
 
   test('GET /api/sources/:id returns 404 for non-existent id', async () => {
-    const res = await request(app).get('/api/sources/SXXXXXXX');
+    const res = await request(app).get('/api/sources/SXXXXXXX').set(AUTH);
     expect(res.status).toBe(404);
   });
 });
@@ -77,44 +84,44 @@ describe('Sources — UPDATE', () => {
   let srcId;
 
   beforeAll(async () => {
-    const res = await request(app).post('/api/sources').send(SOURCE_BASE);
+    const res = await request(app).post('/api/sources').set(AUTH).send(SOURCE_BASE);
     srcId = res.body.id;
   });
 
   test('updates a source', async () => {
     const res = await request(app).put(`/api/sources/${srcId}`)
-      .send({ title: 'Título Actualizado', author: 'Novo Autor' });
+      .set(AUTH).send({ title: 'Título Actualizado', author: 'Novo Autor' });
     expect(res.status).toBe(200);
     expect(res.body.title).toBe('Título Actualizado');
     expect(res.body.author).toBe('Novo Autor');
   });
 
   test('PUT on missing id returns 404', async () => {
-    const res = await request(app).put('/api/sources/SNOPE').send({ title: 'X' });
+    const res = await request(app).put('/api/sources/SNOPE').set(AUTH).send({ title: 'X' });
     expect(res.status).toBe(404);
   });
 });
 
 describe('Sources — DELETE (soft delete)', () => {
   test('DELETE sets deletedAt', async () => {
-    const post = await request(app).post('/api/sources').send({ title: 'Para Apagar' });
+    const post = await request(app).post('/api/sources').set(AUTH).send({ title: 'Para Apagar' });
     const id   = post.body.id;
 
-    const del = await request(app).delete(`/api/sources/${id}`);
+    const del = await request(app).delete(`/api/sources/${id}`).set(AUTH);
     expect(del.status).toBe(200);
     expect(del.body.ok).toBe(true);
 
-    const src = (await request(app).get(`/api/sources/${id}`)).body;
+    const src = (await request(app).get(`/api/sources/${id}`).set(AUTH)).body;
     expect(src.deletedAt).toBeTruthy();
 
-    const list = (await request(app).get('/api/sources')).body;
+    const list = (await request(app).get('/api/sources').set(AUTH)).body;
     expect(list.map(s => s.id)).not.toContain(id);
   });
 });
 
 describe('Sources — GEDCOM 7 compliance', () => {
   test('source record has SOUR type and standard fields', async () => {
-    const res = await request(app).post('/api/sources').send(SOURCE_BASE);
+    const res = await request(app).post('/api/sources').set(AUTH).send(SOURCE_BASE);
     const src = res.body;
     expect(src.type).toBe('SOUR');
     expect(src).toHaveProperty('title');

@@ -12,9 +12,16 @@ const fs   = require('fs');
 /* ── Isolated env for API tests ──────────────────────────────────────── */
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ml-gimp-'));
 process.env.DATA_DIR = tmpDir;
+process.env.JWT_SECRET = 'test-secret-for-unit-tests';
 
 const request = require('supertest');
 const app     = require('../../server.js');
+
+const jwt = require('jsonwebtoken');
+const _testToken = jwt.sign(
+  { sub: '00000000-0000-0000-0000-000000000001', email: 'test@test.com', isAdmin: true },
+  process.env.JWT_SECRET, { expiresIn: '1h' });
+const AUTH = { Authorization: 'Bearer ' + _testToken };
 
 /* ── Pure lib import (no HTTP) ───────────────────────────────────────── */
 const { parseGedcomToJson } = require('../../lib/gedcom-parser');
@@ -321,7 +328,7 @@ describe('GEDCOM Import — POST /api/gedcom/import (API)', () => {
     const res = await request(app)
       .post('/api/gedcom/import')
       .set('Content-Type', 'text/plain')
-      .send(MINIMAL_GEDCOM);
+      .set(AUTH).send(MINIMAL_GEDCOM);
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.stats).toBeDefined();
@@ -332,9 +339,9 @@ describe('GEDCOM Import — POST /api/gedcom/import (API)', () => {
     await request(app)
       .post('/api/gedcom/import')
       .set('Content-Type', 'text/plain')
-      .send(FAMILY_GEDCOM);
+      .set(AUTH).send(FAMILY_GEDCOM);
 
-    const i1 = (await request(app).get('/api/individuals/I1')).body;
+    const i1 = (await request(app).get('/api/individuals/I1').set(AUTH)).body;
     expect(i1.names[0].given).toBe('Carlos');
     expect(i1.sex).toBe('M');
   });
@@ -343,9 +350,9 @@ describe('GEDCOM Import — POST /api/gedcom/import (API)', () => {
     await request(app)
       .post('/api/gedcom/import')
       .set('Content-Type', 'text/plain')
-      .send(FAMILY_GEDCOM);
+      .set(AUTH).send(FAMILY_GEDCOM);
 
-    const f1 = (await request(app).get('/api/families/F1')).body;
+    const f1 = (await request(app).get('/api/families/F1').set(AUTH)).body;
     expect(f1.husb).toBe('I1');
     expect(f1.wife).toBe('I2');
     expect(f1.children).toContain('I3');
@@ -355,7 +362,7 @@ describe('GEDCOM Import — POST /api/gedcom/import (API)', () => {
     const res = await request(app)
       .post('/api/gedcom/import')
       .set('Content-Type', 'application/json')
-      .send(JSON.stringify({ text: MINIMAL_GEDCOM }));
+      .set(AUTH).send(JSON.stringify({ text: MINIMAL_GEDCOM }));
     // The mock import handler tries to parse the body as text first,
     // falls back to body.text — both paths should produce ok:true
     expect(res.status).toBe(200);
@@ -374,25 +381,25 @@ describe('GEDCOM Import — POST /api/gedcom/import (API)', () => {
     ].join('\n');
 
     // First import
-    await request(app).post('/api/gedcom/import').set('Content-Type', 'text/plain').send(gedcom);
+    await request(app).post('/api/gedcom/import').set('Content-Type', 'text/plain').set(AUTH).send(gedcom);
 
     // Manually add a bbox tag to the multimedia via PUT
-    const mmList = (await request(app).get('/api/multimedia')).body;
+    const mmList = (await request(app).get('/api/multimedia').set(AUTH)).body;
     const mm = mmList.find(m => m.files && m.files[0] && m.files[0].file === 'photo.jpg');
     expect(mm).toBeDefined();
     mm.tags = [{ personId: 'I1', personName: 'Test User', bbox: { x: 0.1, y: 0.2, w: 0.3, h: 0.4 } }];
-    await request(app).put('/api/multimedia/' + mm.id).send(mm);
+    await request(app).put('/api/multimedia/' + mm.id).set(AUTH).send(mm);
 
     // Verify tag was saved
-    const mmAfterTag = (await request(app).get('/api/multimedia/' + mm.id)).body;
+    const mmAfterTag = (await request(app).get('/api/multimedia/' + mm.id).set(AUTH)).body;
     expect(mmAfterTag.tags).toHaveLength(1);
 
     // Re-import the same GEDCOM
-    const res = await request(app).post('/api/gedcom/import').set('Content-Type', 'text/plain').send(gedcom);
+    const res = await request(app).post('/api/gedcom/import').set('Content-Type', 'text/plain').set(AUTH).send(gedcom);
     expect(res.body.ok).toBe(true);
 
     // The tag should be preserved after re-import
-    const mmAfterReimport = (await request(app).get('/api/multimedia/' + mm.id)).body;
+    const mmAfterReimport = (await request(app).get('/api/multimedia/' + mm.id).set(AUTH)).body;
     expect(mmAfterReimport.tags).toHaveLength(1);
     expect(mmAfterReimport.tags[0].personId).toBe('I1');
     expect(mmAfterReimport.tags[0].bbox).toEqual({ x: 0.1, y: 0.2, w: 0.3, h: 0.4 });

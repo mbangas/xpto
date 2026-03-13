@@ -1,19 +1,24 @@
 /**
  * server.js — myLineage GEDCOM 7 Server
  * RESTful APIs for GEDCOM 7 entities stored as JSON in JSON-DATA/
+ *
+ * Route layout (Phase 3 — Multi-Tree):
+ *   /api/auth/*                       — public auth routes
+ *   /api/trees/*                      — tree management (authed)
+ *   /api/trees/:treeId/*              — tree-scoped genealogy (authed + tree membership)
+ *   /api/*  (legacy)                  — redirects to /api/trees/LEGACY_TREE_ID/* for backward-compat
  */
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
-const https = require('https');
-const http  = require('http');
 
-const { readCollection, writeCollection, nextId, nowISO, ensureDataDir, getDataDir } = require('./lib/crud-helpers');
-const { parseGedcomToJson } = require('./lib/gedcom-parser');
-const { buildGedcomText }   = require('./lib/gedcom-builder');
-const { authMiddleware }    = require('./lib/auth-middleware');
-const authRoutes            = require('./routes/auth');
+const { LEGACY_TREE_ID }       = require('./lib/crud-helpers');
+const { authMiddleware }       = require('./lib/auth-middleware');
+const { treeAuthMiddleware }   = require('./lib/tree-auth');
+const authRoutes               = require('./routes/auth');
+const treesRouter              = require('./routes/trees');
+const genealogyRouter          = require('./routes/genealogy');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -22,432 +27,65 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname), { etag: false, lastModified: false, setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate') }));
 
-/* ── Async helper — resolves value whether it is a Promise or not ──── */
-function resolve(v) { return v instanceof Promise ? v : Promise.resolve(v); }
-
-/* ── Generic CRUD router factory ─────────────────────────────────────── */
-function entityRoutes(collectionName, idPrefix, defaultFn) {
-  const router = express.Router();
-
-  router.get('/', async (req, res) => {
-    try {
-      const data = await resolve(readCollection(collectionName));
-      const all = req.query.includeDeleted === 'true';
-      res.json(Object.values(data).filter(r => all || !r.deletedAt));
-    } catch (e) { res.status(500).json({ error: String(e) }); }
-  });
-
-  router.get('/:id', async (req, res) => {
-    try {
-      const rec = (await resolve(readCollection(collectionName)))[req.params.id];
-      if (!rec) return res.status(404).json({ error: 'Not found' });
-      res.json(rec);
-    } catch (e) { res.status(500).json({ error: String(e) }); }
-  });
-
-  router.post('/', async (req, res) => {
-    try {
-      const data = await resolve(readCollection(collectionName));
-      const id = req.body.id || await resolve(nextId(collectionName, idPrefix));
-      const now = nowISO();
-      const rec = { ...defaultFn(), ...req.body, id, createdAt: req.body.createdAt || now, updatedAt: now, deletedAt: null };
-      data[id] = rec;
-      await resolve(writeCollection(collectionName, data));
-      res.status(201).json(rec);
-    } catch (e) { res.status(500).json({ error: String(e) }); }
-  });
-
-  router.put('/:id', async (req, res) => {
-    try {
-      const data = await resolve(readCollection(collectionName));
-      if (!data[req.params.id]) return res.status(404).json({ error: 'Not found' });
-      const rec = { ...data[req.params.id], ...req.body, id: req.params.id, updatedAt: nowISO() };
-      data[req.params.id] = rec;
-      await resolve(writeCollection(collectionName, data));
-      res.json(rec);
-    } catch (e) { res.status(500).json({ error: String(e) }); }
-  });
-
-  router.delete('/:id', async (req, res) => {
-    try {
-      const data = await resolve(readCollection(collectionName));
-      if (!data[req.params.id]) return res.status(404).json({ error: 'Not found' });
-      data[req.params.id] = { ...data[req.params.id], deletedAt: nowISO(), updatedAt: nowISO() };
-      await resolve(writeCollection(collectionName, data));
-      res.json({ ok: true });
-    } catch (e) { res.status(500).json({ error: String(e) }); }
-  });
-
-  return router;
-}
-
-/* ── Default record factories (GEDCOM 7) ─────────────────────────────── */
-function defaultIndividual() {
-  return { id:'',type:'INDI', names:[], sex:'U', events:[], attributes:[], famc:null, fams:[], notes:[], sourceRefs:[], multimediaRefs:[], createdAt:'', updatedAt:'', deletedAt:null };
-}
-function defaultFamily() {
-  return { id:'',type:'FAM', husb:null, wife:null, children:[], events:[], notes:[], sourceRefs:[], multimediaRefs:[], createdAt:'', updatedAt:'', deletedAt:null };
-}
-function defaultSource() {
-  return { id:'',type:'SOUR', title:'', author:'', publication:'', abbreviation:'', text:'', repositoryRef:null, callNumber:'', notes:[], multimediaRefs:[], createdAt:'', updatedAt:'', deletedAt:null };
-}
-function defaultRepository() {
-  return { id:'',type:'REPO', name:'', address:{addr:'',city:'',state:'',postal:'',country:''}, phone:'', email:'', web:'', notes:[], createdAt:'', updatedAt:'', deletedAt:null };
-}
-function defaultMultimedia() {
-  return { id:'',type:'OBJE', files:[], notes:[], sourceRefs:[], dataUrl:null, tags:[], createdAt:'', updatedAt:'', deletedAt:null };
-}
-function defaultNote() {
-  return { id:'',type:'NOTE', text:'', sourceRefs:[], createdAt:'', updatedAt:'', deletedAt:null };
-}
-function defaultSubmitter() {
-  return { id:'',type:'SUBM', name:'', address:{addr:'',city:'',state:'',postal:'',country:''}, phone:'', email:'', web:'', language:'', notes:[], createdAt:'', updatedAt:'', deletedAt:null };
-}
-
 /* ── Auth routes (public — no authMiddleware) ────────────────────────── */
 app.use('/api/auth', authRoutes);
 
 /* ── Protect all other /api/* routes ─────────────────────────────────── */
 app.use('/api', authMiddleware);
 
-/* ── Cache status (must be before /api/multimedia entity router) ─────── */
-app.get('/api/multimedia/cache-status', async (req, res) => {
-  try {
-    const mm = await resolve(readCollection('multimedia'));
-    const all     = Object.values(mm).filter(m => !m.deletedAt && m.files && m.files[0]);
-    const cached  = all.filter(m => !/^https?:\/\//i.test(m.files[0].file || '')).length;
-    const pending = all.length - cached;
-    res.json({ total: all.length, cached, pending, running: _cacheRunning });
-  } catch(e) { res.status(500).json({ error: String(e) }); }
+/* ── Trees management API ────────────────────────────────────────────── */
+app.use('/api/trees', treesRouter);
+
+/* ── Tree-scoped genealogy routes ────────────────────────────────────── */
+app.use('/api/trees/:treeId', treeAuthMiddleware, genealogyRouter);
+
+/* ── Per-tree static uploads ─────────────────────────────────────────── */
+app.use('/uploads/:treeId', (req, res, next) => {
+  // Serve files from uploads/<treeId>/ directory
+  const treeDir = path.join(__dirname, 'uploads', req.params.treeId);
+  express.static(treeDir)(req, res, next);
 });
 
-/* ── Refresh zone tags from _POSITION data already in multimedia ───── */
-app.post('/api/multimedia/refresh-zones', async (req, res) => {
-  try {
-    const individuals = await resolve(readCollection('individuals'));
-    const multimedia  = await resolve(readCollection('multimedia'));
-    let added = 0;
+/* ── Legacy backward-compat routes (/api/* → /api/trees/LEGACY_TREE_ID/*) ── */
+const LEGACY_COLLECTIONS = [
+  'individuals', 'families', 'sources', 'repositories',
+  'multimedia', 'notes', 'submitters', 'historical-facts',
+];
 
-    for (const indi of Object.values(individuals)) {
-      if (indi.deletedAt) continue;
-      const nameRec = (indi.names && indi.names[0]) || {};
-      const personName = ((nameRec.given || '') + ' ' + (nameRec.surname || '')).trim() || indi.id;
-      for (const mref of (indi.multimediaRefs || [])) {
-        const mm = multimedia[mref];
-        if (!mm) continue;
-        if (!mm.tags) mm.tags = [];
-        // Find existing tag (may have objeProps from import)
-        let tag = mm.tags.find(t => t.personId === indi.id);
-        if (tag) {
-          // Ensure personName is set
-          if (!tag.personName) { tag.personName = personName; added++; }
-          continue;
-        }
-        // Create new tag; try to get pixelCoords from files[].position
-        let pixelCoords = null;
-        if (mm.files) {
-          for (const f of mm.files) {
-            if (!f.position) continue;
-            const parts = f.position.trim().split(/\s+/).map(Number);
-            if (parts.length === 4 && !parts.some(n => isNaN(n))) {
-              const [x1, y1, x2, y2] = parts;
-              pixelCoords = { x1, y1, x2, y2 };
-              break;
-            }
-          }
-        }
-        tag = { personId: indi.id, personName };
-        if (pixelCoords) tag.pixelCoords = pixelCoords;
-        mm.tags.push(tag);
-        added++;
-      }
-    }
-
-    await resolve(writeCollection('multimedia', multimedia));
-    res.json({ ok: true, zonesAdded: added });
-  } catch (e) { res.status(500).json({ error: String(e) }); }
-});
-
-/* ── Mount entity CRUD routes ────────────────────────────────────────── */
-app.use('/api/individuals',  entityRoutes('individuals','I',defaultIndividual));
-app.use('/api/families',     entityRoutes('families','F',defaultFamily));
-app.use('/api/sources',      entityRoutes('sources','S',defaultSource));
-app.use('/api/repositories', entityRoutes('repositories','R',defaultRepository));
-app.use('/api/multimedia',   entityRoutes('multimedia','M',defaultMultimedia));
-app.use('/api/notes',        entityRoutes('notes','N',defaultNote));
-app.use('/api/submitters',   entityRoutes('submitters','U',defaultSubmitter));
-
-function defaultHistoricalFact() {
-  return { id:'', titulo:'', dia:null, mes:null, anoInicio:null, anoFim:null, facto:'', pais:'Mundial', createdAt:'', updatedAt:'', deletedAt:null };
-}
-app.use('/api/historical-facts', entityRoutes('historical-facts','H',defaultHistoricalFact));
-
-/* ── Bulk replace ────────────────────────────────────────────────────── */
-app.post('/api/bulk-replace', async (req, res) => {
-  try {
-    const b = req.body;
-    if (b.individuals)  await resolve(writeCollection('individuals', b.individuals));
-    if (b.families)     await resolve(writeCollection('families', b.families));
-    if (b.sources)      await resolve(writeCollection('sources', b.sources));
-    if (b.repositories) await resolve(writeCollection('repositories', b.repositories));
-    if (b.multimedia)   await resolve(writeCollection('multimedia', b.multimedia));
-    if (b.notes)        await resolve(writeCollection('notes', b.notes));
-    if (b.submitters)   await resolve(writeCollection('submitters', b.submitters));
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: String(e) }); }
-});
-
-/* ── Header ──────────────────────────────────────────────────────────── */
-app.get('/api/header', (req, res) => {
-  try {
-    ensureDataDir();
-    const fp = path.join(getDataDir(), 'header.json');
-    if (!fs.existsSync(fp)) return res.json({ gedc:{vers:'7.0'}, sour:{name:'myLineage',vers:'2.0'}, charset:'UTF-8' });
-    res.json(JSON.parse(fs.readFileSync(fp,'utf8')));
-  } catch (e) { res.status(500).json({ error: String(e) }); }
-});
-app.put('/api/header', (req, res) => {
-  try { ensureDataDir(); fs.writeFileSync(path.join(getDataDir(),'header.json'), JSON.stringify(req.body,null,2),'utf8'); res.json(req.body); }
-  catch (e) { res.status(500).json({ error: String(e) }); }
-});
-
-/* ── Settings ────────────────────────────────────────────────────────── */
-app.get('/api/settings', (req, res) => {
-  try {
-    ensureDataDir();
-    const fp = path.join(getDataDir(), 'settings.json');
-    if (!fs.existsSync(fp)) return res.json({});
-    res.json(JSON.parse(fs.readFileSync(fp,'utf8')));
-  } catch (e) { res.status(500).json({ error: String(e) }); }
-});
-app.put('/api/settings', (req, res) => {
-  try {
-    ensureDataDir();
-    const fp = path.join(getDataDir(), 'settings.json');
-    let cur = {}; if (fs.existsSync(fp)) cur = JSON.parse(fs.readFileSync(fp,'utf8'));
-    const upd = { ...cur, ...req.body };
-    fs.writeFileSync(fp, JSON.stringify(upd,null,2),'utf8');
-    res.json(upd);
-  } catch (e) { res.status(500).json({ error: String(e) }); }
-});
-
-/* ── History ─────────────────────────────────────────────────────────── */
-app.get('/api/history', (req, res) => {
-  try {
-    ensureDataDir();
-    const fp = path.join(getDataDir(), 'history.json');
-    if (!fs.existsSync(fp)) return res.json([]);
-    res.json(JSON.parse(fs.readFileSync(fp,'utf8')));
-  } catch (e) { res.status(500).json({ error: String(e) }); }
-});
-app.post('/api/history', (req, res) => {
-  try {
-    ensureDataDir();
-    const fp = path.join(getDataDir(), 'history.json');
-    let arr = []; if (fs.existsSync(fp)) arr = JSON.parse(fs.readFileSync(fp,'utf8'));
-    const entries = Array.isArray(req.body) ? req.body : [req.body];
-    arr = entries.concat(arr).slice(0, 500);
-    fs.writeFileSync(fp, JSON.stringify(arr,null,2),'utf8');
-    res.json({ ok: true });
-  } catch (e) { res.status(500).json({ error: String(e) }); }
-});
-app.delete('/api/history', (req, res) => {
-  try { ensureDataDir(); fs.writeFileSync(path.join(getDataDir(),'history.json'),'[]','utf8'); res.json({ ok: true }); }
-  catch (e) { res.status(500).json({ error: String(e) }); }
-});
-
-/* ── Settings reset ──────────────────────────────────────────────────── */
-app.delete('/api/settings', (req, res) => {
-  try { ensureDataDir(); fs.writeFileSync(path.join(getDataDir(),'settings.json'),'{}','utf8'); res.json({ ok: true }); }
-  catch (e) { res.status(500).json({ error: String(e) }); }
-});
-
-/* ── Stats ───────────────────────────────────────────────────────────── */
-app.get('/api/stats', async (req, res) => {
-  try {
-    const indis = Object.values(await resolve(readCollection('individuals'))).filter(r=>!r.deletedAt);
-    const fams  = Object.values(await resolve(readCollection('families'))).filter(r=>!r.deletedAt);
-    let births=0, deaths=0, marriages=0, baptisms=0, burials=0, divorces=0;
-    indis.forEach(i => { (i.events||[]).forEach(ev => {
-      const t = (ev.type||'').toUpperCase();
-      if (t==='BIRT') births++; if (t==='DEAT') deaths++;
-      if (t==='BAPM'||t==='CHR') baptisms++; if (t==='BURI') burials++;
-    }); });
-    fams.forEach(f => { (f.events||[]).forEach(ev => {
-      const t = (ev.type||'').toUpperCase();
-      if (t==='MARR') marriages++; if (t==='DIV') divorces++;
-    }); });
-    res.json({ individuals:indis.length, families:fams.length,
-      sources: Object.values(await resolve(readCollection('sources'))).filter(r=>!r.deletedAt).length,
-      multimedia: Object.values(await resolve(readCollection('multimedia'))).filter(r=>!r.deletedAt).length,
-      births, deaths, marriages, baptisms, burials, divorces,
-      males: indis.filter(i=>i.sex==='M').length,
-      females: indis.filter(i=>i.sex==='F').length });
-  } catch (e) { res.status(500).json({ error: String(e) }); }
-});
-
-/* ── GEDCOM 7 Export ─────────────────────────────────────────────────── */
-app.get('/api/gedcom/export', async (req, res) => {
-  try {
-    const gedText = buildGedcomText({
-      individuals:  await resolve(readCollection('individuals')),
-      families:     await resolve(readCollection('families')),
-      multimedia:   await resolve(readCollection('multimedia')),
-      sources:      await resolve(readCollection('sources')),
-      repositories: await resolve(readCollection('repositories')),
-      notes:        await resolve(readCollection('notes')),
-      submitters:   await resolve(readCollection('submitters')),
-    });
-    if (req.query.format === 'file') {
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.setHeader('Content-Disposition', 'attachment; filename="myLineage_export.ged"');
-    }
-    res.send(gedText);
-  } catch (e) { res.status(500).json({ error: String(e) }); }
-});
-
-/* ── External image cache helpers ─────────────────────────────────────────── */
-const UPLOADS_FOTOS = path.join(__dirname, 'uploads', 'fotos');
-
-let _cacheRunning = false;
-
-function _fetchBuf(url) {
-  return new Promise(resolve => {
-    try {
-      const mod = url.startsWith('https') ? https : http;
-      const req = mod.get(url, { timeout: 15000 }, res => {
-        if (res.statusCode !== 200) { res.resume(); resolve(null); return; }
-        const chunks = [];
-        res.on('data', c => chunks.push(c));
-        res.on('end',  () => resolve(Buffer.concat(chunks)));
-        res.on('error', () => resolve(null));
-      });
-      req.on('error',   () => resolve(null));
-      req.on('timeout', () => { req.destroy(); resolve(null); });
-    } catch(e) { resolve(null); }
+// Entity CRUD: GET/POST /api/:collection, GET/PUT/DELETE /api/:collection/:id
+LEGACY_COLLECTIONS.forEach(col => {
+  app.all('/api/' + col, (req, res) => {
+    req.url = '/' + col + (req._parsedUrl.search || '');
+    req.treeId   = LEGACY_TREE_ID;
+    req.treeRole = req.user.isAdmin ? 'admin' : 'owner';
+    genealogyRouter(req, res, () => res.status(404).json({ error: 'Not found' }));
   });
-}
-
-async function cacheExternalImages(multimedia) {
-  if (_cacheRunning) return;
-  _cacheRunning = true;
-  try {
-    fs.mkdirSync(UPLOADS_FOTOS, { recursive: true });
-    const pending = Object.values(multimedia).filter(m =>
-      !m.deletedAt && m.files && m.files[0] && /^https?:\/\//i.test(m.files[0].file)
-    );
-    if (!pending.length) return;
-    console.log(`[media] A descarregar ${pending.length} fotos externas...`);
-    const CONCURRENCY = 4;
-    let done = 0;
-    for (let i = 0; i < pending.length; i += CONCURRENCY) {
-      const batch = pending.slice(i, i + CONCURRENCY);
-      await Promise.all(batch.map(async m => {
-        const url     = m.files[0].file;
-        const rawExt  = url.split('?')[0].split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-        const ext     = ['jpg','jpeg','png','gif','webp','bmp'].includes(rawExt) ? rawExt : 'jpg';
-        const safeName = m.id.replace(/[^a-zA-Z0-9_-]/g, '_') + '.' + ext;
-        const destPath = path.join(UPLOADS_FOTOS, safeName);
-        const localPath = '/uploads/fotos/' + safeName;
-        if (fs.existsSync(destPath)) { m.files[0].file = localPath; done++; return; }
-        const buf = await _fetchBuf(url);
-        if (buf && buf.length > 0) {
-          try { fs.writeFileSync(destPath, buf); m.files[0].file = localPath; done++; } catch(e) {}
-        }
-      }));
-      await resolve(writeCollection('multimedia', multimedia));
-    }
-    console.log(`[media] Concluído: ${done}/${pending.length} fotos guardadas.`);
-  } finally { _cacheRunning = false; }
-}
-
-
-
-/* ── GEDCOM Import ───────────────────────────────────────────────────────────── */
-app.post('/api/gedcom/import', express.text({ type: '*/*', limit: '50mb' }), async (req, res) => {
-  try {
-    const text = typeof req.body === 'string' ? req.body : (req.body.text || '');
-    const result = parseGedcomToJson(text);
-    await resolve(writeCollection('individuals', result.individuals));
-    await resolve(writeCollection('families', result.families));
-    // Merge existing multimedia tags (zones) into newly imported records
-    // and preserve local file paths from previously cached images
-    if (result.multimedia && Object.keys(result.multimedia).length) {
-      const oldMm = await resolve(readCollection('multimedia'));
-      // Build maps from old multimedia: id→record and localPath→tags
-      const oldByFile = {};
-      const oldIdToLocal = {};
-      for (const om of Object.values(oldMm)) {
-        if (!om.files || !om.files[0]) continue;
-        const localFile = om.files[0].file;
-        if (om.tags && om.tags.length && localFile) {
-          oldByFile[localFile] = om.tags;
-        }
-        oldIdToLocal[om.id] = localFile;
-      }
-      for (const nm of Object.values(result.multimedia)) {
-        // Preserve local file path if the image was already cached
-        if (nm.files && nm.files[0] && /^https?:\/\//i.test(nm.files[0].file)) {
-          const oldLocal = oldIdToLocal[nm.id];
-          if (oldLocal && /^\/uploads\//.test(oldLocal)) {
-            const destPath = path.join(__dirname, oldLocal);
-            if (fs.existsSync(destPath)) {
-              nm.files[0].file = oldLocal;
-            }
-          }
-        }
-        // Merge existing zone tags
-        const existingTags = (oldMm[nm.id] && oldMm[nm.id].tags && oldMm[nm.id].tags.length)
-          ? oldMm[nm.id].tags
-          : (nm.files && nm.files[0] && nm.files[0].file && oldByFile[nm.files[0].file]) || null;
-        if (existingTags && existingTags.length) {
-          const merged = [...(nm.tags || [])];
-          for (const et of existingTags) {
-            if (!et.personId) continue;
-            if (!merged.some(t => t.personId === et.personId)) merged.push(et);
-          }
-          nm.tags = merged;
-        }
-      }
-      await resolve(writeCollection('multimedia', result.multimedia));
-    }
-    const pendingImages = Object.values(result.multimedia || {}).filter(m =>
-      !m.deletedAt && m.files && m.files[0] && /^https?:\/\//i.test(m.files[0].file)
-    ).length;
-    if (pendingImages > 0) {
-      cacheExternalImages(result.multimedia).catch(e => console.error('[media] Erro no cache:', e));
-    }
-    res.json({ ok:true, stats:result.stats, warnings:result.warnings, pendingImages });
-  } catch (e) { res.status(500).json({ error: String(e) }); }
+  app.all('/api/' + col + '/:id', (req, res) => {
+    req.url = '/' + col + '/' + req.params.id + (req._parsedUrl.search || '');
+    req.treeId   = LEGACY_TREE_ID;
+    req.treeRole = req.user.isAdmin ? 'admin' : 'owner';
+    genealogyRouter(req, res, () => res.status(404).json({ error: 'Not found' }));
+  });
 });
 
-/* ── Topola JSON ─────────────────────────────────────────────────────── */
-app.get('/api/topola-json', async (req, res) => {
-  try {
-    const indis=await resolve(readCollection('individuals')), fams=await resolve(readCollection('families'));
-    const months={JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12};
-    function pd(s){if(!s)return undefined;const c=s.replace(/^(ABT|EST|CAL|BEF|AFT|FROM|TO|BET)\s+/i,'').trim().split(/\s+/);
-      const r={text:s};if(c.length===3){r.day=parseInt(c[0])||undefined;r.month=months[c[1].toUpperCase()]||undefined;r.year=parseInt(c[2])||undefined;}
-      else if(c.length===2){r.month=months[c[0].toUpperCase()]||undefined;r.year=parseInt(c[1])||undefined;}
-      else if(c.length===1){r.year=parseInt(c[0])||undefined;} return r;}
+// Other legacy endpoints
+['bulk-replace', 'header', 'settings', 'history', 'stats',
+ 'gedcom/export', 'gedcom/import', 'topola-json',
+ 'multimedia/cache-status', 'multimedia/refresh-zones'].forEach(ep => {
+  app.all('/api/' + ep, (req, res) => {
+    req.url = '/' + ep + (req._parsedUrl.search || '');
+    req.treeId   = LEGACY_TREE_ID;
+    req.treeRole = req.user.isAdmin ? 'admin' : 'owner';
+    genealogyRouter(req, res, () => res.status(404).json({ error: 'Not found' }));
+  });
+});
 
-    const ti=[],tf=[];
-    Object.values(indis).filter(i=>!i.deletedAt).forEach(indi=>{
-      const n=(indi.names&&indi.names[0])||{};
-      const b=(indi.events||[]).find(e=>e.type==='BIRT');
-      const d=(indi.events||[]).find(e=>e.type==='DEAT');
-      ti.push({id:indi.id,firstName:n.given||'',lastName:n.surname||'',sex:indi.sex||'U',
-        famc:indi.famc||undefined,fams:(indi.fams&&indi.fams.length)?indi.fams:undefined,
-        birth:b&&b.date?{date:pd(b.date)}:undefined, death:d&&d.date?{date:pd(d.date)}:undefined});
-    });
-    Object.values(fams).filter(f=>!f.deletedAt).forEach(fam=>{
-      const m=(fam.events||[]).find(e=>e.type==='MARR');
-      tf.push({id:fam.id,husb:fam.husb||undefined,wife:fam.wife||undefined,
-        children:(fam.children&&fam.children.length)?fam.children:undefined,
-        marriage:m&&m.date?{date:pd(m.date)}:undefined});
-    });
-    res.json({indis:ti,fams:tf});
-  } catch (e) { res.status(500).json({ error: String(e) }); }
+// Legacy surname-research
+app.get('/api/surname-research/:surname', (req, res) => {
+  req.url = '/surname-research/' + encodeURIComponent(req.params.surname);
+  req.treeId   = LEGACY_TREE_ID;
+  req.treeRole = req.user.isAdmin ? 'admin' : 'owner';
+  genealogyRouter(req, res, () => res.status(404).json({ error: 'Not found' }));
 });
 
 /* ── Seed admin user from environment variables ─────────────────────── */
@@ -458,7 +96,7 @@ async function seedAdminUser() {
     const { hashPassword } = require('./lib/auth-middleware');
     const email = process.env.ADMIN_EMAIL.toLowerCase().trim();
     const existing = await query('SELECT id FROM users WHERE email = $1', [email]);
-    if (existing.rows.length) return; // already seeded
+    if (existing.rows.length) return;
     const hash = await hashPassword(process.env.ADMIN_PASSWORD);
     await query(
       `INSERT INTO users (email, password_hash, name, is_admin)
@@ -469,133 +107,6 @@ async function seedAdminUser() {
     console.log(`[auth] Admin user seeded: ${email}`);
   } catch (e) { console.error('Aviso: não foi possível criar admin:', e.message); }
 }
-
-/* ── Surname genealogical research (Wikipedia + Wikidata) ────────────── */
-app.get('/api/surname-research/:surname', async (req, res) => {
-  const surname = (req.params.surname || '').trim();
-  if (!surname) return res.status(400).json({ error: 'Surname is required' });
-
-  const results = { surname, history: '', coatOfArmsUrl: '', sources: [] };
-
-  /**
-   * Fetch JSON from a URL (internal helper).
-   * Uses the built-in https/http modules already imported.
-   */
-  function fetchJson(url) {
-    return new Promise((resolve, reject) => {
-      const mod = url.startsWith('https') ? https : http;
-      const reqObj = mod.get(url, { timeout: 12000, headers: { 'User-Agent': 'myLineage/2.0 (genealogy app)' } }, resp => {
-        if (resp.statusCode >= 300 && resp.statusCode < 400 && resp.headers.location) {
-          return fetchJson(resp.headers.location).then(resolve).catch(reject);
-        }
-        if (resp.statusCode !== 200) { resp.resume(); return resolve(null); }
-        const chunks = [];
-        resp.on('data', c => chunks.push(c));
-        resp.on('end', () => {
-          try { resolve(JSON.parse(Buffer.concat(chunks).toString('utf8'))); }
-          catch (e) { resolve(null); }
-        });
-        resp.on('error', () => resolve(null));
-      });
-      reqObj.on('error', () => resolve(null));
-      reqObj.on('timeout', () => { reqObj.destroy(); resolve(null); });
-    });
-  }
-
-  try {
-    // 1) Try Portuguese Wikipedia first, then English
-    const encodedSurname = encodeURIComponent(surname);
-    const wikiLangs = [
-      { lang: 'pt', searchTerms: [`${surname} (apelido)`, `Família ${surname}`, surname] },
-      { lang: 'en', searchTerms: [`${surname} (surname)`, `${surname} family`, surname] }
-    ];
-
-    let wikiExtract = '';
-    let wikiTitle = '';
-    let wikiLang = '';
-    let wikiUrl = '';
-
-    for (const { lang, searchTerms } of wikiLangs) {
-      if (wikiExtract) break;
-      for (const term of searchTerms) {
-        const searchUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(term)}`;
-        const data = await fetchJson(searchUrl);
-        if (data && data.extract && data.extract.length > 80) {
-          wikiExtract = data.extract;
-          wikiTitle = data.title || term;
-          wikiLang = lang;
-          wikiUrl = data.content_urls && data.content_urls.desktop ? data.content_urls.desktop.page : `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(wikiTitle)}`;
-          break;
-        }
-      }
-    }
-
-    if (wikiExtract) {
-      results.history = wikiExtract;
-      results.sources.push({
-        name: `Wikipedia (${wikiLang.toUpperCase()})`,
-        url: wikiUrl,
-        article: wikiTitle
-      });
-    }
-
-    // 2) Search for coat of arms via Wikidata
-    const wdSearchUrl = `https://www.wikidata.org/w/api.php?action=wbsearchentities&search=${encodedSurname}+family&language=en&format=json&limit=5`;
-    const wdSearch = await fetchJson(wdSearchUrl);
-    let coaUrl = '';
-
-    if (wdSearch && wdSearch.search && wdSearch.search.length) {
-      for (const item of wdSearch.search) {
-        if (coaUrl) break;
-        const entityUrl = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${item.id}&props=claims&format=json`;
-        const entityData = await fetchJson(entityUrl);
-        if (!entityData || !entityData.entities || !entityData.entities[item.id]) continue;
-        const claims = entityData.entities[item.id].claims || {};
-        // P94 = coat of arms image
-        const coaClaims = claims['P94'] || claims['P18'] || [];
-        if (coaClaims.length) {
-          const fileName = coaClaims[0].mainsnak && coaClaims[0].mainsnak.datavalue && coaClaims[0].mainsnak.datavalue.value;
-          if (fileName) {
-            coaUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileName)}?width=300`;
-            results.sources.push({
-              name: 'Wikidata / Wikimedia Commons',
-              url: `https://www.wikidata.org/wiki/${item.id}`,
-              article: item.label || surname
-            });
-          }
-        }
-      }
-    }
-
-    // 3) Fallback: search Wikimedia Commons directly for coat of arms
-    if (!coaUrl) {
-      const commonsUrl = `https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=${encodedSurname}+coat+of+arms&srnamespace=6&srlimit=3&format=json`;
-      const commonsData = await fetchJson(commonsUrl);
-      if (commonsData && commonsData.query && commonsData.query.search && commonsData.query.search.length) {
-        const file = commonsData.query.search[0];
-        const fileTitle = file.title; // e.g. "File:CoatOfArms.svg"
-        coaUrl = `https://commons.wikimedia.org/wiki/Special:FilePath/${encodeURIComponent(fileTitle.replace('File:', ''))}?width=300`;
-        results.sources.push({
-          name: 'Wikimedia Commons',
-          url: `https://commons.wikimedia.org/wiki/${encodeURIComponent(fileTitle)}`,
-          article: fileTitle
-        });
-      }
-    }
-
-    results.coatOfArmsUrl = coaUrl;
-
-    // 4) If no history found, add a note
-    if (!results.history) {
-      results.history = `Não foram encontradas informações genealógicas detalhadas sobre o apelido "${surname}" nas fontes consultadas. Recomenda-se consultar arquivos históricos locais, registos paroquiais ou bases de dados especializadas em genealogia.`;
-    }
-
-    res.json(results);
-  } catch (e) {
-    console.error('[surname-research] Error:', e.message);
-    res.status(500).json({ error: 'Erro ao pesquisar o apelido: ' + e.message });
-  }
-});
 
 /* ── Start ───────────────────────────────────────────────────────────── */
 if (require.main === module) {

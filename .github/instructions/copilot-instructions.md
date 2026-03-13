@@ -99,6 +99,7 @@ test('should calculate total price correctly', () => {
 ## Formating Tools
 
 - application use utf-8 encoding
+- application language should be Portuguese (Portugal)
 - date format should be DD-MM-YYYY
 - time format should be HH:mm:ss
 

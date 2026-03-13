@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <title>myLineage — Administração</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
+    <script src="auth.js"></script>
+    <style>
+      body { display:flex; flex-direction:column; min-height:100vh; background:var(--bg-base); }
+
+      .admin-topbar {
+        display:flex; align-items:center; justify-content:space-between;
+        padding:0 28px; height:56px; background:var(--bg-surface);
+        border-bottom:1px solid var(--border-subtle); flex-shrink:0;
+      }
+      .admin-logo {
+        display:flex; align-items:center; gap:10px;
+        font-weight:800; font-size:1.05rem; color:var(--text-main);
+        text-decoration:none;
+      }
+      .admin-logo i { font-size:1.4rem; color:var(--amber); }
+
+      .admin-wrap {
+        flex:1; padding:32px 28px 56px;
+        max-width:1100px; width:100%; margin:0 auto;
+        display:flex; flex-direction:column; gap:28px;
+      }
+
+      /* Stats grid */
+      .admin-stats {
+        display:grid; grid-template-columns:repeat(auto-fill, minmax(200px, 1fr)); gap:12px;
+      }
+      .admin-stat {
+        background:var(--bg-surface); border:1px solid var(--border);
+        border-radius:var(--radius); padding:18px 16px;
+        display:flex; align-items:center; gap:14px;
+      }
+      .admin-stat-icon {
+        width:42px; height:42px; border-radius:10px;
+        display:flex; align-items:center; justify-content:center; font-size:1.2rem;
+        flex-shrink:0;
+      }
+      .admin-stat-icon.users { background:var(--accent-soft); color:var(--accent); }
+      .admin-stat-icon.trees { background:var(--green-soft); color:var(--green); }
+      .admin-stat-icon.records { background:var(--purple-soft); color:var(--purple); }
+      .admin-stat-icon.logins { background:var(--amber-soft); color:var(--amber); }
+      .admin-stat-num { font-size:1.4rem; font-weight:800; color:var(--text-main); }
+      .admin-stat-label { font-size:0.75rem; color:var(--text-disabled); }
+
+      /* Section title */
+      .admin-section-title {
+        font-size:0.72rem; font-weight:700; color:var(--text-disabled);
+        text-transform:uppercase; letter-spacing:0.1em;
+        margin:0; display:flex; align-items:center; gap:10px;
+      }
+      .admin-section-title::after { content:''; flex:1; height:1px; background:var(--border-subtle); }
+
+      /* Table card */
+      .admin-card {
+        background:var(--bg-surface); border:1px solid var(--border);
+        border-radius:var(--radius-lg); overflow:hidden;
+      }
+      .admin-card table { width:100%; border-collapse:collapse; font-size:0.85rem; }
+      .admin-card th {
+        text-align:left; font-size:0.7rem; font-weight:700; color:var(--text-disabled);
+        text-transform:uppercase; letter-spacing:0.06em; padding:10px 14px;
+        border-bottom:1px solid var(--border); background:var(--bg-surface-2);
+      }
+      .admin-card td {
+        padding:10px 14px; border-bottom:1px solid var(--border-subtle);
+        color:var(--text-main); vertical-align:middle;
+      }
+      .admin-card tr:last-child td { border-bottom:none; }
+
+      .admin-badge {
+        display:inline-block; font-size:0.65rem; font-weight:600;
+        padding:2px 8px; border-radius:10px; text-transform:uppercase;
+      }
+      .admin-badge.admin { background:var(--amber-soft); color:var(--amber); }
+      .admin-badge.success { background:var(--green-soft); color:var(--green); }
+      .admin-badge.fail { background:var(--red-soft); color:var(--red); }
+
+      .admin-secondary { color:var(--text-secondary); font-size:0.82rem; }
+      .admin-disabled { color:var(--text-disabled); font-size:0.78rem; }
+
+      /* Tab bar */
+      .admin-tabs {
+        display:flex; gap:4px; border-bottom:1px solid var(--border-subtle); padding-bottom:0;
+      }
+      .admin-tab {
+        padding:8px 16px; font-size:0.82rem; font-weight:600;
+        color:var(--text-secondary); cursor:pointer;
+        border:none; background:none; border-bottom:2px solid transparent;
+        transition:color 0.15s, border-color 0.15s;
+      }
+      .admin-tab:hover { color:var(--text-main); }
+      .admin-tab.active { color:var(--accent); border-bottom-color:var(--accent); }
+
+      .admin-panel { display:none; }
+      .admin-panel.active { display:block; }
+
+      .admin-empty {
+        text-align:center; padding:32px; color:var(--text-secondary); font-size:0.88rem;
+      }
+
+      .admin-footer {
+        padding:14px 28px; border-top:1px solid var(--border-subtle);
+        display:flex; justify-content:space-between; align-items:center;
+        font-size:0.75rem; color:var(--text-disabled);
+      }
+
+      @media (max-width:600px) {
+        .admin-wrap { padding:20px 14px 40px; }
+        .admin-stats { grid-template-columns:1fr 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- Top bar -->
+    <div class="admin-topbar">
+      <div class="admin-logo"><i class="mdi mdi-shield-crown"></i> myLineage Admin</div>
+      <div style="display:flex;align-items:center;gap:10px;">
+        <a href="landing.html" style="font-size:0.82rem;color:var(--accent);text-decoration:none;display:flex;align-items:center;gap:4px;">
+          <i class="mdi mdi-arrow-left" style="font-size:0.95rem;"></i> Voltar
+        </a>
+        <button id="logoutBtn" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-secondary);padding:4px 10px;font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:4px;transition:border-color 0.15s, color 0.15s;">
+          <i class="mdi mdi-logout" style="font-size:0.9rem;"></i> Sair
+        </button>
+      </div>
+    </div>
+
+    <div class="admin-wrap">
+
+      <!-- Stats row -->
+      <div>
+        <h1 style="font-size:1.25rem;margin:0 0 16px;display:flex;align-items:center;gap:8px;">
+          <i class="mdi mdi-shield-crown" style="color:var(--amber);"></i> Painel de Administração
+        </h1>
+        <div class="admin-stats">
+          <div class="admin-stat">
+            <div class="admin-stat-icon users"><i class="mdi mdi-account-group"></i></div>
+            <div>
+              <div class="admin-stat-num" id="statUsers">—</div>
+              <div class="admin-stat-label">Utilizadores</div>
+            </div>
+          </div>
+          <div class="admin-stat">
+            <div class="admin-stat-icon trees"><i class="mdi mdi-tree"></i></div>
+            <div>
+              <div class="admin-stat-num" id="statTrees">—</div>
+              <div class="admin-stat-label">Árvores</div>
+            </div>
+          </div>
+          <div class="admin-stat">
+            <div class="admin-stat-icon records"><i class="mdi mdi-account"></i></div>
+            <div>
+              <div class="admin-stat-num" id="statIndividuals">—</div>
+              <div class="admin-stat-label">Indivíduos</div>
+            </div>
+          </div>
+          <div class="admin-stat">
+            <div class="admin-stat-icon logins"><i class="mdi mdi-login-variant"></i></div>
+            <div>
+              <div class="admin-stat-num" id="statLogins">—</div>
+              <div class="admin-stat-label">Logins (30 dias)</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div>
+        <div class="admin-tabs">
+          <button class="admin-tab active" data-panel="usersPanel"><i class="mdi mdi-account-group"></i> Utilizadores</button>
+          <button class="admin-tab" data-panel="treesPanel"><i class="mdi mdi-tree"></i> Árvores</button>
+          <button class="admin-tab" data-panel="loginsPanel"><i class="mdi mdi-login-variant"></i> Logins</button>
+        </div>
+
+        <!-- Users panel -->
+        <div class="admin-panel active" id="usersPanel">
+          <div class="admin-card" style="margin-top:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Email</th>
+                  <th>Árvores</th>
+                  <th>2FA</th>
+                  <th>Registo</th>
+                </tr>
+              </thead>
+              <tbody id="usersBody">
+                <tr><td colspan="5" class="admin-empty">A carregar…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Trees panel -->
+        <div class="admin-panel" id="treesPanel">
+          <div class="admin-card" style="margin-top:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nome</th>
+                  <th>Proprietário</th>
+                  <th>Membros</th>
+                  <th>Indivíduos</th>
+                  <th>Criação</th>
+                </tr>
+              </thead>
+              <tbody id="treesBody">
+                <tr><td colspan="5" class="admin-empty">A carregar…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Logins panel -->
+        <div class="admin-panel" id="loginsPanel">
+          <div class="admin-card" style="margin-top:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Utilizador</th>
+                  <th>IP</th>
+                  <th>Resultado</th>
+                </tr>
+              </thead>
+              <tbody id="loginsBody">
+                <tr><td colspan="4" class="admin-empty">A carregar…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="admin-footer">
+      <span>&copy; <span id="year"></span> myLineage</span>
+      <span>Painel de administração</span>
+    </footer>
+
+    <script>
+    (function() {
+      'use strict';
+
+      var TOKEN_KEY = 'ml_access';
+
+      function token() { return localStorage.getItem(TOKEN_KEY) || ''; }
+      function headers() { return { 'Authorization': 'Bearer ' + token(), 'Content-Type': 'application/json' }; }
+
+      function esc(s) {
+        return String(s || '').replace(/[&<>"']/g, function(c) {
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+        });
+      }
+
+      function fmtDate(iso) {
+        if (!iso) return '—';
+        var d = new Date(iso);
+        var months = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+        return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+      }
+
+      function fmtDateTime(iso) {
+        if (!iso) return '—';
+        var d = new Date(iso);
+        var months = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+        var pad = function(n) { return n < 10 ? '0' + n : n; };
+        return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear() + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+      }
+
+      /* ── Auth check ──────────────────────────────────────────────── */
+      var user;
+      try { user = JSON.parse(localStorage.getItem('ml_user')); } catch(_) {}
+      if (!user || !user.isAdmin) {
+        window.location.replace('landing.html');
+        return;
+      }
+
+      document.getElementById('year').textContent = new Date().getFullYear();
+
+      /* ── Logout ──────────────────────────────────────────────────── */
+      var logoutBtn = document.getElementById('logoutBtn');
+      logoutBtn.addEventListener('click', function() { window.MLAuth.logout(); });
+      logoutBtn.addEventListener('mouseenter', function() { this.style.borderColor='var(--red)'; this.style.color='var(--red)'; });
+      logoutBtn.addEventListener('mouseleave', function() { this.style.borderColor='var(--border)'; this.style.color='var(--text-secondary)'; });
+
+      /* ── Tabs ────────────────────────────────────────────────────── */
+      document.querySelectorAll('.admin-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+          document.querySelectorAll('.admin-tab').forEach(function(t) { t.classList.remove('active'); });
+          document.querySelectorAll('.admin-panel').forEach(function(p) { p.classList.remove('active'); });
+          tab.classList.add('active');
+          var panel = document.getElementById(tab.getAttribute('data-panel'));
+          if (panel) panel.classList.add('active');
+        });
+      });
+
+      /* ── Load stats ──────────────────────────────────────────────── */
+      fetch('/api/admin/stats', { headers: headers() })
+        .then(function(r) {
+          if (r.status === 401 || r.status === 403) { window.location.replace('landing.html'); return null; }
+          return r.json();
+        })
+        .then(function(data) {
+          if (!data) return;
+          document.getElementById('statUsers').textContent = data.users || 0;
+          document.getElementById('statTrees').textContent = data.trees || 0;
+          document.getElementById('statIndividuals').textContent = (data.collections && data.collections.individuals) || 0;
+          document.getElementById('statLogins').textContent = (data.logins30d && data.logins30d.total) || 0;
+        })
+        .catch(function() {});
+
+      /* ── Load users ──────────────────────────────────────────────── */
+      fetch('/api/admin/users?limit=200', { headers: headers() })
+        .then(function(r) { return r.ok ? r.json() : { users: [] }; })
+        .then(function(data) {
+          var tbody = document.getElementById('usersBody');
+          if (!data.users || !data.users.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="admin-empty">Sem utilizadores.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = data.users.map(function(u) {
+            return '<tr>'
+              + '<td><strong>' + esc(u.name || '—') + '</strong>'
+              + (u.isAdmin ? ' <span class="admin-badge admin">Admin</span>' : '')
+              + '</td>'
+              + '<td class="admin-secondary">' + esc(u.email) + '</td>'
+              + '<td>' + u.treeCount + '</td>'
+              + '<td>' + (u.totpVerified ? '<i class="mdi mdi-shield-check" style="color:var(--green);"></i>' : '<span class="admin-disabled">—</span>') + '</td>'
+              + '<td class="admin-disabled">' + fmtDate(u.createdAt) + '</td>'
+              + '</tr>';
+          }).join('');
+        })
+        .catch(function() {});
+
+      /* ── Load trees ──────────────────────────────────────────────── */
+      fetch('/api/admin/trees?limit=200', { headers: headers() })
+        .then(function(r) { return r.ok ? r.json() : { trees: [] }; })
+        .then(function(data) {
+          var tbody = document.getElementById('treesBody');
+          if (!data.trees || !data.trees.length) {
+            tbody.innerHTML = '<tr><td colspan="5" class="admin-empty">Sem árvores.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = data.trees.map(function(t) {
+            return '<tr>'
+              + '<td><strong>' + esc(t.name) + '</strong>'
+              + (t.description ? '<div class="admin-disabled" style="margin-top:2px;">' + esc(t.description.substring(0, 60)) + '</div>' : '')
+              + '</td>'
+              + '<td class="admin-secondary">' + esc(t.ownerName || t.ownerEmail) + '</td>'
+              + '<td>' + t.memberCount + '</td>'
+              + '<td>' + t.individualCount + '</td>'
+              + '<td class="admin-disabled">' + fmtDate(t.createdAt) + '</td>'
+              + '</tr>';
+          }).join('');
+        })
+        .catch(function() {});
+
+      /* ── Load logins ─────────────────────────────────────────────── */
+      fetch('/api/admin/logins?limit=100', { headers: headers() })
+        .then(function(r) { return r.ok ? r.json() : { logins: [] }; })
+        .then(function(data) {
+          var tbody = document.getElementById('loginsBody');
+          if (!data.logins || !data.logins.length) {
+            tbody.innerHTML = '<tr><td colspan="4" class="admin-empty">Sem registos de login.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = data.logins.map(function(l) {
+            return '<tr>'
+              + '<td class="admin-disabled">' + fmtDateTime(l.createdAt) + '</td>'
+              + '<td>' + esc(l.name || l.email || '—') + '</td>'
+              + '<td class="admin-disabled">' + esc(l.ip || '—') + '</td>'
+              + '<td>'
+              + (l.success
+                ? '<span class="admin-badge success">OK</span>'
+                : '<span class="admin-badge fail">Falhou</span>')
+              + '</td>'
+              + '</tr>';
+          }).join('');
+        })
+        .catch(function() {});
+
+    })();
+    </script>
+  </body>
+</html>

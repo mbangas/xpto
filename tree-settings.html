@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <title>Definições da Árvore – myLineage</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
+    <script src="remote-storage.js"></script>
+    <script src="auth.js"></script>
+    <script src="notifications.js"></script>
+    <script src="tree-switcher.js"></script>
+    <style>
+      .ts-wrap {
+        padding: 0 32px 56px; margin-top: 24px;
+        display: flex; flex-direction: column; gap: 20px;
+        max-width: 800px; width: 100%; box-sizing: border-box;
+      }
+
+      /* Section cards */
+      .ts-card {
+        background: var(--bg-surface); border: 1px solid var(--border);
+        border-radius: var(--radius-lg); padding: 22px 24px;
+        display: flex; flex-direction: column; gap: 14px;
+      }
+      .ts-card h2 { margin: 0; font-size: 1rem; display: flex; align-items: center; gap: 8px; }
+      .ts-card h2 i { font-size: 1.15rem; }
+      .ts-card p { margin: 0; font-size: 0.82rem; color: var(--text-secondary); }
+
+      /* Inline form rows */
+      .ts-form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+      .ts-form-row .field { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px; }
+
+      /* Members table */
+      .ts-members-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+      .ts-members-table th {
+        text-align: left; font-size: 0.7rem; font-weight: 700; color: var(--text-disabled);
+        text-transform: uppercase; letter-spacing: 0.06em; padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+      }
+      .ts-members-table td {
+        padding: 10px; border-bottom: 1px solid var(--border-subtle); vertical-align: middle;
+      }
+      .ts-members-table tr:last-child td { border-bottom: none; }
+
+      .ts-role-select {
+        padding: 4px 8px; border-radius: 6px;
+        border: 1px solid var(--border); background: var(--bg-surface-2);
+        color: var(--text-main); font-size: 0.8rem; cursor: pointer;
+      }
+      .ts-role-select:disabled { opacity: 0.5; cursor: default; }
+
+      .ts-remove-btn {
+        background: none; border: 1px solid var(--border); border-radius: 6px;
+        color: var(--text-secondary); padding: 4px 8px; font-size: 0.78rem;
+        cursor: pointer; transition: border-color 0.15s, color 0.15s;
+      }
+      .ts-remove-btn:hover { border-color: var(--red); color: var(--red); }
+      .ts-remove-btn:disabled { opacity: 0.4; cursor: default; }
+
+      /* Invite form */
+      .ts-invite-row { display: flex; gap: 10px; align-items: flex-end; flex-wrap: wrap; }
+      .ts-invite-row .field { display: flex; flex-direction: column; gap: 4px; }
+
+      /* Invitations list */
+      .ts-inv-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+      .ts-inv-item {
+        display: flex; align-items: center; gap: 12px; padding: 8px 10px;
+        background: var(--bg-surface-2); border-radius: var(--radius-sm); font-size: 0.82rem;
+      }
+      .ts-inv-status {
+        font-size: 0.7rem; font-weight: 600; padding: 2px 8px;
+        border-radius: 10px; text-transform: uppercase;
+      }
+      .ts-inv-status.pending { background: var(--amber-soft); color: var(--amber); }
+      .ts-inv-status.accepted { background: var(--green-soft); color: var(--green); }
+      .ts-inv-status.declined { background: var(--red-soft); color: var(--red); }
+      .ts-inv-status.expired { background: rgba(255,255,255,0.06); color: var(--text-disabled); }
+
+      /* Danger zone */
+      .ts-danger {
+        border-color: rgba(248,81,73,0.25);
+      }
+      .ts-danger h2 { color: var(--red); }
+
+      .ts-msg {
+        font-size: 0.82rem; min-height: 20px; margin-top: 4px;
+      }
+      .ts-msg.error { color: var(--red); }
+      .ts-msg.ok { color: var(--green); }
+
+      /* Confirm modal */
+      .ts-modal-overlay {
+        display: none; position: fixed; inset: 0; z-index: 900;
+        background: rgba(0,0,0,0.6); align-items: center; justify-content: center;
+      }
+      .ts-modal-overlay.open { display: flex; }
+      .ts-modal {
+        background: var(--bg-surface); border: 1px solid var(--border);
+        border-radius: var(--radius-lg); padding: 28px; width: 100%; max-width: 400px;
+        box-shadow: var(--shadow-lg);
+      }
+      .ts-modal h2 { margin: 0 0 12px; font-size: 1.05rem; }
+      .ts-modal p { margin: 0 0 18px; font-size: 0.88rem; color: var(--text-secondary); }
+      .ts-modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+
+      @media (max-width: 600px) {
+        .ts-wrap { padding: 16px 14px 40px; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <a href="index.html" class="logo"><i class="mdi mdi-tree" aria-hidden="true"></i><span>myLineage</span></a>
+        <nav>
+          <a href="app.html"><i class="mdi mdi-account-multiple" aria-hidden="true"></i>Cadastro</a>
+          <a href="indicadores.html"><i class="mdi mdi-chart-bar" aria-hidden="true"></i>Indicadores</a>
+          <a href="arvore.html"><i class="mdi mdi-sitemap" aria-hidden="true"></i>Árvore</a>
+          <a href="gedcom.html"><i class="mdi mdi-dna" aria-hidden="true"></i>GEDCOM</a>
+          <a href="album.html"><i class="mdi mdi-image-multiple" aria-hidden="true"></i>Álbum</a>
+          <a href="documentos.html"><i class="mdi mdi-folder-open" aria-hidden="true"></i>Documentos</a>
+          <a href="validacao.html"><i class="mdi mdi-shield-check" aria-hidden="true"></i>Validação</a>
+          <a href="historico.html"><i class="mdi mdi-history" aria-hidden="true"></i>Histórico</a>
+        </nav>
+        <div class="sidebar-footer">
+          <a href="tree-settings.html" class="active"><i class="mdi mdi-cog-transfer-outline" aria-hidden="true"></i>Árvore</a>
+          <a href="apis.html"><i class="mdi mdi-api" aria-hidden="true"></i>APIs</a>
+          <a href="configuracao.html"><i class="mdi mdi-cog" aria-hidden="true"></i>Definições</a>
+        </div>
+      </aside>
+
+      <main class="content">
+        <div class="topbar">
+          <div style="display:flex;align-items:center;gap:10px;">
+            <h1>Definições da Árvore</h1>
+          </div>
+          <div></div>
+        </div>
+
+        <div class="ts-wrap">
+
+          <!-- General info -->
+          <div class="ts-card" id="generalCard">
+            <h2><i class="mdi mdi-tree" style="color:var(--green);"></i>Informações gerais</h2>
+            <div class="ts-form-row">
+              <div class="field" style="flex:2;">
+                <label for="tsName">Nome da árvore</label>
+                <input type="text" id="tsName" maxlength="100" autocomplete="off">
+              </div>
+              <div class="field" style="flex:3;">
+                <label for="tsDesc">Descrição</label>
+                <input type="text" id="tsDesc" maxlength="500" autocomplete="off">
+              </div>
+              <button class="btn btn-sm" id="saveInfoBtn"><i class="mdi mdi-check"></i> Guardar</button>
+            </div>
+            <div class="ts-msg" id="infoMsg"></div>
+          </div>
+
+          <!-- Members -->
+          <div class="ts-card" id="membersCard">
+            <h2><i class="mdi mdi-account-group" style="color:var(--accent);"></i>Membros</h2>
+            <p>Gerir quem tem acesso a esta árvore e o respetivo nível de permissão.</p>
+            <div id="membersTableWrap">
+              <p style="color:var(--text-disabled);font-size:0.82rem;">A carregar…</p>
+            </div>
+          </div>
+
+          <!-- Invitations -->
+          <div class="ts-card" id="inviteCard">
+            <h2><i class="mdi mdi-email-plus-outline" style="color:var(--accent);"></i>Convidar por email</h2>
+            <p>Envie um convite para colaborar nesta árvore. O utilizador receberá um email com o link de aceitação.</p>
+            <div class="ts-invite-row">
+              <div class="field" style="flex:2;">
+                <label for="invEmail">Email</label>
+                <input type="text" id="invEmail" placeholder="email@exemplo.com" autocomplete="off">
+              </div>
+              <div class="field">
+                <label for="invRole">Permissão</label>
+                <select id="invRole" class="ts-role-select">
+                  <option value="writer">Editor</option>
+                  <option value="reader">Leitor</option>
+                </select>
+              </div>
+              <button class="btn btn-sm" id="sendInviteBtn"><i class="mdi mdi-send"></i> Enviar</button>
+            </div>
+            <div class="ts-msg" id="inviteMsg"></div>
+            <div id="invListWrap"></div>
+          </div>
+
+          <!-- Danger zone -->
+          <div class="ts-card ts-danger" id="dangerCard">
+            <h2><i class="mdi mdi-alert-outline"></i>Zona de perigo</h2>
+            <p>A eliminação de uma árvore é irreversível. Todos os dados genealógicos, membros e convites serão permanentemente removidos.</p>
+            <div>
+              <button class="btn btn-danger btn-sm" id="deleteTreeBtn"><i class="mdi mdi-delete"></i> Eliminar árvore</button>
+            </div>
+          </div>
+
+        </div>
+      </main>
+    </div>
+
+    <!-- Delete confirm modal -->
+    <div class="ts-modal-overlay" id="deleteModal">
+      <div class="ts-modal">
+        <h2 style="color:var(--red);"><i class="mdi mdi-alert" style="margin-right:6px;"></i>Eliminar árvore</h2>
+        <p>Tem a certeza de que deseja eliminar permanentemente esta árvore e todos os seus dados? Esta ação não pode ser revertida.</p>
+        <div style="margin-bottom:14px;">
+          <label style="font-size:0.82rem;">Escreva o nome da árvore para confirmar:</label>
+          <input type="text" id="deleteConfirmInput" autocomplete="off" style="margin-top:6px;">
+        </div>
+        <div class="ts-modal-actions">
+          <button class="btn btn-ghost" id="cancelDelete">Cancelar</button>
+          <button class="btn btn-danger" id="confirmDelete" disabled><i class="mdi mdi-delete"></i> Eliminar</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+    (function() {
+      'use strict';
+
+      var TREE_KEY = 'ml_current_tree';
+      var DB = window.GedcomDB;
+
+      function token() { return localStorage.getItem('ml_access') || ''; }
+      function headers() { return { 'Authorization': 'Bearer ' + token(), 'Content-Type': 'application/json' }; }
+      function getUser() { try { return JSON.parse(localStorage.getItem('ml_user')); } catch(_) { return null; } }
+
+      function esc(s) {
+        return String(s || '').replace(/[&<>"']/g, function(c) {
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+        });
+      }
+
+      var treeId = localStorage.getItem(TREE_KEY);
+      if (!treeId) { window.location.replace('landing.html'); return; }
+
+      var _treeName = '';
+      var _treeRole = DB ? DB.getTreeRole() : 'reader';
+      var _isOwnerOrAdmin = (_treeRole === 'owner' || _treeRole === 'admin');
+      var _user = getUser();
+
+      /* ── Toggle editable sections based on role ──────────────────── */
+      function applyPermissions() {
+        var readonlyEls = ['tsName', 'tsDesc', 'saveInfoBtn', 'sendInviteBtn', 'invEmail', 'invRole'];
+        readonlyEls.forEach(function(id) {
+          var el = document.getElementById(id);
+          if (el) el.disabled = !_isOwnerOrAdmin;
+        });
+        document.getElementById('dangerCard').style.display = _isOwnerOrAdmin ? '' : 'none';
+        document.getElementById('inviteCard').style.display = _isOwnerOrAdmin ? '' : 'none';
+      }
+
+      /* ── Load tree info ──────────────────────────────────────────── */
+      function loadTreeInfo() {
+        fetch('/api/trees/' + treeId, { headers: headers() })
+          .then(function(r) {
+            if (r.status === 403 || r.status === 404) { window.location.replace('landing.html'); return null; }
+            return r.json();
+          })
+          .then(function(tree) {
+            if (!tree) return;
+            _treeName = tree.name || '';
+            _treeRole = tree.role || 'reader';
+            _isOwnerOrAdmin = (_treeRole === 'owner' || _treeRole === 'admin');
+            document.getElementById('tsName').value = tree.name || '';
+            document.getElementById('tsDesc').value = tree.description || '';
+            applyPermissions();
+          })
+          .catch(function() {});
+      }
+
+      /* ── Save tree info ──────────────────────────────────────────── */
+      document.getElementById('saveInfoBtn').addEventListener('click', function() {
+        var name = document.getElementById('tsName').value.trim();
+        var desc = document.getElementById('tsDesc').value.trim();
+        var msg = document.getElementById('infoMsg');
+        if (!name) { msg.className = 'ts-msg error'; msg.textContent = 'O nome é obrigatório.'; return; }
+
+        fetch('/api/trees/' + treeId, {
+          method: 'PUT', headers: headers(),
+          body: JSON.stringify({ name: name, description: desc })
+        })
+          .then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Erro'); });
+            return r.json();
+          })
+          .then(function() {
+            msg.className = 'ts-msg ok'; msg.textContent = 'Guardado com sucesso.';
+            _treeName = name;
+            setTimeout(function() { msg.textContent = ''; }, 3000);
+          })
+          .catch(function(err) { msg.className = 'ts-msg error'; msg.textContent = err.message; });
+      });
+
+      /* ── Load members ────────────────────────────────────────────── */
+      function loadMembers() {
+        fetch('/api/trees/' + treeId + '/members', { headers: headers() })
+          .then(function(r) { return r.ok ? r.json() : []; })
+          .then(function(members) {
+            if (!Array.isArray(members) || members.length === 0) {
+              document.getElementById('membersTableWrap').innerHTML = '<p style="color:var(--text-disabled);font-size:0.82rem;">Sem membros.</p>';
+              return;
+            }
+
+            var ROLE_LABELS = { owner: 'Proprietário', writer: 'Editor', reader: 'Leitor' };
+            var html = '<table class="ts-members-table"><thead><tr>';
+            html += '<th>Nome</th><th>Email</th><th>Permissão</th>';
+            if (_isOwnerOrAdmin) html += '<th></th>';
+            html += '</tr></thead><tbody>';
+
+            members.forEach(function(m) {
+              var isOwner = m.role === 'owner';
+              var isSelf = _user && m.userId === _user.id;
+              html += '<tr>';
+              html += '<td>' + esc(m.name || '—') + (isSelf ? ' <span style="color:var(--text-disabled);font-size:0.72rem;">(eu)</span>' : '') + '</td>';
+              html += '<td style="color:var(--text-secondary);">' + esc(m.email) + '</td>';
+
+              if (_isOwnerOrAdmin && !isOwner && !isSelf) {
+                html += '<td><select class="ts-role-select member-role-select" data-userid="' + esc(m.userId) + '">';
+                ['writer', 'reader'].forEach(function(r) {
+                  html += '<option value="' + r + '"' + (m.role === r ? ' selected' : '') + '>' + ROLE_LABELS[r] + '</option>';
+                });
+                html += '</select></td>';
+                html += '<td><button class="ts-remove-btn member-remove-btn" data-userid="' + esc(m.userId) + '" data-name="' + esc(m.name || m.email) + '"><i class="mdi mdi-account-remove"></i></button></td>';
+              } else {
+                html += '<td><span style="font-size:0.82rem;color:var(--text-secondary);">' + esc(ROLE_LABELS[m.role] || m.role) + '</span></td>';
+                if (_isOwnerOrAdmin) html += '<td></td>';
+              }
+              html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            document.getElementById('membersTableWrap').innerHTML = html;
+
+            // Role change handlers
+            document.querySelectorAll('.member-role-select').forEach(function(sel) {
+              sel.addEventListener('change', function() {
+                var userId = this.getAttribute('data-userid');
+                var role = this.value;
+                fetch('/api/trees/' + treeId + '/members/' + userId, {
+                  method: 'PUT', headers: headers(),
+                  body: JSON.stringify({ role: role })
+                })
+                  .then(function(r) { if (!r.ok) throw new Error('Erro'); })
+                  .catch(function() { loadMembers(); });
+              });
+            });
+
+            // Remove handlers
+            document.querySelectorAll('.member-remove-btn').forEach(function(btn) {
+              btn.addEventListener('click', function() {
+                var userId = this.getAttribute('data-userid');
+                var name = this.getAttribute('data-name');
+                if (!confirm('Remover ' + name + ' desta árvore?')) return;
+                fetch('/api/trees/' + treeId + '/members/' + userId, {
+                  method: 'DELETE', headers: headers()
+                })
+                  .then(function(r) { if (r.ok) loadMembers(); })
+                  .catch(function() {});
+              });
+            });
+          })
+          .catch(function() {});
+      }
+
+      /* ── Send invitation ──────────────────────────────────────────── */
+      document.getElementById('sendInviteBtn').addEventListener('click', function() {
+        var email = document.getElementById('invEmail').value.trim();
+        var role = document.getElementById('invRole').value;
+        var msg = document.getElementById('inviteMsg');
+        if (!email) { msg.className = 'ts-msg error'; msg.textContent = 'Email é obrigatório.'; return; }
+
+        fetch('/api/trees/' + treeId + '/invitations', {
+          method: 'POST', headers: headers(),
+          body: JSON.stringify({ email: email, role: role })
+        })
+          .then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Erro'); });
+            return r.json();
+          })
+          .then(function() {
+            msg.className = 'ts-msg ok'; msg.textContent = 'Convite enviado com sucesso!';
+            document.getElementById('invEmail').value = '';
+            loadInvitations();
+            setTimeout(function() { msg.textContent = ''; }, 4000);
+          })
+          .catch(function(err) { msg.className = 'ts-msg error'; msg.textContent = err.message; });
+      });
+
+      /* ── Load invitations ─────────────────────────────────────────── */
+      function loadInvitations() {
+        if (!_isOwnerOrAdmin) return;
+        fetch('/api/trees/' + treeId + '/invitations', { headers: headers() })
+          .then(function(r) { return r.ok ? r.json() : []; })
+          .then(function(invites) {
+            if (!Array.isArray(invites) || invites.length === 0) {
+              document.getElementById('invListWrap').innerHTML = '';
+              return;
+            }
+
+            var ROLE_LABELS = { writer: 'Editor', reader: 'Leitor' };
+            var STATUS_LABELS = { pending: 'Pendente', accepted: 'Aceite', declined: 'Recusado', expired: 'Expirado' };
+            var html = '<div class="ts-inv-list">';
+            invites.forEach(function(inv) {
+              var st = inv.status || 'pending';
+              html += '<div class="ts-inv-item">'
+                + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-main);">' + esc(inv.inviteeEmail) + '</span>'
+                + '<span style="font-size:0.78rem;color:var(--text-secondary);">' + esc(ROLE_LABELS[inv.role] || inv.role) + '</span>'
+                + '<span class="ts-inv-status ' + esc(st) + '">' + esc(STATUS_LABELS[st] || st) + '</span>'
+                + '</div>';
+            });
+            html += '</div>';
+            document.getElementById('invListWrap').innerHTML = html;
+          })
+          .catch(function() {});
+      }
+
+      /* ── Delete tree ──────────────────────────────────────────────── */
+      var deleteModal = document.getElementById('deleteModal');
+      var deleteInput = document.getElementById('deleteConfirmInput');
+      var confirmBtn = document.getElementById('confirmDelete');
+
+      document.getElementById('deleteTreeBtn').addEventListener('click', function() {
+        deleteModal.classList.add('open');
+        deleteInput.value = '';
+        confirmBtn.disabled = true;
+        deleteInput.focus();
+      });
+      document.getElementById('cancelDelete').addEventListener('click', function() {
+        deleteModal.classList.remove('open');
+      });
+      deleteModal.addEventListener('click', function(e) {
+        if (e.target === deleteModal) deleteModal.classList.remove('open');
+      });
+
+      deleteInput.addEventListener('input', function() {
+        confirmBtn.disabled = (this.value.trim() !== _treeName);
+      });
+
+      confirmBtn.addEventListener('click', function() {
+        if (this.disabled) return;
+        this.disabled = true;
+
+        fetch('/api/trees/' + treeId, { method: 'DELETE', headers: headers() })
+          .then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Erro'); });
+            localStorage.removeItem(TREE_KEY);
+            window.location.replace('landing.html');
+          })
+          .catch(function(err) {
+            alert('Erro: ' + err.message);
+            confirmBtn.disabled = false;
+          });
+      });
+
+      /* ── Init ────────────────────────────────────────────────────── */
+      loadTreeInfo();
+      loadMembers();
+      loadInvitations();
+      applyPermissions();
+
+    })();
+    </script>
+    <script src="back-to-top.js"></script>
+  </body>
+</html>

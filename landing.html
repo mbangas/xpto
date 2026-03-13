@@ -1,0 +1,449 @@
+<!doctype html>
+<html lang="pt-PT">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <title>myLineage — As minhas árvores</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
+    <script src="auth.js"></script>
+    <style>
+      body { display: flex; flex-direction: column; min-height: 100vh; background: var(--bg-base); }
+
+      .landing-topbar {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 28px; height: 56px; background: var(--bg-surface);
+        border-bottom: 1px solid var(--border-subtle); flex-shrink: 0;
+      }
+      .landing-logo {
+        display: flex; align-items: center; gap: 10px;
+        font-weight: 800; font-size: 1.05rem; color: var(--text-main);
+        text-decoration: none;
+      }
+      .landing-logo i { font-size: 1.4rem; color: var(--green); }
+
+      .landing-wrap {
+        flex: 1; padding: 32px 28px 56px;
+        max-width: 960px; width: 100%; margin: 0 auto;
+        display: flex; flex-direction: column; gap: 32px;
+      }
+
+      /* Section title */
+      .section-title {
+        font-size: 0.72rem; font-weight: 700; color: var(--text-disabled);
+        text-transform: uppercase; letter-spacing: 0.1em;
+        margin: 0 0 14px; display: flex; align-items: center; gap: 10px;
+      }
+      .section-title::after { content: ''; flex: 1; height: 1px; background: var(--border-subtle); }
+
+      /* Create tree button */
+      .create-tree-row {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        margin-bottom: 6px;
+      }
+      .create-tree-row h1 { margin: 0; font-size: 1.25rem; }
+
+      /* Tree card grid */
+      .tree-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;
+      }
+      .tree-card {
+        background: var(--bg-surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 20px 18px;
+        cursor: pointer; display: flex; flex-direction: column; gap: 10px;
+        transition: background var(--transition), border-color var(--transition), transform var(--transition), box-shadow var(--transition);
+        text-decoration: none; color: var(--text-main);
+      }
+      .tree-card:hover {
+        background: var(--bg-surface-2); border-color: var(--border-accent);
+        transform: translateY(-2px); box-shadow: var(--shadow);
+      }
+      .tree-card-header { display: flex; align-items: center; gap: 12px; }
+      .tree-card-icon {
+        width: 42px; height: 42px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.3rem; flex-shrink: 0;
+      }
+      .tree-card-icon.owner { background: var(--green-soft); color: var(--green); }
+      .tree-card-icon.writer { background: var(--accent-soft); color: var(--accent); }
+      .tree-card-icon.reader { background: var(--purple-soft); color: var(--purple); }
+      .tree-card-icon.admin  { background: var(--amber-soft); color: var(--amber); }
+      .tree-card-name { font-weight: 700; font-size: 0.95rem; }
+      .tree-card-desc {
+        font-size: 0.8rem; color: var(--text-secondary); line-height: 1.45;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+      }
+      .tree-card-meta {
+        display: flex; align-items: center; gap: 10px; font-size: 0.72rem; color: var(--text-disabled);
+      }
+      .tree-card-badge {
+        font-size: 0.65rem; font-weight: 600; padding: 2px 8px;
+        border-radius: 10px; text-transform: uppercase; letter-spacing: 0.04em;
+      }
+      .tree-card-badge.owner  { background: var(--green-soft); color: var(--green); }
+      .tree-card-badge.writer { background: var(--accent-soft); color: var(--accent); }
+      .tree-card-badge.reader { background: var(--purple-soft); color: var(--purple); }
+      .tree-card-badge.admin  { background: var(--amber-soft); color: var(--amber); }
+
+      /* Invite card */
+      .invite-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 12px;
+      }
+      .invite-card-item {
+        background: var(--bg-surface); border: 1px solid var(--border);
+        border-radius: var(--radius); padding: 18px; display: flex; flex-direction: column; gap: 12px;
+      }
+      .invite-card-item .invite-row {
+        display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      }
+      .invite-card-item .invite-from {
+        font-size: 0.82rem; color: var(--text-secondary); line-height: 1.4;
+      }
+      .invite-card-item .invite-tree-name {
+        font-weight: 700; font-size: 0.95rem; color: var(--text-main);
+      }
+      .invite-card-item .invite-actions { display: flex; gap: 8px; }
+
+      /* Empty states */
+      .empty-state {
+        text-align: center; padding: 32px 16px; color: var(--text-secondary); font-size: 0.88rem;
+      }
+      .empty-state i { font-size: 2.5rem; color: var(--text-disabled); display: block; margin-bottom: 10px; }
+
+      /* Create modal */
+      .modal-overlay {
+        display: none; position: fixed; inset: 0; z-index: 900;
+        background: rgba(0,0,0,0.6); align-items: center; justify-content: center;
+      }
+      .modal-overlay.open { display: flex; }
+      .modal-box {
+        background: var(--bg-surface); border: 1px solid var(--border);
+        border-radius: var(--radius-lg); padding: 28px; width: 100%; max-width: 420px;
+        box-shadow: var(--shadow-lg);
+      }
+      .modal-box h2 { margin: 0 0 18px; font-size: 1.05rem; }
+      .modal-box .form-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 14px; }
+      .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+
+      .landing-footer {
+        padding: 14px 28px; border-top: 1px solid var(--border-subtle);
+        display: flex; justify-content: space-between; align-items: center;
+        font-size: 0.75rem; color: var(--text-disabled);
+      }
+
+      @media (max-width: 600px) {
+        .landing-wrap { padding: 20px 14px 40px; }
+        .tree-grid, .invite-grid { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- Top bar -->
+    <div class="landing-topbar">
+      <div class="landing-logo"><i class="mdi mdi-tree"></i> myLineage</div>
+      <div id="ml-userbar-landing" style="display:flex;align-items:center;gap:10px;"></div>
+    </div>
+
+    <div class="landing-wrap">
+
+      <!-- Pending invitations -->
+      <div id="invitesSection" style="display:none;">
+        <div class="section-title"><i class="mdi mdi-email-open-outline"></i> Convites pendentes</div>
+        <div class="invite-grid" id="inviteList"></div>
+      </div>
+
+      <!-- My trees -->
+      <div>
+        <div class="create-tree-row">
+          <h1><i class="mdi mdi-tree" style="color:var(--green);margin-right:6px;"></i>As minhas árvores</h1>
+          <button class="btn" id="createTreeBtn"><i class="mdi mdi-plus"></i> Nova árvore</button>
+        </div>
+        <div class="tree-grid" id="myTreeList">
+          <div class="empty-state"><i class="mdi mdi-tree-outline"></i>Ainda não tem árvores. Crie a sua primeira!</div>
+        </div>
+      </div>
+
+      <!-- Shared with me -->
+      <div id="sharedSection" style="display:none;">
+        <div class="section-title"><i class="mdi mdi-share-variant"></i> Árvores partilhadas comigo</div>
+        <div class="tree-grid" id="sharedTreeList"></div>
+      </div>
+
+    </div>
+
+    <footer class="landing-footer">
+      <span>&copy; <span id="year"></span> myLineage</span>
+      <span>Gestão de árvores genealógicas</span>
+    </footer>
+
+    <!-- Create tree modal -->
+    <div class="modal-overlay" id="createModal">
+      <div class="modal-box">
+        <h2><i class="mdi mdi-tree" style="color:var(--green);margin-right:6px;"></i>Criar nova árvore</h2>
+        <form id="createTreeForm" onsubmit="return false;">
+          <div class="form-group">
+            <label for="treeName">Nome da árvore *</label>
+            <input type="text" id="treeName" placeholder="Ex.: Família Silva" required maxlength="100" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="treeDesc">Descrição (opcional)</label>
+            <textarea id="treeDesc" rows="3" placeholder="Breve descrição da árvore…" maxlength="500"></textarea>
+          </div>
+          <div id="createError" style="color:var(--red);font-size:0.82rem;min-height:18px;"></div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" id="cancelCreate">Cancelar</button>
+            <button type="submit" class="btn" id="submitCreate"><i class="mdi mdi-check"></i> Criar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+    (function() {
+      'use strict';
+
+      var TOKEN_KEY = 'ml_access';
+      var REFRESH_KEY = 'ml_refresh';
+      var USER_KEY = 'ml_user';
+      var TREE_KEY = 'ml_current_tree';
+
+      function token() { return localStorage.getItem(TOKEN_KEY) || ''; }
+      function headers() { return { 'Authorization': 'Bearer ' + token(), 'Content-Type': 'application/json' }; }
+      function getUser() { try { return JSON.parse(localStorage.getItem(USER_KEY)); } catch(_) { return null; } }
+
+      function esc(s) {
+        return String(s || '').replace(/[&<>"']/g, function(c) {
+          return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+        });
+      }
+
+      function relTime(iso) {
+        var d = new Date(iso);
+        var months = ['jan','fev','mar','abr','mai','jun','jul','ago','set','out','nov','dez'];
+        return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
+      }
+
+      var ROLE_LABELS = { owner: 'Proprietário', writer: 'Editor', reader: 'Leitor', admin: 'Admin' };
+
+      /* ── Render user bar ─────────────────────────────────────────── */
+      function renderUserBar() {
+        var user = getUser();
+        var bar = document.getElementById('ml-userbar-landing');
+        if (!user || !bar) return;
+
+        var html = '';
+        if (user.isAdmin) {
+          html += '<a href="admin.html" style="display:flex;align-items:center;gap:5px;background:rgba(210,153,34,0.15);color:#d29922;border:1px solid rgba(210,153,34,0.3);border-radius:20px;padding:3px 12px;font-size:0.78rem;font-weight:600;white-space:nowrap;text-decoration:none;transition:background 0.15s;"'
+                + ' onmouseover="this.style.background=\'rgba(210,153,34,0.25)\'" onmouseout="this.style.background=\'rgba(210,153,34,0.15)\'">'
+                + '<i class="mdi mdi-shield-crown" style="font-size:1rem;"></i> Administração</a>';
+        }
+        if (user.name) {
+          html += '<span style="color:var(--text-secondary);font-size:0.82rem;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;">' + esc(user.name) + '</span>';
+        }
+        html += '<button id="logoutBtn" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--text-secondary);padding:4px 10px;font-size:0.78rem;cursor:pointer;display:flex;align-items:center;gap:4px;transition:border-color 0.15s,color 0.15s;">'
+              + '<i class="mdi mdi-logout" style="font-size:0.9rem;"></i> Sair</button>';
+        bar.innerHTML = html;
+        var btn = document.getElementById('logoutBtn');
+        if (btn) {
+          btn.addEventListener('click', function() { window.MLAuth.logout(); });
+          btn.addEventListener('mouseenter', function() { this.style.borderColor='var(--red)'; this.style.color='var(--red)'; });
+          btn.addEventListener('mouseleave', function() { this.style.borderColor='var(--border)'; this.style.color='var(--text-secondary)'; });
+        }
+      }
+
+      /* ── Tree card HTML ──────────────────────────────────────────── */
+      function treeCardHTML(tree) {
+        var role = tree.role || 'reader';
+        var iconCls = (role === 'owner' || role === 'admin') ? role : role;
+        return '<div class="tree-card" data-tree-id="' + esc(tree.id) + '">'
+          + '<div class="tree-card-header">'
+          + '<div class="tree-card-icon ' + esc(iconCls) + '"><i class="mdi mdi-tree"></i></div>'
+          + '<div style="min-width:0;flex:1;">'
+          + '<div class="tree-card-name">' + esc(tree.name) + '</div>'
+          + (tree.description ? '<div class="tree-card-desc">' + esc(tree.description) + '</div>' : '')
+          + '</div>'
+          + '</div>'
+          + '<div class="tree-card-meta">'
+          + '<span class="tree-card-badge ' + esc(role) + '">' + esc(ROLE_LABELS[role] || role) + '</span>'
+          + '<span>' + relTime(tree.createdAt || tree.created_at) + '</span>'
+          + '</div>'
+          + '</div>';
+      }
+
+      /* ── Select tree and navigate ─────────────────────────────────── */
+      function selectTree(treeId) {
+        localStorage.setItem(TREE_KEY, treeId);
+        window.location.href = 'index.html';
+      }
+
+      /* ── Load trees ──────────────────────────────────────────────── */
+      function loadTrees() {
+        fetch('/api/trees', { headers: headers() })
+          .then(function(r) {
+            if (r.status === 401) { window.MLAuth.logout(); return []; }
+            return r.json();
+          })
+          .then(function(trees) {
+            if (!Array.isArray(trees)) return;
+
+            var user = getUser();
+            var myTrees = [];
+            var sharedTrees = [];
+
+            trees.forEach(function(t) {
+              if (t.role === 'owner' || (t.ownerId === (user && user.id))) {
+                myTrees.push(t);
+              } else {
+                sharedTrees.push(t);
+              }
+            });
+
+            // My trees
+            var myEl = document.getElementById('myTreeList');
+            if (myTrees.length === 0) {
+              myEl.innerHTML = '<div class="empty-state"><i class="mdi mdi-tree-outline"></i>Ainda não tem árvores. Crie a sua primeira!</div>';
+            } else {
+              myEl.innerHTML = myTrees.map(treeCardHTML).join('');
+            }
+
+            // Shared trees
+            var sharedEl = document.getElementById('sharedTreeList');
+            var sharedSec = document.getElementById('sharedSection');
+            if (sharedTrees.length > 0) {
+              sharedSec.style.display = '';
+              sharedEl.innerHTML = sharedTrees.map(treeCardHTML).join('');
+            } else {
+              sharedSec.style.display = 'none';
+            }
+
+            // Bind click handlers
+            document.querySelectorAll('.tree-card').forEach(function(card) {
+              card.addEventListener('click', function() {
+                var treeId = this.getAttribute('data-tree-id');
+                if (treeId) selectTree(treeId);
+              });
+            });
+          })
+          .catch(function(err) { console.error('Failed to load trees', err); });
+      }
+
+      /* ── Load pending invitations ─────────────────────────────────── */
+      function loadInvitations() {
+        fetch('/api/invitations', { headers: headers() })
+          .then(function(r) { return r.ok ? r.json() : []; })
+          .then(function(invites) {
+            if (!Array.isArray(invites) || invites.length === 0) {
+              document.getElementById('invitesSection').style.display = 'none';
+              return;
+            }
+
+            document.getElementById('invitesSection').style.display = '';
+            var listEl = document.getElementById('inviteList');
+            listEl.innerHTML = invites.map(function(inv) {
+              return '<div class="invite-card-item" data-invite-id="' + esc(inv.id) + '">'
+                + '<div class="invite-row">'
+                + '<div>'
+                + '<div class="invite-tree-name"><i class="mdi mdi-tree" style="color:var(--green);margin-right:4px;"></i>' + esc(inv.treeName || inv.data && inv.data.treeName || 'Árvore') + '</div>'
+                + '<div class="invite-from">'
+                + 'Convidado por <strong>' + esc(inv.inviterName || inv.data && inv.data.inviterName || '—') + '</strong>'
+                + ' como <strong>' + esc(ROLE_LABELS[inv.role || inv.data && inv.data.role] || inv.role || '') + '</strong>'
+                + '</div>'
+                + '</div>'
+                + '<div class="invite-actions">'
+                + '<button class="btn btn-sm invite-accept-btn" data-id="' + esc(inv.id) + '"><i class="mdi mdi-check"></i> Aceitar</button>'
+                + '<button class="btn btn-ghost btn-sm invite-decline-btn" data-id="' + esc(inv.id) + '"><i class="mdi mdi-close"></i> Recusar</button>'
+                + '</div>'
+                + '</div>'
+                + '</div>';
+            }).join('');
+
+            // Bind buttons
+            listEl.querySelectorAll('.invite-accept-btn').forEach(function(btn) {
+              btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                respondInvitation(this.getAttribute('data-id'), 'accept');
+              });
+            });
+            listEl.querySelectorAll('.invite-decline-btn').forEach(function(btn) {
+              btn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                respondInvitation(this.getAttribute('data-id'), 'decline');
+              });
+            });
+          })
+          .catch(function() {});
+      }
+
+      function respondInvitation(id, action) {
+        fetch('/api/invitations/' + id + '/' + action, { method: 'POST', headers: headers() })
+          .then(function(r) {
+            if (r.ok) {
+              loadInvitations();
+              loadTrees();
+            }
+          })
+          .catch(function() {});
+      }
+
+      /* ── Create tree modal ───────────────────────────────────────── */
+      var modal = document.getElementById('createModal');
+      document.getElementById('createTreeBtn').addEventListener('click', function() {
+        modal.classList.add('open');
+        document.getElementById('treeName').focus();
+      });
+      document.getElementById('cancelCreate').addEventListener('click', function() {
+        modal.classList.remove('open');
+        document.getElementById('createTreeForm').reset();
+        document.getElementById('createError').textContent = '';
+      });
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          modal.classList.remove('open');
+          document.getElementById('createTreeForm').reset();
+          document.getElementById('createError').textContent = '';
+        }
+      });
+
+      document.getElementById('createTreeForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        var name = document.getElementById('treeName').value.trim();
+        var desc = document.getElementById('treeDesc').value.trim();
+        var errEl = document.getElementById('createError');
+        if (!name) { errEl.textContent = 'O nome é obrigatório.'; return; }
+        errEl.textContent = '';
+
+        var submitBtn = document.getElementById('submitCreate');
+        submitBtn.disabled = true;
+
+        fetch('/api/trees', {
+          method: 'POST',
+          headers: headers(),
+          body: JSON.stringify({ name: name, description: desc })
+        })
+          .then(function(r) {
+            if (!r.ok) return r.json().then(function(d) { throw new Error(d.error || 'Erro'); });
+            return r.json();
+          })
+          .then(function(tree) {
+            modal.classList.remove('open');
+            document.getElementById('createTreeForm').reset();
+            selectTree(tree.id);
+          })
+          .catch(function(err) {
+            errEl.textContent = err.message || 'Erro ao criar árvore';
+          })
+          .finally(function() { submitBtn.disabled = false; });
+      });
+
+      /* ── Init ────────────────────────────────────────────────────── */
+      document.getElementById('year').textContent = new Date().getFullYear();
+      renderUserBar();
+      loadTrees();
+      loadInvitations();
+
+    })();
+    </script>
+  </body>
+</html>

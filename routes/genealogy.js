@@ -27,6 +27,8 @@ const fs      = require('fs');
 const path    = require('path');
 const https   = require('https');
 const http    = require('http');
+const multer  = require('multer');
+const crypto  = require('crypto');
 
 const {
   readCollection, writeCollection, nextId, nowISO, ensureDataDir, getDataDir,
@@ -151,6 +153,43 @@ function getUploadsDir(treeId) {
 function getUploadsUrlPrefix(treeId) {
   return '/uploads/' + treeId + '/fotos/';
 }
+
+/* ── Multer storage for per-tree file uploads ────────────────────────── */
+const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp']);
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination(req, _file, cb) {
+      const dir = getUploadsDir(req.treeId);
+      fs.mkdirSync(dir, { recursive: true });
+      cb(null, dir);
+    },
+    filename(_req, file, cb) {
+      const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+      const safeName = crypto.randomBytes(16).toString('hex') + ext;
+      cb(null, safeName);
+    },
+  }),
+  limits: { fileSize: MAX_FILE_SIZE },
+  fileFilter(_req, file, cb) {
+    if (ALLOWED_MIME.has(file.mimetype)) return cb(null, true);
+    cb(new Error('Tipo de ficheiro não permitido. Use JPEG, PNG, GIF, WebP ou BMP.'));
+  },
+});
+
+/* ── POST /upload — multipart file upload ────────────────────────────── */
+router.post('/upload', requireTreeRole('owner', 'writer'), (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      const status = err.code === 'LIMIT_FILE_SIZE' ? 413 : 400;
+      return res.status(status).json({ error: err.message });
+    }
+    if (!req.file) return res.status(400).json({ error: 'Nenhum ficheiro enviado.' });
+    const url = getUploadsUrlPrefix(req.treeId) + req.file.filename;
+    res.status(201).json({ url, filename: req.file.filename, size: req.file.size });
+  });
+});
 
 async function cacheExternalImages(treeId, multimedia) {
   if (_cacheRunning) return;

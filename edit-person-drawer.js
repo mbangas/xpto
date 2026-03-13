@@ -981,8 +981,8 @@
     if (!input || !input.files || !input.files.length) return alert('Selecione uma imagem.');
     var f = input.files[0];
     try {
-      var dataUrl = await new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(r.result); }; r.onerror = rej; r.readAsDataURL(f); });
-      var media   = DB.saveMultimedia({ title: f.name, dataUrl: dataUrl, files: [{ file: dataUrl, format: f.type }] });
+      var uploaded = await DB.uploadFile(f);
+      var media = DB.saveMultimedia({ title: f.name, files: [{ file: uploaded.url, format: f.type }] });
       var indi    = DB.getIndividual(personId);
       if (indi) {
         if (!indi.multimediaRefs) indi.multimediaRefs = [];
@@ -1003,9 +1003,9 @@
       if (!input.files || !input.files.length) return;
       var f = input.files[0];
       try {
-        var dataUrl = await new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(r.result); }; r.onerror = rej; r.readAsDataURL(f); });
+        var uploaded = await DB.uploadFile(f);
         var m = DB.getMultimediaItem(mediaId); if (!m) return;
-        m.dataUrl = dataUrl; m.files = [{ file: dataUrl, format: f.type }]; if (!m.title) m.title = f.name;
+        m.files = [{ file: uploaded.url, format: f.type }]; if (!m.title) m.title = f.name;
         DB.saveMultimedia(m);
         openDrawerSection(personId, 'fotos');
       } catch (err) { alert('Erro ao carregar imagem: ' + err); }

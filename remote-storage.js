@@ -7,8 +7,10 @@
 (function(){
   'use strict';
   const LEGACY_TREE_ID = '00000000-0000-0000-0000-000000000000';
-  let _currentTreeId = LEGACY_TREE_ID;
+  const TREE_KEY = 'ml_current_tree';
+  let _currentTreeId = localStorage.getItem(TREE_KEY) || LEGACY_TREE_ID;
   let _currentTreeRole = 'owner'; // default for legacy tree
+  let _currentTreeName = '';
 
   /** Build tree-scoped API path, e.g. /api/trees/<treeId>/individuals */
   function treeApi(sub) { return '/api/trees/' + _currentTreeId + sub; }
@@ -61,7 +63,16 @@
   }
 
   /* ── Load all data synchronously at init ─────────────────────────────── */
+  function loadTreeInfo() {
+    var treeInfo = syncGet('/api/trees/' + _currentTreeId);
+    if (treeInfo) {
+      _currentTreeRole = treeInfo.role || 'reader';
+      _currentTreeName = treeInfo.name || '';
+    }
+  }
+
   function loadAll() {
+    loadTreeInfo();
     _individuals  = toMap(syncGet(treeApi('/individuals?includeDeleted=true')));
     _families     = toMap(syncGet(treeApi('/families?includeDeleted=true')));
     _sources      = toMap(syncGet(treeApi('/sources?includeDeleted=true')));
@@ -411,6 +422,21 @@
     return (indi.multimediaRefs || []).map(mid => _multimedia[mid]).filter(m => m && !m.deletedAt);
   };
 
+  /** Upload a file to the server, returns { url, filename, size } */
+  DB.uploadFile = async function(file) {
+    const form = new FormData();
+    form.append('file', file);
+    const hdrs = {};
+    const tk = _authToken();
+    if (tk) hdrs['Authorization'] = 'Bearer ' + tk;
+    const resp = await fetch(treeApi('/upload'), { method: 'POST', headers: hdrs, body: form });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.error || 'Erro no upload');
+    }
+    return resp.json();
+  };
+
   /** Get thumbnail URL for an individual */
   DB.getThumbnailForPerson = function(indiId) {
     const media = DB.getMultimediaForIndividual(indiId);
@@ -450,12 +476,11 @@
 
   /* ── Tree management ──────────────────────────────────────────────────── */
   DB.getCurrentTree = function() { return _currentTreeId; };
+  DB.getTreeName = function() { return _currentTreeName; };
   DB.setCurrentTree = function(treeId) {
     if (treeId && treeId !== _currentTreeId) {
       _currentTreeId = treeId;
-      // Fetch tree details to get the user's role
-      var treeInfo = syncGet('/api/trees/' + treeId);
-      _currentTreeRole = (treeInfo && treeInfo.role) ? treeInfo.role : 'reader';
+      localStorage.setItem(TREE_KEY, treeId);
       loadAll();
     }
   };

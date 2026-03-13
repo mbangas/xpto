@@ -19,12 +19,14 @@ const cors = require('cors');
 
 const { LEGACY_TREE_ID }       = require('./lib/crud-helpers');
 const { authMiddleware }       = require('./lib/auth-middleware');
+const { requireAdmin }        = require('./lib/auth-middleware');
 const { treeAuthMiddleware }   = require('./lib/tree-auth');
 const authRoutes               = require('./routes/auth');
 const treesRouter              = require('./routes/trees');
 const genealogyRouter          = require('./routes/genealogy');
 const { treeRouter: invitationTreeRouter, userRouter: invitationUserRouter, publicRouter: invitationPublicRouter } = require('./routes/invitations');
 const notificationsRouter      = require('./routes/notifications');
+const adminRouter              = require('./routes/admin');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -44,6 +46,9 @@ app.use('/api', authMiddleware);
 
 /* ── Trees management API ────────────────────────────────────────────── */
 app.use('/api/trees', treesRouter);
+
+/* ── Admin dashboard API (admin only) ────────────────────────────────── */
+app.use('/api/admin', requireAdmin, adminRouter);
 
 /* ── Tree-scoped invitations (requires tree membership) ──────────────── */
 app.use('/api/trees/:treeId/invitations', treeAuthMiddleware, invitationTreeRouter);

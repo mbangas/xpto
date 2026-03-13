@@ -687,8 +687,19 @@
         });
 
         // ── Add/update relationship-order labels between spouse cards ──
-        // Remove existing labels first
-        linksView.querySelectorAll('.rel-order-group').forEach(function(g){ g.remove(); });
+        // Place labels in a dedicated overlay group AFTER cards_view so they
+        // render on top of cards (SVG paint order = document order).
+        var viewG=svgEl.querySelector('.view')||svgEl.querySelector(':scope > g');
+        if(!viewG) return;
+        var orderOverlay=viewG.querySelector('.rel-order-overlay');
+        if(!orderOverlay){
+          var ns='http://www.w3.org/2000/svg';
+          orderOverlay=document.createElementNS(ns,'g');
+          orderOverlay.setAttribute('class','rel-order-overlay');
+          viewG.appendChild(orderOverlay);
+        }
+        // Remove existing labels
+        orderOverlay.innerHTML='';
 
         if(!Object.keys(relOrderMap).length) return;
 
@@ -702,23 +713,45 @@
           var info=relOrderMap[key];
           if(!info) return;
 
-          // Position: midpoint between the two spouse cards
+          // Use tree-node positions (always correct, even during animations)
           var sx=d.source.x, sy=d.source.y;
           var tx=d.target.x, ty=d.target.y;
-          var mx=(sx+tx)/2, my=(sy+ty)/2;
+          var cardW=230, cardH=80;
+
+          // Place label inside the spouse (target) card, at the edge facing the source line
+          var lx, ly;
+          if(sx>tx){
+            lx=tx+cardW/2-16;   // 16px inside right edge
+          } else if(sx<tx){
+            lx=tx-cardW/2+16;   // 16px inside left edge
+          } else {
+            lx=tx;
+          }
+          ly=ty-cardH/2+14;     // 14px from top edge
 
           var ns='http://www.w3.org/2000/svg';
           var g=document.createElementNS(ns,'g');
           g.setAttribute('class','rel-order-group');
-          g.setAttribute('transform','translate('+mx+','+(my-10)+')');
+          g.setAttribute('transform','translate('+lx+','+ly+')');
+
+          // Background pill for readability
+          var bg=document.createElementNS(ns,'rect');
+          bg.setAttribute('x','-13');
+          bg.setAttribute('y','-11');
+          bg.setAttribute('width','26');
+          bg.setAttribute('height','17');
+          bg.setAttribute('rx','8');
+          bg.setAttribute('ry','8');
+          bg.setAttribute('fill','rgba(0,0,0,0.6)');
+          g.appendChild(bg);
 
           var text=document.createElementNS(ns,'text');
           text.setAttribute('class','rel-order-label');
-          text.setAttribute('y','0');
+          text.setAttribute('y','3');
           text.setAttribute('x','0');
           text.textContent=info.order+'\u00aa';
           g.appendChild(text);
-          linksView.appendChild(g);
+          orderOverlay.appendChild(g);
         });
       }
 

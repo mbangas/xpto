@@ -1041,7 +1041,8 @@
       '#nfPasteZone:focus, #nfPasteZone.nf-drag { border-color:var(--accent,#4493f8); }',
       '#nfCropWrap { position:relative; display:inline-block; max-width:100%; margin-top:10px; user-select:none; }',
       '#nfCropWrap img { display:block; max-width:100%; max-height:340px; border-radius:6px; }',
-      '#nfCropSel { position:absolute; border:2px solid var(--accent,#4493f8); box-shadow:0 0 0 9999px rgba(0,0,0,0.45); cursor:move; min-width:20px; min-height:20px; }',
+      '#nfCropSel { position:absolute; border:2px solid var(--accent,#4493f8); box-shadow:0 0 0 9999px rgba(0,0,0,0.45); cursor:move; min-width:20px; min-height:20px; touch-action:none; }',
+      '#nfCropWrap { touch-action:none; }',
       '.nf-handle { position:absolute; width:12px; height:12px; background:var(--accent,#4493f8); border-radius:50%; }',
       '.nf-handle.nf-tl { top:-6px; left:-6px; cursor:nw-resize; }',
       '.nf-handle.nf-tr { top:-6px; right:-6px; cursor:ne-resize; }',
@@ -1176,13 +1177,17 @@
     function _showCropUI(blob) {
       var url = URL.createObjectURL(blob);
       cropImg.onload = function () {
-        _imgW = cropImg.clientWidth;
-        _imgH = cropImg.clientHeight;
-        /* default selection: full image */
-        _sel = { x: 0, y: 0, w: _imgW, h: _imgH };
-        _applySel();
+        /* show container FIRST so clientWidth/clientHeight are non-zero */
         document.getElementById('nfPasteZone').style.display = 'none';
         document.getElementById('nfCropArea').style.display = '';
+        /* force reflow, then read rendered size */
+        _imgW = cropImg.clientWidth;
+        _imgH = cropImg.clientHeight;
+        /* default selection: 70% centered so user can move/resize it */
+        var dw = Math.round(_imgW * 0.7);
+        var dh = Math.round(_imgH * 0.7);
+        _sel = { x: Math.round((_imgW - dw) / 2), y: Math.round((_imgH - dh) / 2), w: dw, h: dh };
+        _applySel();
       };
       cropImg.src = url;
     }
@@ -1196,22 +1201,35 @@
 
     /* Drag move / resize */
     var _drag = null;
-    cropSel.addEventListener('mousedown', function (e) {
+    function _pointerXY(e) {
+      if (e.touches && e.touches.length) return { cx: e.touches[0].clientX, cy: e.touches[0].clientY };
+      return { cx: e.clientX, cy: e.clientY };
+    }
+    function _startMove(e) {
       if (e.target.classList.contains('nf-handle')) return;
       e.preventDefault();
-      _drag = { type: 'move', sx: e.clientX, sy: e.clientY, ox: _sel.x, oy: _sel.y };
-    });
+      var p = _pointerXY(e);
+      _drag = { type: 'move', sx: p.cx, sy: p.cy, ox: _sel.x, oy: _sel.y };
+    }
+    cropSel.addEventListener('mousedown', _startMove);
+    cropSel.addEventListener('touchstart', _startMove, { passive: false });
+
     cropSel.querySelectorAll('.nf-handle').forEach(function (h) {
-      h.addEventListener('mousedown', function (e) {
+      function _startResize(e) {
         e.preventDefault(); e.stopPropagation();
+        var p = _pointerXY(e);
         var corner = h.classList.contains('nf-tl') ? 'tl' : h.classList.contains('nf-tr') ? 'tr' : h.classList.contains('nf-bl') ? 'bl' : 'br';
-        _drag = { type: corner, sx: e.clientX, sy: e.clientY, oSel: Object.assign({}, _sel) };
-      });
+        _drag = { type: corner, sx: p.cx, sy: p.cy, oSel: Object.assign({}, _sel) };
+      }
+      h.addEventListener('mousedown', _startResize);
+      h.addEventListener('touchstart', _startResize, { passive: false });
     });
-    document.addEventListener('mousemove', function (e) {
+    function _onPointerMove(e) {
       if (!_drag) return;
-      var dx = e.clientX - _drag.sx;
-      var dy = e.clientY - _drag.sy;
+      e.preventDefault();
+      var p = _pointerXY(e);
+      var dx = p.cx - _drag.sx;
+      var dy = p.cy - _drag.sy;
       if (_drag.type === 'move') {
         _sel.x = Math.max(0, Math.min(_imgW - _sel.w, _drag.ox + dx));
         _sel.y = Math.max(0, Math.min(_imgH - _sel.h, _drag.oy + dy));
@@ -1239,8 +1257,12 @@
         }
       }
       _applySel();
-    });
-    document.addEventListener('mouseup', function () { _drag = null; });
+    }
+    document.addEventListener('mousemove', _onPointerMove);
+    document.addEventListener('touchmove', _onPointerMove, { passive: false });
+    function _onPointerUp() { _drag = null; }
+    document.addEventListener('mouseup', _onPointerUp);
+    document.addEventListener('touchend', _onPointerUp);
 
     /* Reset paste */
     document.getElementById('nfCropReset').addEventListener('click', function () {

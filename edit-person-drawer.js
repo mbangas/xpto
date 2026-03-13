@@ -1013,16 +1013,312 @@
   /* ══════════════════════════════════════════════════════════════════════════
      PHOTOS SECTION — upload, delete and view are available everywhere
   ══════════════════════════════════════════════════════════════════════════ */
+
+  /* ── Nova Foto modal (file upload + clipboard paste with crop) ──────── */
+  var _novaFotoModalInject = false;
+
+  function _ensureNovaFotoModal() {
+    if (_novaFotoModalInject) return;
+    _novaFotoModalInject = true;
+
+    /* CSS */
+    var style = document.createElement('style');
+    style.textContent = [
+      '#nfModal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.72); z-index:2147483645; align-items:center; justify-content:center; padding:16px; }',
+      '#nfModal.nf-open { display:flex; }',
+      '#nfInner { background:var(--bg-surface,#161b22); border:1px solid var(--border,rgba(255,255,255,0.08)); border-radius:14px; box-shadow:0 24px 64px rgba(0,0,0,0.7); width:480px; max-width:96vw; max-height:90vh; overflow:auto; animation:nfIn .18s ease; }',
+      '@keyframes nfIn { from { opacity:0; transform:scale(.96) translateY(8px); } to { opacity:1; transform:none; } }',
+      '#nfHeader { display:flex; align-items:center; justify-content:space-between; padding:14px 18px 10px; border-bottom:1px solid var(--border,rgba(255,255,255,0.08)); }',
+      '#nfHeader h3 { margin:0; font-size:1rem; font-weight:600; }',
+      '#nfCloseBtn { background:none; border:none; color:var(--text-secondary,#8b949e); font-size:1.2rem; cursor:pointer; padding:4px; border-radius:6px; }',
+      '#nfCloseBtn:hover { color:var(--text-main,#e6edf3); background:var(--bg-surface-2,#21262d); }',
+      '#nfBody { padding:18px; }',
+      '.nf-tabs { display:flex; gap:8px; margin-bottom:16px; }',
+      '.nf-tab { flex:1; padding:8px 12px; border:1px solid var(--border,rgba(255,255,255,0.08)); border-radius:8px; background:var(--bg-surface-2,#21262d); color:var(--text-secondary,#8b949e); cursor:pointer; text-align:center; font-size:0.85rem; transition:all .15s; }',
+      '.nf-tab:hover { background:var(--accent-soft,rgba(68,147,248,0.12)); color:var(--text-main,#e6edf3); }',
+      '.nf-tab.active { background:var(--accent,#4493f8); color:#fff; border-color:var(--accent,#4493f8); }',
+      '#nfPasteZone { border:2px dashed var(--border,rgba(255,255,255,0.08)); border-radius:10px; min-height:140px; display:flex; align-items:center; justify-content:center; color:var(--text-secondary,#8b949e); font-size:0.88rem; cursor:pointer; position:relative; outline:none; transition:border-color .15s; }',
+      '#nfPasteZone:focus, #nfPasteZone.nf-drag { border-color:var(--accent,#4493f8); }',
+      '#nfCropWrap { position:relative; display:inline-block; max-width:100%; margin-top:10px; user-select:none; }',
+      '#nfCropWrap img { display:block; max-width:100%; max-height:340px; border-radius:6px; }',
+      '#nfCropSel { position:absolute; border:2px solid var(--accent,#4493f8); box-shadow:0 0 0 9999px rgba(0,0,0,0.45); cursor:move; min-width:20px; min-height:20px; }',
+      '.nf-handle { position:absolute; width:12px; height:12px; background:var(--accent,#4493f8); border-radius:50%; }',
+      '.nf-handle.nf-tl { top:-6px; left:-6px; cursor:nw-resize; }',
+      '.nf-handle.nf-tr { top:-6px; right:-6px; cursor:ne-resize; }',
+      '.nf-handle.nf-bl { bottom:-6px; left:-6px; cursor:sw-resize; }',
+      '.nf-handle.nf-br { bottom:-6px; right:-6px; cursor:se-resize; }',
+      '#nfActions { display:flex; gap:8px; justify-content:flex-end; margin-top:14px; }',
+      '#nfPreviewFile { margin-top:10px; text-align:center; }',
+      '#nfPreviewFile img { max-width:100%; max-height:240px; border-radius:6px; }'
+    ].join('\n');
+    document.head.appendChild(style);
+
+    /* HTML */
+    var overlay = document.createElement('div');
+    overlay.id = 'nfModal';
+    overlay.innerHTML =
+      '<div id="nfInner">'
+      + '<div id="nfHeader"><h3>Nova Foto</h3><button id="nfCloseBtn" title="Fechar"><i class="mdi mdi-close"></i></button></div>'
+      + '<div id="nfBody">'
+      +   '<div class="nf-tabs">'
+      +     '<div class="nf-tab active" data-nf-tab="upload"><i class="mdi mdi-file-upload-outline"></i> Ficheiro</div>'
+      +     '<div class="nf-tab" data-nf-tab="paste"><i class="mdi mdi-content-paste"></i> Colar (Clipboard)</div>'
+      +   '</div>'
+      +   '<div id="nfTabUpload">'
+      +     '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
+      +       '<label for="nfFileInput" class="btn btn-sm" style="cursor:pointer;font-size:0.83rem;"><i class="mdi mdi-image-plus"></i> Escolher Ficheiro</label>'
+      +       '<span id="nfFileName" style="color:#aaa;font-size:0.82rem;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Nenhum ficheiro</span>'
+      +       '<input type="file" id="nfFileInput" accept="image/*" style="display:none;"/>'
+      +     '</div>'
+      +     '<div id="nfPreviewFile"></div>'
+      +     '<div id="nfActionsUpload" style="display:none;"><div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">'
+      +       '<button class="btn btn-sm" id="nfUploadSave" style="font-size:0.83rem;"><i class="mdi mdi-upload"></i> Gravar</button>'
+      +     '</div></div>'
+      +   '</div>'
+      +   '<div id="nfTabPaste" style="display:none;">'
+      +     '<div id="nfPasteZone" tabindex="0">Clique aqui e cole (Ctrl+V) uma imagem do clipboard</div>'
+      +     '<div id="nfCropArea" style="display:none;">'
+      +       '<div id="nfCropWrap"><img id="nfCropImg"/>'
+      +         '<div id="nfCropSel">'
+      +           '<div class="nf-handle nf-tl"></div><div class="nf-handle nf-tr"></div>'
+      +           '<div class="nf-handle nf-bl"></div><div class="nf-handle nf-br"></div>'
+      +         '</div>'
+      +       '</div>'
+      +       '<div id="nfActions">'
+      +         '<button class="btn btn-sm btn-ghost" id="nfCropReset" style="font-size:0.83rem;"><i class="mdi mdi-refresh"></i> Nova imagem</button>'
+      +         '<button class="btn btn-sm" id="nfCropSave" style="font-size:0.83rem;"><i class="mdi mdi-content-save"></i> Gravar</button>'
+      +       '</div>'
+      +     '</div>'
+      +   '</div>'
+      + '</div>'
+      + '</div>';
+    document.body.appendChild(overlay);
+
+    /* ── Wire events ─────────────────────────────────────────────────── */
+    var _nfPersonId = null;
+    var _pastedBlob = null;
+
+    /* Close */
+    document.getElementById('nfCloseBtn').addEventListener('click', _nfClose);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) _nfClose(); });
+
+    /* Tabs */
+    overlay.querySelectorAll('.nf-tab').forEach(function (tab) {
+      tab.addEventListener('click', function () {
+        overlay.querySelectorAll('.nf-tab').forEach(function (t) { t.classList.remove('active'); });
+        tab.classList.add('active');
+        var isUpload = tab.dataset.nfTab === 'upload';
+        document.getElementById('nfTabUpload').style.display = isUpload ? '' : 'none';
+        document.getElementById('nfTabPaste').style.display  = isUpload ? 'none' : '';
+      });
+    });
+
+    /* File input */
+    var nfFileInput = document.getElementById('nfFileInput');
+    nfFileInput.addEventListener('change', function () {
+      var nameEl = document.getElementById('nfFileName');
+      var preview = document.getElementById('nfPreviewFile');
+      var actions = document.getElementById('nfActionsUpload');
+      if (nfFileInput.files && nfFileInput.files.length) {
+        nameEl.textContent = nfFileInput.files[0].name;
+        var reader = new FileReader();
+        reader.onload = function (ev) { preview.innerHTML = '<img src="' + ev.target.result + '"/>'; };
+        reader.readAsDataURL(nfFileInput.files[0]);
+        actions.style.display = '';
+      } else {
+        nameEl.textContent = 'Nenhum ficheiro';
+        preview.innerHTML = '';
+        actions.style.display = 'none';
+      }
+    });
+
+    /* Upload save */
+    document.getElementById('nfUploadSave').addEventListener('click', async function () {
+      if (!nfFileInput.files || !nfFileInput.files.length) return;
+      var DB = _db(); if (!DB) return;
+      var f = nfFileInput.files[0];
+      try {
+        var uploaded = await DB.uploadFile(f);
+        var media = DB.saveMultimedia({ title: f.name, files: [{ file: uploaded.url, format: f.type }] });
+        var indi = DB.getIndividual(_nfPersonId);
+        if (indi) {
+          if (!indi.multimediaRefs) indi.multimediaRefs = [];
+          indi.multimediaRefs.push(media.id);
+          DB.saveIndividual(indi);
+        }
+        _nfClose();
+        openDrawerSection(_nfPersonId, 'fotos');
+      } catch (err) { alert('Erro no upload: ' + err); }
+    });
+
+    /* ── Paste handling ──────────────────────────────────────────────── */
+    var pasteZone = document.getElementById('nfPasteZone');
+    pasteZone.addEventListener('paste', function (e) {
+      var items = (e.clipboardData || {}).items;
+      if (!items) return;
+      for (var i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+          e.preventDefault();
+          _pastedBlob = items[i].getAsFile();
+          _showCropUI(_pastedBlob);
+          return;
+        }
+      }
+    });
+
+    /* ── Crop UI ─────────────────────────────────────────────────────── */
+    var cropImg  = document.getElementById('nfCropImg');
+    var cropSel  = document.getElementById('nfCropSel');
+    var cropWrap = document.getElementById('nfCropWrap');
+    var _sel = { x: 0, y: 0, w: 0, h: 0 };
+    var _imgW = 0, _imgH = 0;
+
+    function _showCropUI(blob) {
+      var url = URL.createObjectURL(blob);
+      cropImg.onload = function () {
+        _imgW = cropImg.clientWidth;
+        _imgH = cropImg.clientHeight;
+        /* default selection: full image */
+        _sel = { x: 0, y: 0, w: _imgW, h: _imgH };
+        _applySel();
+        document.getElementById('nfPasteZone').style.display = 'none';
+        document.getElementById('nfCropArea').style.display = '';
+      };
+      cropImg.src = url;
+    }
+
+    function _applySel() {
+      cropSel.style.left   = _sel.x + 'px';
+      cropSel.style.top    = _sel.y + 'px';
+      cropSel.style.width  = _sel.w + 'px';
+      cropSel.style.height = _sel.h + 'px';
+    }
+
+    /* Drag move / resize */
+    var _drag = null;
+    cropSel.addEventListener('mousedown', function (e) {
+      if (e.target.classList.contains('nf-handle')) return;
+      e.preventDefault();
+      _drag = { type: 'move', sx: e.clientX, sy: e.clientY, ox: _sel.x, oy: _sel.y };
+    });
+    cropSel.querySelectorAll('.nf-handle').forEach(function (h) {
+      h.addEventListener('mousedown', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        var corner = h.classList.contains('nf-tl') ? 'tl' : h.classList.contains('nf-tr') ? 'tr' : h.classList.contains('nf-bl') ? 'bl' : 'br';
+        _drag = { type: corner, sx: e.clientX, sy: e.clientY, oSel: Object.assign({}, _sel) };
+      });
+    });
+    document.addEventListener('mousemove', function (e) {
+      if (!_drag) return;
+      var dx = e.clientX - _drag.sx;
+      var dy = e.clientY - _drag.sy;
+      if (_drag.type === 'move') {
+        _sel.x = Math.max(0, Math.min(_imgW - _sel.w, _drag.ox + dx));
+        _sel.y = Math.max(0, Math.min(_imgH - _sel.h, _drag.oy + dy));
+      } else {
+        var o = _drag.oSel;
+        var nx, ny, nw, nh;
+        if (_drag.type === 'br') {
+          nw = Math.max(20, o.w + dx); nh = Math.max(20, o.h + dy);
+          _sel.w = Math.min(nw, _imgW - o.x); _sel.h = Math.min(nh, _imgH - o.y);
+        } else if (_drag.type === 'tl') {
+          nx = o.x + dx; ny = o.y + dy;
+          nx = Math.max(0, nx); ny = Math.max(0, ny);
+          _sel.w = Math.max(20, o.w - (nx - o.x)); _sel.h = Math.max(20, o.h - (ny - o.y));
+          _sel.x = o.x + o.w - _sel.w; _sel.y = o.y + o.h - _sel.h;
+        } else if (_drag.type === 'tr') {
+          ny = o.y + dy; ny = Math.max(0, ny);
+          nw = Math.max(20, o.w + dx);
+          _sel.w = Math.min(nw, _imgW - o.x); _sel.h = Math.max(20, o.h - (ny - o.y));
+          _sel.y = o.y + o.h - _sel.h;
+        } else if (_drag.type === 'bl') {
+          nx = o.x + dx; nx = Math.max(0, nx);
+          nh = Math.max(20, o.h + dy);
+          _sel.w = Math.max(20, o.w - (nx - o.x)); _sel.h = Math.min(nh, _imgH - o.y);
+          _sel.x = o.x + o.w - _sel.w;
+        }
+      }
+      _applySel();
+    });
+    document.addEventListener('mouseup', function () { _drag = null; });
+
+    /* Reset paste */
+    document.getElementById('nfCropReset').addEventListener('click', function () {
+      _pastedBlob = null;
+      document.getElementById('nfCropArea').style.display = 'none';
+      document.getElementById('nfPasteZone').style.display = '';
+    });
+
+    /* Save cropped */
+    document.getElementById('nfCropSave').addEventListener('click', async function () {
+      if (!_pastedBlob) return;
+      var DB = _db(); if (!DB) return;
+      /* compute crop in natural-image coordinates */
+      var scaleX = cropImg.naturalWidth  / _imgW;
+      var scaleY = cropImg.naturalHeight / _imgH;
+      var sx = Math.round(_sel.x * scaleX);
+      var sy = Math.round(_sel.y * scaleY);
+      var sw = Math.round(_sel.w * scaleX);
+      var sh = Math.round(_sel.h * scaleY);
+
+      /* draw cropped area to canvas */
+      var canvas = document.createElement('canvas');
+      canvas.width  = sw; canvas.height = sh;
+      var ctx = canvas.getContext('2d');
+      var tmpImg = new Image();
+      tmpImg.onload = async function () {
+        ctx.drawImage(tmpImg, sx, sy, sw, sh, 0, 0, sw, sh);
+        canvas.toBlob(async function (blob) {
+          if (!blob) return alert('Erro ao recortar imagem.');
+          var file = new File([blob], 'clipboard-foto.png', { type: 'image/png' });
+          try {
+            var uploaded = await DB.uploadFile(file);
+            var media = DB.saveMultimedia({ title: file.name, files: [{ file: uploaded.url, format: file.type }] });
+            var indi = DB.getIndividual(_nfPersonId);
+            if (indi) {
+              if (!indi.multimediaRefs) indi.multimediaRefs = [];
+              indi.multimediaRefs.push(media.id);
+              DB.saveIndividual(indi);
+            }
+            _nfClose();
+            openDrawerSection(_nfPersonId, 'fotos');
+          } catch (err) { alert('Erro no upload: ' + err); }
+        }, 'image/png');
+      };
+      tmpImg.src = URL.createObjectURL(_pastedBlob);
+    });
+
+    /* ── helpers ──────────────────────────────────────────────────────── */
+    function _nfClose() {
+      overlay.classList.remove('nf-open');
+      _pastedBlob = null;
+      nfFileInput.value = '';
+      document.getElementById('nfFileName').textContent = 'Nenhum ficheiro';
+      document.getElementById('nfPreviewFile').innerHTML = '';
+      document.getElementById('nfActionsUpload').style.display = 'none';
+      document.getElementById('nfCropArea').style.display = 'none';
+      document.getElementById('nfPasteZone').style.display = '';
+    }
+
+    window._nfOpen = function (personId) {
+      _nfPersonId = personId;
+      _nfClose();                    /* reset state */
+      overlay.classList.add('nf-open');
+      /* reset to upload tab */
+      overlay.querySelectorAll('.nf-tab').forEach(function (t) { t.classList.remove('active'); });
+      overlay.querySelector('[data-nf-tab="upload"]').classList.add('active');
+      document.getElementById('nfTabUpload').style.display = '';
+      document.getElementById('nfTabPaste').style.display  = 'none';
+    };
+  }
+
   function _renderPhotos(personId) {
     var pid = _esc(personId);
     var editable = _canEdit();
     var uploadHtml = editable
-      ? '<div style="margin-bottom:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">'
-      + '<label for="drawerPhotoInput" class="btn btn-sm" style="cursor:pointer;font-size:0.83rem;"><i class="mdi mdi-image-plus"></i> Escolher Ficheiro</label>'
-      + '<span id="drawerPhotoName" style="color:#aaa;font-size:0.82rem;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Nenhum ficheiro</span>'
-      + '<button class="btn btn-sm" id="drawerUploadBtn" style="font-size:0.83rem;"><i class="mdi mdi-upload"></i> Upload</button>'
+      ? '<div style="margin-bottom:14px;">'
+      + '<button class="btn btn-sm" id="drawerNovaFotoBtn" style="font-size:0.83rem;"><i class="mdi mdi-image-plus"></i> Nova Foto</button>'
       + '</div>'
-      + '<input type="file" id="drawerPhotoInput" accept="image/*" style="display:none;"/>'
       : '';
     return uploadHtml
       + '<div id="_photoGrid" style="display:flex;flex-wrap:wrap;gap:10px;"></div>';
@@ -1030,14 +1326,12 @@
 
   function _buildPhotoGrid(personId) {
     var DB = _db();
-    /* Wire upload button after innerHTML is set */
-    var uploadBtn = document.getElementById('drawerUploadBtn');
-    if (uploadBtn) uploadBtn.addEventListener('click', function () { window._drawerUploadPhoto(personId); });
-    var fileInput = document.getElementById('drawerPhotoInput');
-    if (fileInput) fileInput.addEventListener('change', function () {
-      var nameEl = document.getElementById('drawerPhotoName');
-      if (nameEl) nameEl.textContent = (fileInput.files && fileInput.files.length) ? fileInput.files[0].name : 'Nenhum ficheiro';
-    });
+    /* Wire "Nova Foto" button to open the modal */
+    var novaBtn = document.getElementById('drawerNovaFotoBtn');
+    if (novaBtn) {
+      _ensureNovaFotoModal();
+      novaBtn.addEventListener('click', function () { window._nfOpen(personId); });
+    }
 
     var grid = document.getElementById('_photoGrid');
     if (!grid) return;
@@ -1094,24 +1388,7 @@
     });
   }
 
-  window._drawerUploadPhoto = async function (personId) {
-    var DB    = _db(); if (!DB) return;
-    var input = document.getElementById('drawerPhotoInput');
-    if (!input || !input.files || !input.files.length) return alert('Selecione uma imagem.');
-    var f = input.files[0];
-    try {
-      var uploaded = await DB.uploadFile(f);
-      var media = DB.saveMultimedia({ title: f.name, files: [{ file: uploaded.url, format: f.type }] });
-      var indi    = DB.getIndividual(personId);
-      if (indi) {
-        if (!indi.multimediaRefs) indi.multimediaRefs = [];
-        indi.multimediaRefs.push(media.id);
-        DB.saveIndividual(indi);
-      }
-      input.value = '';
-      openDrawerSection(personId, 'fotos');
-    } catch (err) { alert('Erro no upload: ' + err); }
-  };
+  /* _drawerUploadPhoto — now handled inside Nova Foto modal */
 
   window._drawerLinkGedcomPhoto = function (mediaId, personId) {
     var DB    = _db(); if (!DB) return;

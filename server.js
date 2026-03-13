@@ -2,10 +2,14 @@
  * server.js — myLineage GEDCOM 7 Server
  * RESTful APIs for GEDCOM 7 entities stored as JSON in JSON-DATA/
  *
- * Route layout (Phase 3 — Multi-Tree):
+ * Route layout (Phase 5 — Invitations & Notifications):
  *   /api/auth/*                       — public auth routes
+ *   /api/invitations/accept/:token    — public invitation lookup
  *   /api/trees/*                      — tree management (authed)
+ *   /api/trees/:treeId/invitations    — tree-scoped invitations (authed + tree membership)
  *   /api/trees/:treeId/*              — tree-scoped genealogy (authed + tree membership)
+ *   /api/invitations/*                — user-scoped invitations (authed)
+ *   /api/notifications/*              — notifications (authed)
  *   /api/*  (legacy)                  — redirects to /api/trees/LEGACY_TREE_ID/* for backward-compat
  */
 const express = require('express');
@@ -19,6 +23,8 @@ const { treeAuthMiddleware }   = require('./lib/tree-auth');
 const authRoutes               = require('./routes/auth');
 const treesRouter              = require('./routes/trees');
 const genealogyRouter          = require('./routes/genealogy');
+const { treeRouter: invitationTreeRouter, userRouter: invitationUserRouter, publicRouter: invitationPublicRouter } = require('./routes/invitations');
+const notificationsRouter      = require('./routes/notifications');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -30,14 +36,24 @@ app.use(express.static(path.join(__dirname), { etag: false, lastModified: false,
 /* ── Auth routes (public — no authMiddleware) ────────────────────────── */
 app.use('/api/auth', authRoutes);
 
+/* ── Public invitation lookup (no auth required) ─────────────────────── */
+app.use('/api/invitations', invitationPublicRouter);
+
 /* ── Protect all other /api/* routes ─────────────────────────────────── */
 app.use('/api', authMiddleware);
 
 /* ── Trees management API ────────────────────────────────────────────── */
 app.use('/api/trees', treesRouter);
 
+/* ── Tree-scoped invitations (requires tree membership) ──────────────── */
+app.use('/api/trees/:treeId/invitations', treeAuthMiddleware, invitationTreeRouter);
+
 /* ── Tree-scoped genealogy routes ────────────────────────────────────── */
 app.use('/api/trees/:treeId', treeAuthMiddleware, genealogyRouter);
+
+/* ── User-scoped invitations & notifications ─────────────────────────── */
+app.use('/api/invitations', invitationUserRouter);
+app.use('/api/notifications', notificationsRouter);
 
 /* ── Per-tree static uploads ─────────────────────────────────────────── */
 app.use('/uploads/:treeId', (req, res, next) => {

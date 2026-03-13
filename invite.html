@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="pt-PT">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <title>myLineage — Convite</title>
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@mdi/font@latest/css/materialdesignicons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; background: var(--bg-main); padding: 16px;
+    }
+    .invite-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 40px 36px 32px;
+      width: 100%; max-width: 420px;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.45);
+    }
+    .invite-logo {
+      display: flex; align-items: center; justify-content: center;
+      gap: 10px; font-size: 1.5rem; font-weight: 700;
+      color: var(--text-main); margin-bottom: 28px;
+    }
+    .invite-logo i { font-size: 2rem; color: #4493f8; }
+    .invite-icon {
+      text-align: center; margin-bottom: 18px;
+    }
+    .invite-icon i { font-size: 3rem; color: #4493f8; }
+    .invite-title {
+      font-size: 1.05rem; font-weight: 600; color: var(--text-main);
+      text-align: center; margin-bottom: 6px;
+    }
+    .invite-sub {
+      font-size: 0.88rem; color: var(--text-secondary);
+      text-align: center; line-height: 1.5; margin-bottom: 24px;
+    }
+    .invite-detail {
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 14px 16px;
+      margin-bottom: 20px;
+    }
+    .invite-detail-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 5px 0; font-size: 0.88rem;
+    }
+    .invite-detail-label { color: var(--text-secondary); }
+    .invite-detail-value { color: var(--text-main); font-weight: 500; }
+    .invite-actions {
+      display: flex; gap: 10px; margin-top: 8px;
+    }
+    .invite-actions button {
+      flex: 1; padding: 11px 16px; border: none;
+      border-radius: var(--radius-sm); font-size: 0.9rem; font-weight: 600;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      gap: 6px; transition: background 0.15s;
+    }
+    .btn-accept { background: #4493f8; color: #fff; }
+    .btn-accept:hover { background: #2d7de0; }
+    .btn-accept:disabled { background: #2a4060; cursor: not-allowed; color: #6890b8; }
+    .btn-decline { background: var(--bg-surface); color: var(--text-secondary); border: 1px solid var(--border) !important; }
+    .btn-decline:hover { background: var(--bg-surface-2); }
+    .btn-decline:disabled { cursor: not-allowed; opacity: 0.5; }
+    .invite-msg {
+      text-align: center; font-size: 0.88rem; margin-top: 16px; min-height: 20px;
+    }
+    .invite-msg.error { color: #e06060; }
+    .invite-msg.success { color: #3fb950; }
+    .invite-link { text-align: center; margin-top: 16px; font-size: 0.82rem; color: var(--text-secondary); }
+    .invite-link a { color: #4493f8; text-decoration: none; }
+    .invite-link a:hover { text-decoration: underline; }
+    .invite-loading {
+      text-align: center; padding: 40px 0; color: var(--text-secondary); font-size: 0.9rem;
+    }
+    .invite-loading i { font-size: 1.5rem; display: block; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+<div class="invite-card">
+  <div class="invite-logo"><i class="mdi mdi-tree"></i>myLineage</div>
+
+  <!-- Loading state -->
+  <div id="inviteLoading" class="invite-loading">
+    <i class="mdi mdi-loading mdi-spin"></i>
+    A carregar convite…
+  </div>
+
+  <!-- Invitation details (hidden until loaded) -->
+  <div id="inviteContent" style="display:none;">
+    <div class="invite-icon"><i class="mdi mdi-email-open-outline"></i></div>
+    <div class="invite-title" id="inviteTitle">Convite para colaborar</div>
+    <div class="invite-sub" id="inviteSub"></div>
+
+    <div class="invite-detail">
+      <div class="invite-detail-row">
+        <span class="invite-detail-label">Árvore</span>
+        <span class="invite-detail-value" id="invTreeName">—</span>
+      </div>
+      <div class="invite-detail-row">
+        <span class="invite-detail-label">Convidado por</span>
+        <span class="invite-detail-value" id="invInviter">—</span>
+      </div>
+      <div class="invite-detail-row">
+        <span class="invite-detail-label">Permissão</span>
+        <span class="invite-detail-value" id="invRole">—</span>
+      </div>
+      <div class="invite-detail-row">
+        <span class="invite-detail-label">Expira</span>
+        <span class="invite-detail-value" id="invExpires">—</span>
+      </div>
+    </div>
+
+    <div class="invite-actions" id="inviteActions">
+      <button class="btn-decline" id="btnDecline" onclick="handleDecline()">
+        <i class="mdi mdi-close"></i> Recusar
+      </button>
+      <button class="btn-accept" id="btnAccept" onclick="handleAccept()">
+        <i class="mdi mdi-check"></i> Aceitar
+      </button>
+    </div>
+
+    <div class="invite-msg" id="inviteMsg"></div>
+  </div>
+
+  <!-- Error state -->
+  <div id="inviteError" style="display:none;">
+    <div class="invite-icon"><i class="mdi mdi-alert-circle-outline" style="color:#e06060;"></i></div>
+    <div class="invite-title" id="errorTitle">Convite inválido</div>
+    <div class="invite-sub" id="errorSub">O link do convite é inválido ou expirou.</div>
+  </div>
+
+  <div class="invite-link">
+    <a href="login.html">← Voltar ao login</a>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  var invitationData = null;
+
+  // Parse token from URL
+  var params = new URLSearchParams(window.location.search);
+  var token  = params.get('token') || '';
+
+  if (!token) {
+    showError('Link inválido', 'Nenhum token de convite foi encontrado no URL.');
+    return;
+  }
+
+  // Step 1: Fetch invitation details (public endpoint — no auth needed)
+  fetchInvitation();
+
+  function fetchInvitation() {
+    fetch('/api/invitations/accept/' + encodeURIComponent(token))
+      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+      .then(function(res) {
+        if (!res.ok) {
+          showError('Convite não encontrado', res.data.error || 'O convite pode ter sido removido.');
+          return;
+        }
+        invitationData = res.data;
+
+        if (res.data.status !== 'pending') {
+          var msg = res.data.status === 'accepted' ? 'Este convite já foi aceite.'
+                  : res.data.status === 'declined' ? 'Este convite foi recusado.'
+                  : 'Este convite já não está disponível.';
+          showError('Convite ' + res.data.status, msg);
+          return;
+        }
+
+        if (res.data.expired) {
+          showError('Convite expirado', 'Este convite expirou. Peça ao remetente para enviar um novo.');
+          return;
+        }
+
+        showInvitation(res.data);
+      })
+      .catch(function() {
+        showError('Erro de ligação', 'Não foi possível contactar o servidor.');
+      });
+  }
+
+  function showInvitation(inv) {
+    document.getElementById('inviteLoading').style.display = 'none';
+    document.getElementById('inviteContent').style.display = '';
+
+    var roleLabel = inv.role === 'writer' ? 'Editor' : 'Leitor';
+    document.getElementById('inviteSub').textContent =
+      inv.inviterName + ' convidou-o para colaborar na árvore "' + inv.treeName + '".';
+    document.getElementById('invTreeName').textContent = inv.treeName;
+    document.getElementById('invInviter').textContent  = inv.inviterName;
+    document.getElementById('invRole').textContent     = roleLabel;
+    document.getElementById('invExpires').textContent   = new Date(inv.expiresAt).toLocaleDateString('pt-PT');
+
+    // Check if user is logged in
+    var accessToken = localStorage.getItem('ml_access');
+    if (!accessToken) {
+      // Not logged in — show message to login/register first
+      document.getElementById('inviteActions').style.display = 'none';
+      var msg = document.getElementById('inviteMsg');
+      msg.className = 'invite-msg';
+      msg.innerHTML = 'Para aceitar este convite, precisa de <a href="login.html?redirect=' +
+        encodeURIComponent(window.location.href) + '">entrar</a> ou <a href="register.html?redirect=' +
+        encodeURIComponent(window.location.href) + '">criar uma conta</a>.';
+    }
+  }
+
+  function showError(title, sub) {
+    document.getElementById('inviteLoading').style.display = 'none';
+    document.getElementById('inviteError').style.display   = '';
+    document.getElementById('errorTitle').textContent = title;
+    document.getElementById('errorSub').textContent   = sub;
+  }
+
+  function authHeaders() {
+    var tk = localStorage.getItem('ml_access');
+    return tk ? { 'Authorization': 'Bearer ' + tk, 'Content-Type': 'application/json' } : {};
+  }
+
+  window.handleAccept = function() {
+    if (!invitationData) return;
+    var tk = localStorage.getItem('ml_access');
+    if (!tk) {
+      window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.href);
+      return;
+    }
+
+    var btn = document.getElementById('btnAccept');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="mdi mdi-loading mdi-spin"></i> A aceitar…';
+
+    fetch('/api/invitations/' + invitationData.id + '/accept', {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, status: r.status, data: d }; }); })
+      .then(function(res) {
+        if (res.status === 401) {
+          window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.href);
+          return;
+        }
+        var msg = document.getElementById('inviteMsg');
+        if (res.ok) {
+          msg.className = 'invite-msg success';
+          msg.textContent = 'Convite aceite com sucesso!';
+          document.getElementById('inviteActions').style.display = 'none';
+          setTimeout(function() { window.location.href = 'index.html'; }, 1500);
+        } else {
+          msg.className = 'invite-msg error';
+          msg.textContent = res.data.error || 'Erro ao aceitar o convite.';
+          btn.disabled = false;
+          btn.innerHTML = '<i class="mdi mdi-check"></i> Aceitar';
+        }
+      })
+      .catch(function() {
+        var msg = document.getElementById('inviteMsg');
+        msg.className = 'invite-msg error';
+        msg.textContent = 'Erro de ligação ao servidor.';
+        btn.disabled = false;
+        btn.innerHTML = '<i class="mdi mdi-check"></i> Aceitar';
+      });
+  };
+
+  window.handleDecline = function() {
+    if (!invitationData) return;
+    var tk = localStorage.getItem('ml_access');
+    if (!tk) {
+      window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.href);
+      return;
+    }
+
+    if (!confirm('Tem a certeza que deseja recusar este convite?')) return;
+
+    var btn = document.getElementById('btnDecline');
+    btn.disabled = true;
+
+    fetch('/api/invitations/' + invitationData.id + '/decline', {
+      method: 'POST',
+      headers: authHeaders(),
+    })
+      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, status: r.status, data: d }; }); })
+      .then(function(res) {
+        if (res.status === 401) {
+          window.location.href = 'login.html?redirect=' + encodeURIComponent(window.location.href);
+          return;
+        }
+        var msg = document.getElementById('inviteMsg');
+        if (res.ok) {
+          msg.className = 'invite-msg';
+          msg.textContent = 'Convite recusado.';
+          document.getElementById('inviteActions').style.display = 'none';
+        } else {
+          msg.className = 'invite-msg error';
+          msg.textContent = res.data.error || 'Erro ao recusar o convite.';
+          btn.disabled = false;
+        }
+      })
+      .catch(function() {
+        var msg = document.getElementById('inviteMsg');
+        msg.className = 'invite-msg error';
+        msg.textContent = 'Erro de ligação ao servidor.';
+        btn.disabled = false;
+      });
+  };
+
+})();
+</script>
+</body>
+</html>

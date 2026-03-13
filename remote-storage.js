@@ -34,15 +34,19 @@
   }
 
   /* ── Async helpers ───────────────────────────────────────────────────── */
+  /** Queue to serialize all write operations so the server receives them in order */
+  let _writeQueue = Promise.resolve();
   function asyncJson(method, url, body) {
     const hdrs = { 'Content-Type': 'application/json' };
     const tk = _authToken();
     if (tk) hdrs['Authorization'] = 'Bearer ' + tk;
-    return fetch(url, {
+    const op = () => fetch(url, {
       method,
       headers: hdrs,
       body: body !== undefined ? JSON.stringify(body) : undefined
     }).catch(() => {});
+    _writeQueue = _writeQueue.then(op, op);
+    return _writeQueue;
   }
 
   /* ── In-memory caches ────────────────────────────────────────────────── */
@@ -368,9 +372,12 @@
       if (!f || f.deletedAt) continue;
       if ((f.husb === spouse1Id && f.wife === spouse2Id) || (f.husb === spouse2Id && f.wife === spouse1Id)) return f;
     }
-    // Create new family
-    const husb = (s1.sex === 'M') ? spouse1Id : (s2.sex === 'M') ? spouse2Id : spouse1Id;
-    const wife = husb === spouse1Id ? spouse2Id : spouse1Id;
+    // Create new family — assign husb/wife respecting biological sex
+    let husb, wife;
+    if (s1.sex === 'M' && s2.sex === 'F') { husb = spouse1Id; wife = spouse2Id; }
+    else if (s1.sex === 'F' && s2.sex === 'M') { husb = spouse2Id; wife = spouse1Id; }
+    else if (s1.sex === 'M') { husb = spouse1Id; wife = spouse2Id; }   // both M — first as husb
+    else { husb = spouse2Id; wife = spouse1Id; }                        // both F — first as wife
     const fam = DB.saveFamily({ husb, wife, children: [], events: [] });
     // Link individuals
     if (!s1.fams) s1.fams = [];

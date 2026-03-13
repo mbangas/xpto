@@ -528,6 +528,17 @@
           });
         }
 
+        // Consistency fix: ensure that if A has child C, then C.parents includes A.
+        // This prevents "child has more than 1 parent" errors from the chart library
+        // when server-side data becomes inconsistent (e.g. due to race conditions).
+        Object.keys(relsMap).forEach(function(pid){
+          var pr=relsMap[pid];
+          (pr.children||[]).forEach(function(cid){
+            var cr=relsMap[cid]; if(!cr) return;
+            if(!cr.parents.includes(pid)&&cr.parents.length<2) cr.parents.push(pid);
+          });
+        });
+
         return indis.map(function(indi){
           const birth=DB.getBirthEvent(indi),death=DB.getDeathEvent(indi);
           const thumb=DB.getThumbnailForPerson(indi.id);
@@ -561,17 +572,7 @@
         const selectedType = getChartType();
 
         if(selectedType === 'donatso'){
-          // If the chart hasn't been built yet, fall back to a full render
-          if(!f3ChartHandle){ renderChart(_getSelectedOrFocusId()); return; }
-          const newData = buildFamilyChartData();
-          try{
-            f3ChartHandle
-              .updateData(newData)
-              .updateTree({initial: false, tree_position: 'inherit'});
-          }catch(e){
-            console.warn('refreshChartInPlace Donatso error, falling back:', e);
-            renderChart(_getSelectedOrFocusId());
-          }
+          renderChart(_getSelectedOrFocusId(), true);
           return;
         }
 

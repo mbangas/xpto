@@ -31,7 +31,8 @@ const multer  = require('multer');
 const crypto  = require('crypto');
 
 const {
-  readCollection, writeCollection, nextId, nowISO, ensureDataDir, getDataDir,
+  readCollection, writeCollection, writeEntity, deleteEntity,
+  nextId, nowISO, ensureDataDir, getDataDir,
   readTreeSettings, writeTreeSettings, deleteTreeSettings,
   readTreeHistory, appendTreeHistory, clearTreeHistory,
 } = require('../lib/crud-helpers');
@@ -66,12 +67,10 @@ function entityRoutes(collectionName, idPrefix, defaultFn) {
 
   sub.post('/', requireTreeRole('owner', 'writer'), async (req, res) => {
     try {
-      const data = await resolve(readCollection(req.treeId, collectionName));
       const id = req.body.id || await resolve(nextId(req.treeId, collectionName, idPrefix));
       const now = nowISO();
       const rec = { ...defaultFn(), ...req.body, id, createdAt: req.body.createdAt || now, updatedAt: now, deletedAt: null };
-      data[id] = rec;
-      await resolve(writeCollection(req.treeId, collectionName, data));
+      await resolve(writeEntity(req.treeId, collectionName, id, rec));
       res.status(201).json(rec);
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
@@ -81,8 +80,7 @@ function entityRoutes(collectionName, idPrefix, defaultFn) {
       const data = await resolve(readCollection(req.treeId, collectionName));
       if (!data[req.params.id]) return res.status(404).json({ error: 'Not found' });
       const rec = { ...data[req.params.id], ...req.body, id: req.params.id, updatedAt: nowISO() };
-      data[req.params.id] = rec;
-      await resolve(writeCollection(req.treeId, collectionName, data));
+      await resolve(writeEntity(req.treeId, collectionName, req.params.id, rec));
       res.json(rec);
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
@@ -91,8 +89,7 @@ function entityRoutes(collectionName, idPrefix, defaultFn) {
     try {
       const data = await resolve(readCollection(req.treeId, collectionName));
       if (!data[req.params.id]) return res.status(404).json({ error: 'Not found' });
-      data[req.params.id] = { ...data[req.params.id], deletedAt: nowISO(), updatedAt: nowISO() };
-      await resolve(writeCollection(req.treeId, collectionName, data));
+      await resolve(deleteEntity(req.treeId, collectionName, req.params.id));
       res.json({ ok: true });
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });

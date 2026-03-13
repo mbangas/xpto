@@ -549,8 +549,9 @@
     var DB = _db(); if (!DB) return;
     var pid     = _esc(personId);
     var parents = DB.getParents(personId);
-    var kinOpts = '<option value="ancestor">Pai / M\u00e3e</option><option value="child">Filho(a)</option><option value="mate">Companheiro(a)</option><option value="siblin">Irm\u00e3o / Irm\u00e3</option>';
-    if (parents.length >= 2) kinOpts = '<option value="child">Filho(a)</option><option value="mate">Companheiro(a)</option><option value="siblin">Irm\u00e3o / Irm\u00e3</option>';
+    var kinOpts = '';
+    if (parents.length < 2) kinOpts += '<option value="ancestor">Pai / M\u00e3e</option>';
+    kinOpts += '<option value="child">Filho(a)</option><option value="siblin">Irm\u00e3o / Irm\u00e3</option><option value="mate">Companheiro(a)</option>';
     var others = DB.getIndividuals().filter(function (i) { return i.id !== personId; });
     var opts = others.map(function (i) { return '<option value="' + i.id + '">' + _esc(DB.getDisplayName(i)) + '</option>'; }).join('');
     document.getElementById('drawerBody').innerHTML = '<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Nova Rela\u00e7\u00e3o</h3>'
@@ -567,54 +568,136 @@
     openDrawerSection(personId, 'relacoes');
   };
 
+  /**
+   * Helper: ensure person A has a parent family with both husb and wife.
+   * If famc is missing, creates a new family with placeholder parents.
+   * If famc exists but is missing husb or wife, fills the gaps.
+   * Returns the family record.
+   */
+  function _ensureParentFamily(personId) {
+    var DB = _db(); if (!DB) return null;
+    var indi = DB.getIndividual(personId); if (!indi) return null;
+    if (indi.famc) {
+      var fam = DB.getFamily(indi.famc);
+      if (fam) {
+        // Sanity-check: if both husb and wife are the same sex the family is
+        // corrupted (legacy race-condition artefact).  Detach person from it
+        // and fall through to create a proper new family below.
+        var hI = fam.husb ? DB.getIndividual(fam.husb) : null;
+        var wI = fam.wife ? DB.getIndividual(fam.wife) : null;
+        if (hI && wI && hI.sex === wI.sex) {
+          // Remove person from corrupted family children
+          if (fam.children) fam.children = fam.children.filter(function(c){ return c !== personId; });
+          DB.saveFamily(fam);
+          indi.famc = null;
+          // fall through to create new proper family
+        } else {
+          var changed = false;
+          if (!fam.husb) {
+            var sn = DB.getSurname(indi) || '';
+            var ph = DB.saveIndividual({ names: [{ given: '?', surname: sn, type: 'birth' }], sex: 'M', events: [] });
+            fam.husb = ph.id; ph.fams = [fam.id]; DB.saveIndividual(ph); changed = true;
+          }
+          if (!fam.wife) {
+            var pm = DB.saveIndividual({ names: [{ given: '?', surname: '', type: 'birth' }], sex: 'F', events: [] });
+            fam.wife = pm.id; pm.fams = [fam.id]; DB.saveIndividual(pm); changed = true;
+          }
+          if (changed) DB.saveFamily(fam);
+          return fam;
+        }
+      }
+    }
+    // No famc — create family with placeholder parents
+    var sn2 = DB.getSurname(indi) || '';
+    var father = DB.saveIndividual({ names: [{ given: '?', surname: sn2, type: 'birth' }], sex: 'M', events: [] });
+    var mother = DB.saveIndividual({ names: [{ given: '?', surname: '', type: 'birth' }], sex: 'F', events: [] });
+    var newFam = DB.saveFamily({ husb: father.id, wife: mother.id, children: [personId], events: [] });
+    father.fams = [newFam.id]; DB.saveIndividual(father);
+    mother.fams = [newFam.id]; DB.saveIndividual(mother);
+    indi.famc = newFam.id; DB.saveIndividual(indi);
+    return newFam;
+  }
+
+  /**
+   * Helper: ensure person A has a spouse family.
+   * If no spouse family exists, creates one with a placeholder spouse.
+   * Returns the family record.
+   */
+  function _ensureSpouseFamily(personId) {
+    var DB = _db(); if (!DB) return null;
+    var indi = DB.getIndividual(personId); if (!indi) return null;
+    var fams = DB.getSpouseFamilies(personId);
+    // Return the first family where this person is in the correct role
+    for (var i = 0; i < fams.length; i++) {
+      var f = fams[i];
+      if (indi.sex === 'M' && f.husb === personId) return f;
+      if (indi.sex === 'F' && f.wife === personId) return f;
+    }
+    // Fallback: accept any family where person appears
+    if (fams.length) return fams[0];
+    // No spouse family — create with placeholder spouse
+    var spouseSex = indi.sex === 'F' ? 'M' : 'F';
+    var sn = DB.getSurname(indi) || '';
+    var spouse = DB.saveIndividual({ names: [{ given: '?', surname: spouseSex === 'F' ? '' : sn, type: 'birth' }], sex: spouseSex, events: [] });
+    var husb = indi.sex === 'F' ? spouse.id : personId;
+    var wife = indi.sex === 'F' ? personId : spouse.id;
+    var fam = DB.saveFamily({ husb: husb, wife: wife, children: [], events: [] });
+    if (!indi.fams) indi.fams = [];
+    indi.fams.push(fam.id); DB.saveIndividual(indi);
+    spouse.fams = [fam.id]; DB.saveIndividual(spouse);
+    return fam;
+  }
+
   function _linkRelation(personId, targetId, relType) {
     var DB     = _db(); if (!DB) return;
     var indi   = DB.getIndividual(personId);
     var target = DB.getIndividual(targetId);
     if (!indi || !target) return;
+
     if (relType === 'mate') {
       DB.ensureFamily(personId, targetId);
+
     } else if (relType === 'ancestor') {
+      // Create Pai or Mãe — always creates both parents together
       if (!indi.famc) {
-        var fam = DB.saveFamily({ husb: target.sex === 'M' ? targetId : null, wife: target.sex === 'F' ? targetId : null, children: [personId], events: [] });
+        // Create family with target as one parent and placeholder as the other
+        var otherSex = target.sex === 'F' ? 'M' : 'F';
+        var sn = target.sex === 'F' ? (DB.getSurname(indi) || '') : '';
+        var otherParent = DB.saveIndividual({ names: [{ given: '?', surname: sn, type: 'birth' }], sex: otherSex, events: [] });
+        var husb = target.sex === 'F' ? otherParent.id : targetId;
+        var wife = target.sex === 'F' ? targetId : otherParent.id;
+        var fam = DB.saveFamily({ husb: husb, wife: wife, children: [personId], events: [] });
         indi.famc = fam.id; DB.saveIndividual(indi);
         if (!target.fams) target.fams = [];
         if (!target.fams.includes(fam.id)) { target.fams.push(fam.id); DB.saveIndividual(target); }
+        otherParent.fams = [fam.id]; DB.saveIndividual(otherParent);
       } else {
+        // famc already exists — fill the missing slot
         var famA = DB.getFamily(indi.famc);
         if (famA) {
           if (!famA.husb && target.sex !== 'F') famA.husb = targetId;
+          else if (!famA.wife && target.sex !== 'M') famA.wife = targetId;
+          else if (!famA.husb) famA.husb = targetId;
           else if (!famA.wife) famA.wife = targetId;
-          else famA.husb = targetId;
           DB.saveFamily(famA);
           if (!target.fams) target.fams = [];
           if (!target.fams.includes(famA.id)) { target.fams.push(famA.id); DB.saveIndividual(target); }
         }
       }
+
     } else if (relType === 'child') {
-      var fams = DB.getFamiliesAsSpouse(personId);
-      var famC = fams.length ? fams[0] : null;
-      if (!famC) {
-        famC = DB.saveFamily({ husb: indi.sex === 'M' ? personId : null, wife: indi.sex === 'F' ? personId : null, children: [], events: [] });
-        if (!indi.fams) indi.fams = []; indi.fams.push(famC.id); DB.saveIndividual(indi);
-      }
+      // Create Filho(a) — auto-create spouse if A has none
+      var famC = _ensureSpouseFamily(personId);
       if (!famC.children) famC.children = [];
       if (!famC.children.includes(targetId)) { famC.children.push(targetId); DB.saveFamily(famC); }
       target.famc = famC.id; DB.saveIndividual(target);
+
     } else if (relType === 'siblin') {
-      var indiSib = DB.getIndividual(personId);
-      if (indiSib.famc) {
-        var famSib = DB.getFamily(indiSib.famc);
-        if (famSib) {
-          if (!famSib.children) famSib.children = [];
-          if (!famSib.children.includes(targetId)) { famSib.children.push(targetId); DB.saveFamily(famSib); }
-          target.famc = famSib.id; DB.saveIndividual(target);
-        }
-      } else {
-        var famNew = DB.saveFamily({ children: [personId, targetId], events: [] });
-        indiSib.famc = famNew.id; DB.saveIndividual(indiSib);
-        target.famc  = famNew.id; DB.saveIndividual(target);
-      }
+      // Create Irmão/Irmã — auto-create parents if A has none
+      var parentFam = _ensureParentFamily(personId);
+      if (!parentFam.children) parentFam.children = [];
+      if (!parentFam.children.includes(targetId)) { parentFam.children.push(targetId); DB.saveFamily(parentFam); }
+      target.famc = parentFam.id; DB.saveIndividual(target);
     }
   }
 
@@ -628,10 +711,11 @@
     var backBtn = document.getElementById('drawerBackBtn'); if (backBtn) { backBtn.style.display = ''; backBtn._personId = personId; }
     document.getElementById('drawerTitle').textContent = 'Adicionar \u2014 ' + DB.getDisplayName(indi);
     var pid     = _esc(personId);
-    var kinOpts = '<option value="sibling_male">Irm\u00e3o</option><option value="sibling_female">Irm\u00e3</option>'
-      + '<option value="child_male">Filho</option><option value="child_female">Filha</option>';
+    var kinOpts = '';
     if (parents.length < 2) kinOpts += '<option value="ancestor_male">Pai</option><option value="ancestor_female">M\u00e3e</option>';
-    kinOpts += '<option value="mate_male">Companheiro</option><option value="mate_female">Companheira</option>';
+    kinOpts += '<option value="child_male">Filho</option><option value="child_female">Filha</option>'
+      + '<option value="sibling_male">Irm\u00e3o</option><option value="sibling_female">Irm\u00e3</option>'
+      + '<option value="mate_male">Companheiro</option><option value="mate_female">Companheira</option>';
     document.getElementById('drawerBody').innerHTML = '<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Nova Pessoa</h3>'
       + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Grau de parentesco</label><select id="addPersKinship" style="width:100%;">' + kinOpts + '</select></div>'
       + '<div style="margin-bottom:10px;"><label style="font-size:0.82rem;color:#aaa;display:block;margin-bottom:4px;">Primeiro nome</label><input id="addPersFirstName" type="text" placeholder="Nome" style="width:100%;"/></div>'
@@ -669,9 +753,9 @@
     var backBtn = document.getElementById('drawerBackBtn'); if (backBtn) { backBtn.style.display = ''; backBtn._personId = personId; }
     document.getElementById('drawerTitle').textContent = 'Ligar \u2014 ' + DB.getDisplayName(indi);
     var pid     = _esc(personId);
-    var kinOpts = '<option value="siblin">Irm\u00e3o / Irm\u00e3</option><option value="child">Filho(a)</option>';
-    if (parents.length < 2) kinOpts = '<option value="ancestor">Pai / M\u00e3e</option>' + kinOpts;
-    kinOpts += '<option value="mate">Companheiro(a)</option>';
+    var kinOpts = '';
+    if (parents.length < 2) kinOpts += '<option value="ancestor">Pai / M\u00e3e</option>';
+    kinOpts += '<option value="child">Filho(a)</option><option value="siblin">Irm\u00e3o / Irm\u00e3</option><option value="mate">Companheiro(a)</option>';
     var others = DB.getIndividuals().filter(function (i) { return i.id !== personId; });
     var opts   = others.map(function (i) { return '<option value="' + i.id + '">' + _esc(DB.getDisplayName(i)) + '</option>'; }).join('');
     document.getElementById('drawerBody').innerHTML = '<div style="padding:4px 0 8px;"><h3 style="font-size:0.95rem;margin:0 0 14px;">Ligar Pessoa Existente</h3>'

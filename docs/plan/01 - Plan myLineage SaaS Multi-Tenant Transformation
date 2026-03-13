@@ -1,0 +1,124 @@
+## Plan: myLineage SaaS Multi-Tenant Transformation
+
+Transformar a aplicação single-tenant com ficheiros JSON numa plataforma SaaS multi-tenant com PostgreSQL, autenticação server-side (email+password+JWT), suporte multi-árvore com 4 níveis de acesso, convites por email (SMTP), e dashboard de administração. Deploy continua baseado em Docker.
+
+**Decisões tomadas**: PostgreSQL | SMTP genérico | Registo aberto | 2FA opcional para todos (obrigatório para admin) | Docker genérico
+
+---
+
+### Phase 1: Infrastructure & Database *(bloqueia todas as outras fases)*
+
+1. **Adicionar PostgreSQL ao Docker Compose** — novo serviço `postgres:16-alpine`, volume `pgdata`, `DATABASE_URL` env var. *depends on: nothing*
+2. **Módulo de ligação à BD + framework de migrações** — Criar `lib/db.js` com pool `pg`, adicionar `node-pg-migrate`. *depends on 1.1*
+3. **Schema inicial (migração 001)** — Tabelas: `users`, `trees`, `tree_memberships`, `invitations`, `notifications`, `genealogy_records` (tree_id + collection + entity_id + data JSONB), `tree_settings`, `tree_history`, `login_audit`. *depends on 1.2*
+4. **Reescrever `lib/crud-helpers.js`** — Substituir `readCollection`/`writeCollection` por queries PostgreSQL em `genealogy_records` com `tree_id`. Manter mesma API exportada. *depends on 1.3*
+
+### Phase 2: Authentication System *(depends on Phase 1)*
+
+5. **Novas dependências** — `bcrypt`, `jsonwebtoken`, `nodemailer` em `package.json`. *depends on 1.1*
+6. **Módulo de auth server-side** — Novo `lib/auth-middleware.js`: hash bcrypt, JWT access+refresh tokens, middleware `authMiddleware`, `requireRole(treeId, ...roles)`, `requireAdmin`. *depends on 1.3*
+7. **API de autenticação** — Rotas `POST /api/auth/register`, `/login`, `/login/totp`, `/refresh`, `/logout`, `GET /api/auth/me`, `PUT /api/auth/me/password`, TOTP setup/verify/disable. *depends on 2.2*
+8. **Seeding do admin** — No startup, criar user admin de `ADMIN_EMAIL` + `ADMIN_PASSWORD` (env vars Docker Compose) se não existir. Requer 2FA no primeiro login. *depends on 2.3*
+9. **Proteger todas as rotas /api/*** — Aplicar `authMiddleware` a todas excepto `/api/auth/*`. *depends on 2.2*
+10. **Reescrever `auth.js` (cliente)** — Email+password, JWT em httpOnly cookie, refresh transparente, UI para 2FA. *depends on 2.3*
+11. **Nova página `register.html`** — Formulário nome/email/password. *depends on 2.3*
+12. **Atualizar `setup.html`** — Fluxo de setup 2FA para admin no primeiro login. *depends on 2.3*
+
+### Phase 3: Multi-Tree Architecture *(depends on Phase 1, parallelizável com Phase 2 backend)*
+
+13. **API de árvores** — `POST/GET /api/trees`, `GET/PUT/DELETE /api/trees/:treeId`, gestão de membros (`/members`). Criar tree → cria membership(owner). *depends on 1.3, parallel with steps 6-8*
+14. **Tree context em rotas genealógicas** — Todas passam a `/api/trees/:treeId/individuals`, `/families`, etc. Middleware `treeAuthMiddleware` valida acesso. *depends on 3.1 + 2.2*
+15. **Atualizar `remote-storage.js`** — `DB.setCurrentTree(treeId)`, todas as chamadas API incluem treeId no path, `Authorization` header. *depends on 3.2*
+16. **Uploads por árvore** — Path `uploads/<treeId>/fotos/`. Adicionar `multer` para upload real de ficheiros (substituir base64 dataUrl). *depends on 3.2*
+17. **Script de migração JSON→PostgreSQL** — `scripts/migrate-json-to-pg.js`: lê JSON-DATA, insere numa árvore no PostgreSQL. *depends on 1.4*
+
+### Phase 4: Access Control & Authorization *(depends on Phase 2 + 3)*
+
+18. **Middleware de autorização por árvore** — Verificar `tree_memberships` em cada pedido; admin bypass. Attach `req.treeRole`. *depends on 2.2 + 3.2*
+19. **Proteção por role nas rotas** — GET=reader+, POST/PUT/DELETE=writer+, gestão de membros=owner, admin routes=isAdmin. *depends on 4.1*
+20. **UI permission-aware** — `edit-person-drawer.js`: esconder botões de edição se role='reader'. `DB.getTreeRole()` exposto. *depends on 4.2 + 3.3*
+
+### Phase 5: Invitations & Notifications *(depends on Phase 4)*
+
+21. **Módulo de email** — `lib/email.js`: Nodemailer com `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM` env vars. Template de convite. *depends on 2.1*
+22. **API de convites** — `POST /api/trees/:treeId/invitations` (owner envia), `GET /api/invitations` (do user), `POST /api/invitations/:id/accept|decline`, endpoint público `GET /api/invitations/accept/:token`. *depends on 4.1 + 5.1*
+23. **Sistema de notificações** — `GET /api/notifications`, `PUT /:id/read`, `GET /unread-count`. Criar notificação quando user existente é convidado. *depends on 1.3*
+24. **Página de aceitação de convite** — Nova `invite.html`: link no email → login/registo se necessário → mostrar detalhes → aceitar/recusar. *depends on 5.2*
+25. **UI de notificações** — Ícone sino no header, badge com contagem, dropdown com notificações recentes. Polling a cada 60s. *depends on 5.3*
+
+### Phase 6: Landing Page & Tree Management UI *(depends on Phase 3, incremental com 4-5)*
+
+26. **Nova landing page** — `landing.html`: "As minhas árvores" + "Árvores partilhadas comigo" + convites pendentes + botão criar árvore. *depends on 3.1*
+27. **Tree switcher** — Header/sidebar em todas as páginas: nome da árvore actual + link para landing. *depends on 6.1*
+28. **Página de settings da árvore** — Gerir membros, enviar convites, renomear, eliminar (owner only). *depends on 4.2 + 5.2*
+29. **Adaptar todas as páginas existentes** — `arvore.html`, `album.html`, `index.html` (dashboard por árvore), etc.: tree context no header, dados do tree endpoint. *depends on 3.3*
+
+### Phase 7: Admin Dashboard *(depends on Phase 2, parallelizável com 4-6)*
+
+30. **API admin** — `GET /api/admin/stats`, `/users`, `/trees`, `/logins`. *depends on 1.3 + 2.2*
+31. **Página admin** — Nova `admin.html`: total users/trees/individuals, registos recentes, login audit, gráfico de logins. *depends on 7.1*
+
+### Phase 8: Cleanup & Migration *(fase final)*
+
+32. **Remover auth legado** — Remover flow por telefone de `auth.js`, `ADMIN_PHONE`, access requests, `totpSecrets` dos settings. *depends on all above*
+33. **Atualizar GEDCOM import/export** — Operar no contexto da árvore actual. *depends on 3.2*
+34. **Atualizar testes** — Adaptar testes para PostgreSQL + auth + tree context. Novos testes para registo, login, CRUD árvores, convites, access control. *depends on all above*
+35. **Documentação** — Atualizar `README.md`, `setup/INSTALL.md`, `docker-compose.yml` com novas env vars e instruções. *depends on all above*
+
+---
+
+### Relevant Files
+
+**Modificações pesadas:**
+- `server.js` — todas as rotas, middleware, startup
+- `lib/crud-helpers.js` — reescrever de JSON para PostgreSQL
+- `auth.js` — reescrever de telefone para email+password+JWT
+- `remote-storage.js` — tree context, JWT headers
+- `login.html` — novo UI email+password
+- `docker-compose.yml` — PostgreSQL, novas env vars
+- `package.json` — novas dependências (`pg`, `node-pg-migrate`, `bcrypt`, `jsonwebtoken`, `nodemailer`, `multer`)
+
+**Novos ficheiros:**
+- `lib/db.js`, `lib/auth-middleware.js`, `lib/email.js`
+- `migrations/001_initial_schema.js`
+- `register.html`, `landing.html`, `invite.html`, `admin.html`
+- `scripts/migrate-json-to-pg.js`, `notifications.js`
+
+**Adaptações ligeiras:** todas as páginas HTML (header com tree switcher + notificações), `edit-person-drawer.js` (permission-aware), `history-logger.js` (nova sessão auth), `configuracao.html`, `Dockerfile`
+
+**Padrões a reusar:**
+- `verifyTOTP()` de `auth.js` → mover para server-side em `lib/auth-middleware.js`
+- API surface de `GedcomDB` em `remote-storage.js` → preservar interface, mudar transporte
+- Padrão CRUD de `lib/crud-helpers.js` → template para queries PostgreSQL
+
+---
+
+### Verification
+
+1. `npm test` — testes existentes passam após migração (com PostgreSQL de teste)
+2. **Auth flow**: Registar → login → JWT → rota protegida → 401 sem token
+3. **2FA flow**: Admin requer TOTP → user normal pode ativar/desativar
+4. **Tree CRUD**: Criar árvore → listar → entrar → ver dados → trocar árvore
+5. **Access control**: Owner edita → writer edita → reader não edita → sem membership = 403
+6. **Invitation flow**: Owner convida por email → email recebido → clicar link → registar se necessário → aceitar → árvore aparece na landing
+7. **Notificação in-app**: User existente convidado → sino mostra contagem → clicar para aceitar
+8. **Decline flow**: User recusa → status atualizado → notificação ao inviter
+9. **Admin dashboard**: Admin vê stats, contagem de users/trees, audit de logins
+10. **GEDCOM**: Import para árvore → export da árvore → dados isolados por árvore
+11. **Migração**: Correr `migrate-json-to-pg.js` → dados existentes disponíveis numa árvore
+12. **Docker**: `docker compose up` → PostgreSQL inicia → migrações correm → app inicia → admin seeded
+
+---
+
+### Excluído do âmbito
+- Sistema de pagamentos/billing
+- Rate limiting (adicionável via reverse proxy)
+- WebSocket para sincronização real-time entre utilizadores
+- Clonagem/fork de árvores
+- Partilha pública (anónima) de árvores
+- OAuth/social login (Google, Facebook)
+
+### Considerações adicionais
+1. **Password reset por email** — Não incluído mas altamente recomendado para SaaS. Recomendação: incluir `POST /api/auth/forgot-password` + `/reset-password/:token` neste plano.
+2. **Estrutura de rotas** — Proposto `/api/trees/:treeId/...` (REST limpo) vs. header `X-Tree-Id` (menos alterações de URL). Recomendação: rotas nested para clareza.
+3. **Colaboração real-time** — Múltiplos users a editar a mesma árvore podem causar conflitos. Para v1, last-write-wins é aceitável. Futuro: WebSocket-based conflict resolution.

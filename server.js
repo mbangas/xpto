@@ -20,55 +20,58 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname), { etag: false, lastModified: false, setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate') }));
 
+/* ── Async helper — resolves value whether it is a Promise or not ──── */
+function resolve(v) { return v instanceof Promise ? v : Promise.resolve(v); }
+
 /* ── Generic CRUD router factory ─────────────────────────────────────── */
 function entityRoutes(collectionName, idPrefix, defaultFn) {
   const router = express.Router();
 
-  router.get('/', (req, res) => {
+  router.get('/', async (req, res) => {
     try {
-      const data = readCollection(collectionName);
+      const data = await resolve(readCollection(collectionName));
       const all = req.query.includeDeleted === 'true';
       res.json(Object.values(data).filter(r => all || !r.deletedAt));
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
 
-  router.get('/:id', (req, res) => {
+  router.get('/:id', async (req, res) => {
     try {
-      const rec = readCollection(collectionName)[req.params.id];
+      const rec = (await resolve(readCollection(collectionName)))[req.params.id];
       if (!rec) return res.status(404).json({ error: 'Not found' });
       res.json(rec);
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
 
-  router.post('/', (req, res) => {
+  router.post('/', async (req, res) => {
     try {
-      const data = readCollection(collectionName);
-      const id = req.body.id || nextId(collectionName, idPrefix);
+      const data = await resolve(readCollection(collectionName));
+      const id = req.body.id || await resolve(nextId(collectionName, idPrefix));
       const now = nowISO();
       const rec = { ...defaultFn(), ...req.body, id, createdAt: req.body.createdAt || now, updatedAt: now, deletedAt: null };
       data[id] = rec;
-      writeCollection(collectionName, data);
+      await resolve(writeCollection(collectionName, data));
       res.status(201).json(rec);
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
 
-  router.put('/:id', (req, res) => {
+  router.put('/:id', async (req, res) => {
     try {
-      const data = readCollection(collectionName);
+      const data = await resolve(readCollection(collectionName));
       if (!data[req.params.id]) return res.status(404).json({ error: 'Not found' });
       const rec = { ...data[req.params.id], ...req.body, id: req.params.id, updatedAt: nowISO() };
       data[req.params.id] = rec;
-      writeCollection(collectionName, data);
+      await resolve(writeCollection(collectionName, data));
       res.json(rec);
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
 
-  router.delete('/:id', (req, res) => {
+  router.delete('/:id', async (req, res) => {
     try {
-      const data = readCollection(collectionName);
+      const data = await resolve(readCollection(collectionName));
       if (!data[req.params.id]) return res.status(404).json({ error: 'Not found' });
       data[req.params.id] = { ...data[req.params.id], deletedAt: nowISO(), updatedAt: nowISO() };
-      writeCollection(collectionName, data);
+      await resolve(writeCollection(collectionName, data));
       res.json({ ok: true });
     } catch (e) { res.status(500).json({ error: String(e) }); }
   });
@@ -100,9 +103,9 @@ function defaultSubmitter() {
 }
 
 /* ── Cache status (must be before /api/multimedia entity router) ─────── */
-app.get('/api/multimedia/cache-status', (req, res) => {
+app.get('/api/multimedia/cache-status', async (req, res) => {
   try {
-    const mm = readCollection('multimedia');
+    const mm = await resolve(readCollection('multimedia'));
     const all     = Object.values(mm).filter(m => !m.deletedAt && m.files && m.files[0]);
     const cached  = all.filter(m => !/^https?:\/\//i.test(m.files[0].file || '')).length;
     const pending = all.length - cached;
@@ -111,10 +114,10 @@ app.get('/api/multimedia/cache-status', (req, res) => {
 });
 
 /* ── Refresh zone tags from _POSITION data already in multimedia ───── */
-app.post('/api/multimedia/refresh-zones', (req, res) => {
+app.post('/api/multimedia/refresh-zones', async (req, res) => {
   try {
-    const individuals = readCollection('individuals');
-    const multimedia  = readCollection('multimedia');
+    const individuals = await resolve(readCollection('individuals'));
+    const multimedia  = await resolve(readCollection('multimedia'));
     let added = 0;
 
     for (const indi of Object.values(individuals)) {
@@ -152,7 +155,7 @@ app.post('/api/multimedia/refresh-zones', (req, res) => {
       }
     }
 
-    writeCollection('multimedia', multimedia);
+    await resolve(writeCollection('multimedia', multimedia));
     res.json({ ok: true, zonesAdded: added });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
@@ -172,16 +175,16 @@ function defaultHistoricalFact() {
 app.use('/api/historical-facts', entityRoutes('historical-facts','H',defaultHistoricalFact));
 
 /* ── Bulk replace ────────────────────────────────────────────────────── */
-app.post('/api/bulk-replace', (req, res) => {
+app.post('/api/bulk-replace', async (req, res) => {
   try {
     const b = req.body;
-    if (b.individuals)  writeCollection('individuals', b.individuals);
-    if (b.families)     writeCollection('families', b.families);
-    if (b.sources)      writeCollection('sources', b.sources);
-    if (b.repositories) writeCollection('repositories', b.repositories);
-    if (b.multimedia)   writeCollection('multimedia', b.multimedia);
-    if (b.notes)        writeCollection('notes', b.notes);
-    if (b.submitters)   writeCollection('submitters', b.submitters);
+    if (b.individuals)  await resolve(writeCollection('individuals', b.individuals));
+    if (b.families)     await resolve(writeCollection('families', b.families));
+    if (b.sources)      await resolve(writeCollection('sources', b.sources));
+    if (b.repositories) await resolve(writeCollection('repositories', b.repositories));
+    if (b.multimedia)   await resolve(writeCollection('multimedia', b.multimedia));
+    if (b.notes)        await resolve(writeCollection('notes', b.notes));
+    if (b.submitters)   await resolve(writeCollection('submitters', b.submitters));
     res.json({ ok: true });
   } catch (e) { res.status(500).json({ error: String(e) }); }
 });
@@ -252,10 +255,10 @@ app.delete('/api/settings', (req, res) => {
 });
 
 /* ── Stats ───────────────────────────────────────────────────────────── */
-app.get('/api/stats', (req, res) => {
+app.get('/api/stats', async (req, res) => {
   try {
-    const indis = Object.values(readCollection('individuals')).filter(r=>!r.deletedAt);
-    const fams  = Object.values(readCollection('families')).filter(r=>!r.deletedAt);
+    const indis = Object.values(await resolve(readCollection('individuals'))).filter(r=>!r.deletedAt);
+    const fams  = Object.values(await resolve(readCollection('families'))).filter(r=>!r.deletedAt);
     let births=0, deaths=0, marriages=0, baptisms=0, burials=0, divorces=0;
     indis.forEach(i => { (i.events||[]).forEach(ev => {
       const t = (ev.type||'').toUpperCase();
@@ -267,8 +270,8 @@ app.get('/api/stats', (req, res) => {
       if (t==='MARR') marriages++; if (t==='DIV') divorces++;
     }); });
     res.json({ individuals:indis.length, families:fams.length,
-      sources: Object.values(readCollection('sources')).filter(r=>!r.deletedAt).length,
-      multimedia: Object.values(readCollection('multimedia')).filter(r=>!r.deletedAt).length,
+      sources: Object.values(await resolve(readCollection('sources'))).filter(r=>!r.deletedAt).length,
+      multimedia: Object.values(await resolve(readCollection('multimedia'))).filter(r=>!r.deletedAt).length,
       births, deaths, marriages, baptisms, burials, divorces,
       males: indis.filter(i=>i.sex==='M').length,
       females: indis.filter(i=>i.sex==='F').length });
@@ -276,16 +279,16 @@ app.get('/api/stats', (req, res) => {
 });
 
 /* ── GEDCOM 7 Export ─────────────────────────────────────────────────── */
-app.get('/api/gedcom/export', (req, res) => {
+app.get('/api/gedcom/export', async (req, res) => {
   try {
     const gedText = buildGedcomText({
-      individuals:  readCollection('individuals'),
-      families:     readCollection('families'),
-      multimedia:   readCollection('multimedia'),
-      sources:      readCollection('sources'),
-      repositories: readCollection('repositories'),
-      notes:        readCollection('notes'),
-      submitters:   readCollection('submitters'),
+      individuals:  await resolve(readCollection('individuals')),
+      families:     await resolve(readCollection('families')),
+      multimedia:   await resolve(readCollection('multimedia')),
+      sources:      await resolve(readCollection('sources')),
+      repositories: await resolve(readCollection('repositories')),
+      notes:        await resolve(readCollection('notes')),
+      submitters:   await resolve(readCollection('submitters')),
     });
     if (req.query.format === 'file') {
       res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -344,7 +347,7 @@ async function cacheExternalImages(multimedia) {
           try { fs.writeFileSync(destPath, buf); m.files[0].file = localPath; done++; } catch(e) {}
         }
       }));
-      writeCollection('multimedia', multimedia);
+      await resolve(writeCollection('multimedia', multimedia));
     }
     console.log(`[media] Concluído: ${done}/${pending.length} fotos guardadas.`);
   } finally { _cacheRunning = false; }
@@ -353,16 +356,16 @@ async function cacheExternalImages(multimedia) {
 
 
 /* ── GEDCOM Import ───────────────────────────────────────────────────────────── */
-app.post('/api/gedcom/import', express.text({ type: '*/*', limit: '50mb' }), (req, res) => {
+app.post('/api/gedcom/import', express.text({ type: '*/*', limit: '50mb' }), async (req, res) => {
   try {
     const text = typeof req.body === 'string' ? req.body : (req.body.text || '');
     const result = parseGedcomToJson(text);
-    writeCollection('individuals', result.individuals);
-    writeCollection('families', result.families);
+    await resolve(writeCollection('individuals', result.individuals));
+    await resolve(writeCollection('families', result.families));
     // Merge existing multimedia tags (zones) into newly imported records
     // and preserve local file paths from previously cached images
     if (result.multimedia && Object.keys(result.multimedia).length) {
-      const oldMm = readCollection('multimedia');
+      const oldMm = await resolve(readCollection('multimedia'));
       // Build maps from old multimedia: id→record and localPath→tags
       const oldByFile = {};
       const oldIdToLocal = {};
@@ -398,7 +401,7 @@ app.post('/api/gedcom/import', express.text({ type: '*/*', limit: '50mb' }), (re
           nm.tags = merged;
         }
       }
-      writeCollection('multimedia', result.multimedia);
+      await resolve(writeCollection('multimedia', result.multimedia));
     }
     const pendingImages = Object.values(result.multimedia || {}).filter(m =>
       !m.deletedAt && m.files && m.files[0] && /^https?:\/\//i.test(m.files[0].file)
@@ -411,9 +414,9 @@ app.post('/api/gedcom/import', express.text({ type: '*/*', limit: '50mb' }), (re
 });
 
 /* ── Topola JSON ─────────────────────────────────────────────────────── */
-app.get('/api/topola-json', (req, res) => {
+app.get('/api/topola-json', async (req, res) => {
   try {
-    const indis=readCollection('individuals'), fams=readCollection('families');
+    const indis=await resolve(readCollection('individuals')), fams=await resolve(readCollection('families'));
     const months={JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12};
     function pd(s){if(!s)return undefined;const c=s.replace(/^(ABT|EST|CAL|BEF|AFT|FROM|TO|BET)\s+/i,'').trim().split(/\s+/);
       const r={text:s};if(c.length===3){r.day=parseInt(c[0])||undefined;r.month=months[c[1].toUpperCase()]||undefined;r.year=parseInt(c[2])||undefined;}
@@ -583,7 +586,27 @@ app.get('/api/surname-research/:surname', async (req, res) => {
 
 /* ── Start ───────────────────────────────────────────────────────────── */
 if (require.main === module) {
-  app.listen(PORT, () => { console.log(`myLineage GEDCOM 7 server on http://localhost:${PORT}`); });
+  (async () => {
+    // If DATABASE_URL is set, initialise the pool and run pending migrations
+    if (process.env.DATABASE_URL) {
+      const { getPool, closePool } = require('./lib/db');
+      const { up } = require('./migrations/run');
+      const pool = getPool();
+      await up(pool);
+      console.log('[db] PostgreSQL ready');
+
+      // Graceful shutdown
+      const shutdown = async () => {
+        console.log('[db] Closing pool...');
+        await closePool();
+        process.exit(0);
+      };
+      process.on('SIGTERM', shutdown);
+      process.on('SIGINT', shutdown);
+    }
+
+    app.listen(PORT, () => { console.log(`myLineage GEDCOM 7 server on http://localhost:${PORT}`); });
+  })().catch(err => { console.error('Startup failed:', err); process.exit(1); });
 }
 
 module.exports = app;

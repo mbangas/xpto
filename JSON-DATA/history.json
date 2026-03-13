@@ -1,5 +1,11 @@
 [
   {
+    "ts": "2026-03-13T01:39:23.453Z",
+    "action": "GEDCOM importado — 3504 registos",
+    "detail": "GEDCOM 2026-03-09.ged: 1859 pessoas, 782 famílias",
+    "category": "gedcom"
+  },
+  {
     "ts": "2026-03-13T00:12:13.060Z",
     "entity": "Multimedia",
     "action": "Actualizar Multimédia",

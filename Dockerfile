@@ -10,7 +10,7 @@ WORKDIR /app
 
 # 1. Instalar dependências (camada em cache se package.json não mudar)
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 # 2. Copiar todo o código-fonte
 COPY . .
@@ -35,6 +35,7 @@ COPY --from=builder /app/*.html ./
 COPY --from=builder /app/*.svg ./
 COPY --from=builder /app/css ./css
 COPY --from=builder /app/lib ./lib
+COPY --from=builder /app/migrations ./migrations
 
 # Criar diretórios de dados e uploads
 RUN mkdir -p \

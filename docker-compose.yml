@@ -4,6 +4,29 @@
 
 services:
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: mylineage-db
+    restart: unless-stopped
+
+    environment:
+      POSTGRES_DB: mylineage
+      POSTGRES_USER: mylineage
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mylineage_dev}
+
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+    ports:
+      - "5433:5432"
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mylineage"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
   mylineage:
     build:
       context: .
@@ -11,12 +34,15 @@ services:
     image: mylineage:latest
     container_name: mylineage
     restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
 
     ports:
       - "3000:3000"
 
     volumes:
-      # Base de dados JSON — montada do directório local para persistência de dados
+      # Base de dados JSON — mantida para migração de dados legados
       - ./JSON-DATA:/app/JSON-DATA
       # Fotos e documentos descarregados do GEDCOM (persistência obrigatória)
       - ./uploads:/app/uploads
@@ -24,6 +50,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - DATABASE_URL=postgres://mylineage:${POSTGRES_PASSWORD:-mylineage_dev}@postgres:5432/mylineage
       - ADMIN_PHONE=+351931018263
 
     healthcheck:
@@ -32,3 +59,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+
+volumes:
+  pgdata:

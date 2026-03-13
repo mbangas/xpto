@@ -14,7 +14,9 @@
     "test:unit": "jest tests/unit --verbose",
     "test:integration": "jest tests/integration --verbose",
     "test:all": "jest tests/unit tests/integration --verbose",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "migrate": "node migrations/run.js",
+    "migrate:create": "node -e \"const n=process.argv[1]||'migration';const ts=Date.now();require('fs').writeFileSync('migrations/'+ts+'-'+n+'.js','module.exports={up:async(pool)=>{},down:async(pool)=>{}};\\n');console.log('Created migrations/'+ts+'-'+n+'.js');\""
   },
   "jest": {
     "testEnvironment": "node",
@@ -34,6 +36,7 @@
     "express": "^4.18.2",
     "family-chart": "^0.9.0",
     "page-flip": "^2.0.7",
+    "pg": "^8.13.0",
     "qrcode": "^1.5.4",
     "topola": "^3.8.3"
   },

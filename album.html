@@ -323,6 +323,49 @@
       }
       .album-notes-save-btn:hover { background: var(--accent-hover, var(--accent)); filter: brightness(1.12); }
       .album-notes-save-btn.visible { display: inline-block; }
+      /* ── Livro eligibility toggle ─────────────────────────────────── */
+      .album-livro-toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .album-livro-toggle-label {
+        font-size: 0.82rem;
+        color: var(--text-main);
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .album-livro-toggle-label .mdi { font-size: 1rem; color: var(--accent); }
+      .album-livro-switch {
+        position: relative;
+        width: 36px;
+        height: 20px;
+        flex-shrink: 0;
+      }
+      .album-livro-switch input { opacity: 0; width: 0; height: 0; }
+      .album-livro-switch .slider {
+        position: absolute;
+        inset: 0;
+        background: rgba(255,255,255,0.12);
+        border-radius: 20px;
+        cursor: pointer;
+        transition: background 0.2s;
+      }
+      .album-livro-switch .slider::before {
+        content: '';
+        position: absolute;
+        left: 2px;
+        top: 2px;
+        width: 16px;
+        height: 16px;
+        background: #fff;
+        border-radius: 50%;
+        transition: transform 0.2s;
+      }
+      .album-livro-switch input:checked + .slider { background: var(--accent, #818cf8); }
+      .album-livro-switch input:checked + .slider::before { transform: translateX(16px); }
       .album-info-chips {
         display: flex;
         flex-wrap: wrap;
@@ -1584,6 +1627,39 @@
           });
         }
         sidebar.appendChild(notesSection);
+
+        // Livro eligibility toggle (only for DB records)
+        if(!item.fromFs){
+          const livroSection = document.createElement('div');
+          livroSection.className = 'album-info-section';
+          livroSection.innerHTML = '<div class="album-info-label">Livro</div>';
+          const toggleRow = document.createElement('div');
+          toggleRow.className = 'album-livro-toggle-row';
+          const toggleLabel = document.createElement('span');
+          toggleLabel.className = 'album-livro-toggle-label';
+          toggleLabel.innerHTML = '<i class="mdi mdi-book-open-page-variant-outline"></i> Elegível para o Livro';
+          const toggleSwitch = document.createElement('label');
+          toggleSwitch.className = 'album-livro-switch';
+          const toggleInput = document.createElement('input');
+          toggleInput.type = 'checkbox';
+          const mm = DB.getMultimediaItem(item.id);
+          toggleInput.checked = mm ? mm.livroEligible !== false : true;
+          const slider = document.createElement('span');
+          slider.className = 'slider';
+          toggleSwitch.appendChild(toggleInput);
+          toggleSwitch.appendChild(slider);
+          toggleRow.appendChild(toggleLabel);
+          toggleRow.appendChild(toggleSwitch);
+          livroSection.appendChild(toggleRow);
+          sidebar.appendChild(livroSection);
+          toggleInput.addEventListener('change', () => {
+            const m = DB.getMultimediaItem(item.id);
+            if(m){
+              m.livroEligible = toggleInput.checked;
+              DB.saveMultimedia(m);
+            }
+          });
+        }
 
         // Folder
         const base = readPhotoBase();

@@ -44,8 +44,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:53:35.529Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I1_1": {
     "id": "M_I1_1",
@@ -405,8 +406,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:53:42.153Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I3_1": {
     "id": "M_I3_1",
@@ -2581,8 +2583,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:53:53.394Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I4_1": {
     "id": "M_I4_1",
@@ -3087,8 +3090,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:54:01.209Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I8_1": {
     "id": "M_I8_1",
@@ -3140,8 +3144,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-12T11:41:13.292Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:54:27.015Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I9_0": {
     "id": "M_I9_0",
@@ -3241,8 +3246,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:54:09.228Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I9_2": {
     "id": "M_I9_2",
@@ -3438,8 +3444,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:54:36.269Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I10_1": {
     "id": "M_I10_1",
@@ -3539,8 +3546,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:54:41.574Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I12_1": {
     "id": "M_I12_1",
@@ -3635,8 +3643,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:54:45.911Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I13_1": {
     "id": "M_I13_1",
@@ -3731,8 +3740,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:54:49.459Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I16_0": {
     "id": "M_I16_0",
@@ -3832,8 +3842,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:54:52.758Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I16_2": {
     "id": "M_I16_2",
@@ -3981,8 +3992,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:55:01.299Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I19_2": {
     "id": "M_I19_2",
@@ -4029,8 +4041,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:55:10.164Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I22_0": {
     "id": "M_I22_0",
@@ -4077,8 +4090,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:55:15.595Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I22_1": {
     "id": "M_I22_1",
@@ -4178,8 +4192,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:55:20.257Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I24_1": {
     "id": "M_I24_1",
@@ -4325,8 +4340,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:55:24.982Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I26_0": {
     "id": "M_I26_0",
@@ -4373,8 +4389,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:55:28.112Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I26_1": {
     "id": "M_I26_1",
@@ -4618,8 +4635,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:55:32.906Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I30_2": {
     "id": "M_I30_2",
@@ -4671,8 +4689,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:55:36.271Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I30_3": {
     "id": "M_I30_3",
@@ -4795,8 +4814,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:55:38.753Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I31_1": {
     "id": "M_I31_1",
@@ -4848,8 +4868,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:55:42.230Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I46_0": {
     "id": "M_I46_0",
@@ -4949,8 +4970,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:55:44.962Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I46_2": {
     "id": "M_I46_2",
@@ -5172,8 +5194,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:55:50.197Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I47_2": {
     "id": "M_I47_2",
@@ -5434,8 +5457,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:55:58.097Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I50_1": {
     "id": "M_I50_1",
@@ -5588,8 +5612,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:56:01.990Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I56_2": {
     "id": "M_I56_2",
@@ -5979,8 +6004,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:56:11.085Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I57_1": {
     "id": "M_I57_1",
@@ -6032,8 +6058,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:56:12.592Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I60_0": {
     "id": "M_I60_0",
@@ -6080,8 +6107,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:56:41.452Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I60_1": {
     "id": "M_I60_1",
@@ -6133,8 +6161,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:56:21.850Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I60_2": {
     "id": "M_I60_2",
@@ -7564,8 +7593,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:56:53.722Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I69_1": {
     "id": "M_I69_1",
@@ -7734,8 +7764,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:57:03.193Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I73_1": {
     "id": "M_I73_1",
@@ -8422,8 +8453,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:57:11.827Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I77_2": {
     "id": "M_I77_2",
@@ -8546,8 +8578,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:57:20.206Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I78_1": {
     "id": "M_I78_1",
@@ -8599,8 +8632,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:57:17.241Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I78_2": {
     "id": "M_I78_2",
@@ -8746,8 +8780,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:57:30.082Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I79_1": {
     "id": "M_I79_1",
@@ -8895,8 +8930,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:57:36.827Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I82_0": {
     "id": "M_I82_0",
@@ -8996,8 +9032,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:57:40.014Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I82_2": {
     "id": "M_I82_2",
@@ -9044,8 +9081,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:57:42.194Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I82_4": {
     "id": "M_I82_4",
@@ -12311,8 +12349,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:58:13.031Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I104_0": {
     "id": "M_I104_0",
@@ -12412,8 +12451,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:58:15.931Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I104_2": {
     "id": "M_I104_2",
@@ -13154,8 +13194,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:58:23.336Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I105_2": {
     "id": "M_I105_2",
@@ -13303,8 +13344,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:58:27.646Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I112_2": {
     "id": "M_I112_2",
@@ -15993,8 +16035,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:58:51.382Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I112_23": {
     "id": "M_I112_23",
@@ -18014,12 +18057,6 @@
       {
         "personId": "I418",
         "personName": "Carmen Puga",
-        "pixelCoords": {
-          "x1": 334,
-          "y1": 160,
-          "x2": 384,
-          "y2": 282
-        },
         "objeProps": {
           "position": "334 160 384 282",
           "cutout": false,
@@ -18032,11 +18069,17 @@
           "note": "",
           "photoDate": "",
           "photoPlace": "Pereiras"
+        },
+        "bbox": {
+          "x": 0.6386,
+          "y": 0.45584,
+          "w": 0.08604,
+          "h": 0.15385
         }
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
+    "updatedAt": "2026-03-12T23:59:12.415Z",
     "deletedAt": null
   },
   "M_I112_34": {
@@ -18526,8 +18569,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:59:26.713Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I113_8": {
     "id": "M_I113_8",
@@ -19445,8 +19489,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:59:38.619Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I115_0": {
     "id": "M_I115_0",
@@ -19551,8 +19596,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:59:44.072Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I116_0": {
     "id": "M_I116_0",
@@ -19817,8 +19863,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:00:05.589Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I120_0": {
     "id": "M_I120_0",
@@ -19865,8 +19912,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:59:52.718Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I120_1": {
     "id": "M_I120_1",
@@ -19961,8 +20009,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-12T23:59:55.783Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I121_1": {
     "id": "M_I121_1",
@@ -20115,8 +20164,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:00:11.837Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I122_2": {
     "id": "M_I122_2",
@@ -20375,8 +20425,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:00:20.154Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I123_2": {
     "id": "M_I123_2",
@@ -20706,8 +20757,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:00:33.465Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I124_3": {
     "id": "M_I124_3",
@@ -21201,8 +21253,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:00:47.615Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I133_0": {
     "id": "M_I133_0",
@@ -21350,8 +21403,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:00:54.270Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I134_2": {
     "id": "M_I134_2",
@@ -21619,8 +21673,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:01:06.546Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I135_2": {
     "id": "M_I135_2",
@@ -21672,8 +21727,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:01:08.772Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I135_3": {
     "id": "M_I135_3",
@@ -23149,8 +23205,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:01:25.601Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I137_0": {
     "id": "M_I137_0",
@@ -23250,8 +23307,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:01:28.023Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I138_0": {
     "id": "M_I138_0",
@@ -23351,8 +23409,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:01:31.855Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I138_2": {
     "id": "M_I138_2",
@@ -23742,8 +23801,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:01:40.518Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I140_0": {
     "id": "M_I140_0",
@@ -23790,8 +23850,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:01:52.718Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I140_1": {
     "id": "M_I140_1",
@@ -23843,8 +23904,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:01:49.760Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I140_2": {
     "id": "M_I140_2",
@@ -24043,8 +24105,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:02:00.463Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I141_2": {
     "id": "M_I141_2",
@@ -25686,8 +25749,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:02:11.555Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I143_4": {
     "id": "M_I143_4",
@@ -26878,8 +26942,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:02:24.369Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I145_0": {
     "id": "M_I145_0",
@@ -26979,8 +27044,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:02:26.939Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I145_2": {
     "id": "M_I145_2",
@@ -27128,8 +27194,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:02:30.914Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I146_2": {
     "id": "M_I146_2",
@@ -27328,8 +27395,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:02:34.776Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I172_0": {
     "id": "M_I172_0",
@@ -27429,8 +27497,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:02:37.561Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I173_0": {
     "id": "M_I173_0",
@@ -27530,8 +27599,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:02:40.209Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I174_0": {
     "id": "M_I174_0",
@@ -27631,8 +27701,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:02:43.229Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I175_0": {
     "id": "M_I175_0",
@@ -27924,8 +27995,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:02:52.842Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I180_0": {
     "id": "M_I180_0",
@@ -28025,8 +28097,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:02:55.666Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I180_2": {
     "id": "M_I180_2",
@@ -28766,8 +28839,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:03:07.623Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I181_1": {
     "id": "M_I181_1",
@@ -29150,8 +29224,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:03:21.096Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I186_1": {
     "id": "M_I186_1",
@@ -29203,8 +29278,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:03:16.259Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I186_2": {
     "id": "M_I186_2",
@@ -29327,8 +29403,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:03:24.548Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I187_1": {
     "id": "M_I187_1",
@@ -29423,8 +29500,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:03:28.237Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I187_3": {
     "id": "M_I187_3",
@@ -29845,8 +29923,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:03:37.308Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I189_2": {
     "id": "M_I189_2",
@@ -30141,8 +30220,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:03:47.017Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I190_2": {
     "id": "M_I190_2",
@@ -33321,8 +33401,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:04:15.095Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I191_4": {
     "id": "M_I191_4",
@@ -33604,8 +33685,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:04:20.820Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I193_5": {
     "id": "M_I193_5",
@@ -34013,8 +34095,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:04:25.785Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I194_2": {
     "id": "M_I194_2",
@@ -34748,8 +34831,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:04:35.748Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I195_4": {
     "id": "M_I195_4",
@@ -34950,8 +35034,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:04:46.229Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I197_0": {
     "id": "M_I197_0",
@@ -35051,8 +35136,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:04:50.683Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I197_2": {
     "id": "M_I197_2",
@@ -35228,8 +35314,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:04:55.556Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I199_0": {
     "id": "M_I199_0",
@@ -35329,8 +35416,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:04:58.360Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I199_4": {
     "id": "M_I199_4",
@@ -35529,8 +35617,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:05:01.797Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I202_0": {
     "id": "M_I202_0",
@@ -35630,8 +35719,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:05:04.418Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I202_2": {
     "id": "M_I202_2",
@@ -36197,8 +36287,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:05:12.183Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I226_4": {
     "id": "M_I226_4",
@@ -36707,8 +36798,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:05:21.455Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I229_1": {
     "id": "M_I229_1",
@@ -37006,8 +37098,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:05:31.727Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I230_1": {
     "id": "M_I230_1",
@@ -37350,8 +37443,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:05:45.653Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I238_0": {
     "id": "M_I238_0",
@@ -37451,8 +37545,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:05:50.661Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I238_2": {
     "id": "M_I238_2",
@@ -37527,8 +37622,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:06:03.054Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I239_0": {
     "id": "M_I239_0",
@@ -37628,8 +37724,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:05:57.003Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I239_2": {
     "id": "M_I239_2",
@@ -37777,8 +37874,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:06:08.123Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I251_0": {
     "id": "M_I251_0",
@@ -37825,8 +37923,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:06:12.298Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I251_1": {
     "id": "M_I251_1",
@@ -37979,8 +38078,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:06:15.798Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I253_5": {
     "id": "M_I253_5",
@@ -38496,8 +38596,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:06:27.109Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I254_0": {
     "id": "M_I254_0",
@@ -38597,8 +38698,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:06:32.131Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I254_8": {
     "id": "M_I254_8",
@@ -39513,8 +39615,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:06:48.163Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I273_7": {
     "id": "M_I273_7",
@@ -40042,8 +40145,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:06:56.769Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I273_42": {
     "id": "M_I273_42",
@@ -40090,8 +40194,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:07:00.203Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I273_43": {
     "id": "M_I273_43",
@@ -40449,8 +40554,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:07:05.598Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I274_9": {
     "id": "M_I274_9",
@@ -40750,8 +40856,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:07:11.017Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I275_20": {
     "id": "M_I275_20",
@@ -41182,8 +41289,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:07:20.316Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I278_0": {
     "id": "M_I278_0",
@@ -41230,8 +41338,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:07:24.128Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I278_1": {
     "id": "M_I278_1",
@@ -41384,8 +41493,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:07:27.653Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I279_9": {
     "id": "M_I279_9",
@@ -41607,8 +41717,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:07:32.214Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I281_0": {
     "id": "M_I281_0",
@@ -41708,8 +41819,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:07:37.949Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I283_0": {
     "id": "M_I283_0",
@@ -41809,8 +41921,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:07:40.901Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I292_0": {
     "id": "M_I292_0",
@@ -41857,8 +41970,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:07:43.560Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I292_1": {
     "id": "M_I292_1",
@@ -41910,8 +42024,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:07:45.847Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I292_2": {
     "id": "M_I292_2",
@@ -42112,8 +42227,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:07:49.778Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I293_5": {
     "id": "M_I293_5",
@@ -42337,8 +42453,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:07:54.198Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I295_0": {
     "id": "M_I295_0",
@@ -42438,8 +42555,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:07:58.361Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I296_0": {
     "id": "M_I296_0",
@@ -42539,8 +42657,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:08:01.663Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I303_0": {
     "id": "M_I303_0",
@@ -42587,8 +42706,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:08:05.112Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I303_1": {
     "id": "M_I303_1",
@@ -42640,8 +42760,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:08:07.981Z",
+    "deletedAt": null,
+    "livroEligible": true
   },
   "M_I313_0": {
     "id": "M_I313_0",
@@ -42837,8 +42958,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:08:15.023Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I319_0": {
     "id": "M_I319_0",
@@ -42938,8 +43060,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:08:20.473Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I337_0": {
     "id": "M_I337_0",
@@ -42986,8 +43109,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:08:26.247Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I337_1": {
     "id": "M_I337_1",
@@ -43193,8 +43317,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:08:31.119Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I339_0": {
     "id": "M_I339_0",
@@ -43294,8 +43419,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:08:34.153Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I340_0": {
     "id": "M_I340_0",
@@ -43395,8 +43521,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:08:36.771Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I341_0": {
     "id": "M_I341_0",
@@ -43794,8 +43921,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:08:46.601Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I345_2": {
     "id": "M_I345_2",
@@ -43890,8 +44018,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:08:52.395Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I346_1": {
     "id": "M_I346_1",
@@ -44044,8 +44173,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:08:55.700Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I347_2": {
     "id": "M_I347_2",
@@ -44438,8 +44568,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:09:07.323Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I373_0": {
     "id": "M_I373_0",
@@ -44539,8 +44670,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:09:10.343Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I373_13": {
     "id": "M_I373_13",
@@ -44688,8 +44820,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:09:15.698Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I374_5": {
     "id": "M_I374_5",
@@ -44961,8 +45094,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:09:22.763Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I393_0": {
     "id": "M_I393_0",
@@ -45062,8 +45196,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:09:27.575Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I393_4": {
     "id": "M_I393_4",
@@ -45287,8 +45422,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:09:31.918Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I395_0": {
     "id": "M_I395_0",
@@ -45388,8 +45524,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:09:34.260Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I395_6": {
     "id": "M_I395_6",
@@ -45565,8 +45702,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:09:38.077Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I396_2": {
     "id": "M_I396_2",
@@ -45788,8 +45926,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:09:41.974Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I403_2": {
     "id": "M_I403_2",
@@ -46165,8 +46304,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:09:47.573Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I407_0": {
     "id": "M_I407_0",
@@ -46213,8 +46353,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:09:51.467Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I407_1": {
     "id": "M_I407_1",
@@ -46420,8 +46561,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:09:55.815Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I409_0": {
     "id": "M_I409_0",
@@ -46521,8 +46663,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:09:58.478Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I409_2": {
     "id": "M_I409_2",
@@ -46766,8 +46909,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:10:05.811Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I419_0": {
     "id": "M_I419_0",
@@ -46814,8 +46958,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:10:09.549Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I419_1": {
     "id": "M_I419_1",
@@ -46968,8 +47113,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:10:20.067Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I420_0": {
     "id": "M_I420_0",
@@ -47064,8 +47210,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:10:25.079Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I421_1": {
     "id": "M_I421_1",
@@ -47165,8 +47312,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:10:28.914Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I436_1": {
     "id": "M_I436_1",
@@ -47319,8 +47467,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:10:37.181Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I439_0": {
     "id": "M_I439_0",
@@ -47468,8 +47617,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:10:40.843Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I442_0": {
     "id": "M_I442_0",
@@ -47569,8 +47719,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:10:43.419Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I442_3": {
     "id": "M_I442_3",
@@ -47746,8 +47897,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:10:46.549Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I467_2": {
     "id": "M_I467_2",
@@ -47923,8 +48075,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:10:52.064Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I468_4": {
     "id": "M_I468_4",
@@ -48072,8 +48225,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:10:57.845Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I492_2": {
     "id": "M_I492_2",
@@ -48375,8 +48529,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:11:05.039Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I493_2": {
     "id": "M_I493_2",
@@ -48600,8 +48755,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:11:09.263Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I501_0": {
     "id": "M_I501_0",
@@ -48845,8 +49001,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:11:17.199Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I515_0": {
     "id": "M_I515_0",
@@ -48946,8 +49103,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:11:19.873Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I529_0": {
     "id": "M_I529_0",
@@ -48994,8 +49152,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:11:42.470Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I529_1": {
     "id": "M_I529_1",
@@ -49042,8 +49201,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:11:27.848Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I529_2": {
     "id": "M_I529_2",
@@ -49287,8 +49447,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:11:50.442Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I537_1": {
     "id": "M_I537_1",
@@ -49494,8 +49655,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:11:55.540Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I539_0": {
     "id": "M_I539_0",
@@ -49542,8 +49704,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:11:59.990Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I539_1": {
     "id": "M_I539_1",
@@ -49696,8 +49859,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:12:03.425Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I548_0": {
     "id": "M_I548_0",
@@ -49797,8 +49961,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:12:06.900Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I550_0": {
     "id": "M_I550_0",
@@ -49898,8 +50063,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:12:09.528Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I555_0": {
     "id": "M_I555_0",
@@ -49999,8 +50165,9 @@
       }
     ],
     "createdAt": "2026-03-11T13:32:22.666Z",
-    "updatedAt": "2026-03-11T13:32:22.666Z",
-    "deletedAt": null
+    "updatedAt": "2026-03-13T00:12:13.148Z",
+    "deletedAt": null,
+    "livroEligible": false
   },
   "M_I562_0": {
     "id": "M_I562_0",

@@ -874,6 +874,7 @@
       (ind.multimediaRefs || []).forEach(mid => {
         const mm = DB.getMultimediaItem ? DB.getMultimediaItem(mid) : null;
         if (!mm) return;
+        if (mm.livroEligible === false) return;
         const src = mm.dataUrl || (mm.files && mm.files[0] && mm.files[0].file) || '';
         if (!src) return;
         const mmNotes0 = Array.isArray(mm.notes) ? mm.notes : (mm.notes ? [mm.notes] : []);
@@ -1275,6 +1276,7 @@
           if (seenMids.has(mid)) return; // skip duplicate photo
           const mm = DB.getMultimediaItem ? DB.getMultimediaItem(mid) : null;
           if (!mm) return;
+          if (mm.livroEligible === false) return;
           const src = mm.dataUrl || (mm.files && mm.files[0] && mm.files[0].file) || '';
           if (!src) return;
           seenMids.add(mid);
@@ -1746,6 +1748,7 @@
           if (seenMids.has(mid)) return;
           const mm = DB.getMultimediaItem ? DB.getMultimediaItem(mid) : null;
           if (!mm) return;
+          if (mm.livroEligible === false) return;
           const src = mm.dataUrl || (mm.files && mm.files[0] && mm.files[0].file) || '';
           if (!src) return;
           seenMids.add(mid);

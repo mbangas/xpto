@@ -275,6 +275,49 @@
       gap: 5px;
     }
     #plbSaveNotes:hover { background: rgba(99,102,241,0.32); }
+    /* Livro eligibility toggle */
+    .plb-livro-toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .plb-livro-toggle-label {
+      font-size: 0.82rem;
+      color: var(--text-main, #e8eaf6);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .plb-livro-toggle-label .mdi { font-size: 1rem; color: var(--accent, #818cf8); }
+    .plb-livro-switch {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      flex-shrink: 0;
+    }
+    .plb-livro-switch input { opacity: 0; width: 0; height: 0; }
+    .plb-livro-switch .slider {
+      position: absolute;
+      inset: 0;
+      background: rgba(255,255,255,0.12);
+      border-radius: 20px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .plb-livro-switch .slider::before {
+      content: '';
+      position: absolute;
+      left: 2px;
+      top: 2px;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .plb-livro-switch input:checked + .slider { background: var(--accent, #818cf8); }
+    .plb-livro-switch input:checked + .slider::before { transform: translateX(16px); }
     /* Thumbnail strip */
     #plbStrip {
       display: none;
@@ -616,6 +659,18 @@
             <textarea id="plbNotesArea" placeholder="Sem notas…"></textarea>
             <button id="plbSaveNotes"><i class="mdi mdi-content-save-outline"></i> Guardar notas</button>
           </div>
+          <div id="plbLivroSection">
+            <div class="plb-info-lbl">Livro</div>
+            <div class="plb-livro-toggle-row">
+              <span class="plb-livro-toggle-label">
+                <i class="mdi mdi-book-open-page-variant-outline"></i> Elegível para o Livro
+              </span>
+              <label class="plb-livro-switch">
+                <input type="checkbox" id="plbLivroToggle" checked />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
         </aside>
       </div>
       <div id="plbStrip"></div>
@@ -657,6 +712,7 @@
     document.getElementById('plbMaximize').addEventListener('click', () => _toggleMaximize());
     document.getElementById('plbDownload').addEventListener('click', _download);
     document.getElementById('plbSaveNotes').addEventListener('click', _saveNotes);
+    document.getElementById('plbLivroToggle').addEventListener('change', _saveLivroEligible);
     _overlay.addEventListener('click', e => { if (e.target === _overlay) close(); });
     _initPersonPickerEvents();
     _initDrawMode();
@@ -738,6 +794,10 @@
 
     // Notes
     document.getElementById('plbNotesArea').value = _getNotes(m);
+
+    // Livro eligibility toggle
+    const livroToggle = document.getElementById('plbLivroToggle');
+    if (livroToggle) livroToggle.checked = m.livroEligible !== false;
 
     // People (from tags + from individuals refs)
     _renderPeopleSection(m);
@@ -1516,6 +1576,17 @@
     const orig = btn.innerHTML;
     btn.innerHTML = '<i class="mdi mdi-check"></i> Guardado';
     setTimeout(() => { btn.innerHTML = orig; }, 1500);
+  }
+
+  /* ── Livro eligibility toggle ────────────────────────────────────────── */
+  function _saveLivroEligible() {
+    const DB = window.GedcomDB;
+    if (!_currentId || !DB) return;
+    const m = DB.getMultimediaItem ? DB.getMultimediaItem(_currentId) : null;
+    if (!m) return;
+    const toggle = document.getElementById('plbLivroToggle');
+    m.livroEligible = toggle ? toggle.checked : true;
+    if (DB.saveMultimedia) DB.saveMultimedia(m);
   }
 
   /* ── Open / Close (public API) ────────────────────────────────────────── */

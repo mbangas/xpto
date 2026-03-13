@@ -31,6 +31,7 @@
       #familyChartWrap.f3{--background-color:var(--bg-main,#1a1d2e);--text-color:var(--text-main,#e2e4f0);--female-color:#e26aa6;--male-color:#4493f8;--genderless-color:#9aa0a6;}
       #familyChartWrap .f3-nav-cont{display:none;}
       #familyChartWrap path.link{stroke:rgba(200,210,230,0.7) !important;stroke-width:1.5px !important;}
+      #familyChartWrap .rel-order-label{font-size:11px;fill:rgba(200,210,230,0.85);text-anchor:middle;pointer-events:none;}
       #familyChartWrap .card-body-rect{rx:6;ry:6;}
       #familyChartWrap svg.main_svg text{font-size:12px;fill:#fff;}
       /* Focus-person highlight when tree is rooted at a parent due to siblings */
@@ -512,6 +513,9 @@
           });
         } else {
           // Normal mode: use individual back-refs (fast, consistent for full dataset)
+          // Build famc index for cross-checking children
+          const famcMap={};
+          indis.forEach(function(i){ if(i.famc) famcMap[i.id]=i.famc; });
           indis.forEach(function(indi){
             const r=relsMap[indi.id];
             if(indi.famc&&famMap[indi.famc]){
@@ -523,21 +527,14 @@
               const fam=famMap[famId]; if(!fam) return;
               if(fam.husb&&fam.husb!==indi.id&&validIndiIds.has(fam.husb)&&!r.spouses.includes(fam.husb)) r.spouses.push(fam.husb);
               if(fam.wife&&fam.wife!==indi.id&&validIndiIds.has(fam.wife)&&!r.spouses.includes(fam.wife)) r.spouses.push(fam.wife);
-              (fam.children||[]).forEach(function(cid){ if(validIndiIds.has(cid)&&!r.children.includes(cid)) r.children.push(cid); });
+              (fam.children||[]).forEach(function(cid){
+                if(!validIndiIds.has(cid)||r.children.includes(cid)) return;
+                // Only claim child if the child's famc actually points to this family
+                if(famcMap[cid]===famId) r.children.push(cid);
+              });
             });
           });
         }
-
-        // Consistency fix: ensure that if A has child C, then C.parents includes A.
-        // This prevents "child has more than 1 parent" errors from the chart library
-        // when server-side data becomes inconsistent (e.g. due to race conditions).
-        Object.keys(relsMap).forEach(function(pid){
-          var pr=relsMap[pid];
-          (pr.children||[]).forEach(function(cid){
-            var cr=relsMap[cid]; if(!cr) return;
-            if(!cr.parents.includes(pid)&&cr.parents.length<2) cr.parents.push(pid);
-          });
-        });
 
         return indis.map(function(indi){
           const birth=DB.getBirthEvent(indi),death=DB.getDeathEvent(indi);
@@ -558,6 +555,172 @@
       }
 
       let f3ChartHandle=null;
+
+      /**
+       * Build a lookup of "past relationship" pairs.
+       * For each person with multiple spouse families that have relationshipOrder set,
+       * the family with the highest order is "current" — all others are "past".
+       * Returns a Set of keys "idA|idB" (sorted) for past relationships.
+       */
+      function _buildPastRelationshipPairs(famMap, validIndiIds){
+        const pastPairs=new Set();
+        // Group families by each person
+        const famsByPerson={};
+        Object.values(famMap).forEach(function(fam){
+          if(fam.husb&&validIndiIds.has(fam.husb)){
+            if(!famsByPerson[fam.husb]) famsByPerson[fam.husb]=[];
+            famsByPerson[fam.husb].push(fam);
+          }
+          if(fam.wife&&validIndiIds.has(fam.wife)){
+            if(!famsByPerson[fam.wife]) famsByPerson[fam.wife]=[];
+            famsByPerson[fam.wife].push(fam);
+          }
+        });
+        Object.keys(famsByPerson).forEach(function(pid){
+          var personFams=famsByPerson[pid].filter(function(f){
+            return (f.husb&&f.husb!==pid&&validIndiIds.has(f.husb))||(f.wife&&f.wife!==pid&&validIndiIds.has(f.wife));
+          });
+          if(personFams.length<2) return;
+          // Check if any have relationshipOrder set
+          var anyOrdered=personFams.some(function(f){ return f.relationshipOrder; });
+          if(!anyOrdered) return;
+          // Find the current (highest order) relationship
+          var maxOrder=0;
+          personFams.forEach(function(f){ if(f.relationshipOrder&&f.relationshipOrder>maxOrder) maxOrder=f.relationshipOrder; });
+          personFams.forEach(function(f){
+            if(!f.relationshipOrder||f.relationshipOrder<maxOrder){
+              var spouseId=(f.husb===pid)?f.wife:f.husb;
+              if(spouseId){
+                var key=[pid,spouseId].sort().join('|');
+                pastPairs.add(key);
+              }
+            }
+          });
+        });
+        return pastPairs;
+      }
+
+      /**
+       * Build a map of couple-key → relationshipOrder for ALL ordered families.
+       * Key format: "idA|idB" (sorted).
+       */
+      function _buildRelOrderMap(famMap, validIndiIds){
+        var orderMap={}; // key → {famId, order}
+        Object.values(famMap).forEach(function(fam){
+          if(!fam.husb||!fam.wife) return;
+          if(!validIndiIds.has(fam.husb)||!validIndiIds.has(fam.wife)) return;
+          if(fam.relationshipOrder){
+            var key=[fam.husb,fam.wife].sort().join('|');
+            orderMap[key]={famId:fam.id, order:fam.relationshipOrder};
+          }
+        });
+        return orderMap;
+      }
+
+      /**
+       * After Donatso renders, walk SVG link paths and:
+       * 1) Apply dashed + transparent styling to past-relationship links
+       *    (directly via attributes, because D3 inline styles override CSS).
+       * 2) Add relationship-order labels between spouse cards.
+       */
+      function _applyPastRelationshipStyles(fcWrap){
+        var fams=DB.getFamilies();
+        var famMap={};
+        fams.forEach(function(f){ famMap[f.id]=f; });
+        var validIndiIds=new Set(DB.getIndividuals().map(function(i){ return i.id; }));
+        var pastPairs=_buildPastRelationshipPairs(famMap, validIndiIds);
+        var relOrderMap=_buildRelOrderMap(famMap, validIndiIds);
+
+        // Build set of children from past-relationship families
+        var pastChildIds=new Set();
+        if(pastPairs.size){
+          Object.values(famMap).forEach(function(fam){
+            var husb=fam.husb, wife=fam.wife;
+            if(!husb||!wife) return;
+            var key=[husb,wife].sort().join('|');
+            if(pastPairs.has(key)){
+              (fam.children||[]).forEach(function(cid){ pastChildIds.add(cid); });
+            }
+          });
+        }
+
+        var svgEl=fcWrap.querySelector('svg.main_svg')||fcWrap.querySelector('svg');
+        if(!svgEl) return;
+        var linksView=svgEl.querySelector('.links_view');
+        if(!linksView) return;
+
+        // ── Style past-relationship links ──
+        svgEl.querySelectorAll('path.link').forEach(function(pathEl){
+          var d=pathEl.__data__;
+          if(!d) return;
+          // Reset any previously applied styles
+          pathEl.removeAttribute('stroke-dasharray');
+          pathEl.style.removeProperty('stroke-opacity');
+
+          if(d.spouse && pastPairs.size){
+            var srcId=d.source&&d.source.data?d.source.data.id:null;
+            var tgtId=d.target&&d.target.data?d.target.data.id:null;
+            if(srcId&&tgtId){
+              var key=[srcId,tgtId].sort().join('|');
+              if(pastPairs.has(key)){
+                pathEl.setAttribute('stroke-dasharray','6 4');
+                pathEl.style.strokeOpacity='0.35';
+              }
+            }
+          } else if(d.curve&&!d.is_ancestry&&d.target && pastPairs.size){
+            var childId=d.target&&d.target.data?d.target.data.id:null;
+            if(childId&&pastChildIds.has(childId)){
+              var parents=d.source;
+              if(Array.isArray(parents)&&parents.length===2){
+                var p1=parents[0]&&parents[0].data?parents[0].data.id:null;
+                var p2=parents[1]&&parents[1].data?parents[1].data.id:null;
+                if(p1&&p2){
+                  var pkey=[p1,p2].sort().join('|');
+                  if(pastPairs.has(pkey)){
+                    pathEl.setAttribute('stroke-dasharray','6 4');
+                    pathEl.style.strokeOpacity='0.35';
+                  }
+                }
+              }
+            }
+          }
+        });
+
+        // ── Add/update relationship-order labels between spouse cards ──
+        // Remove existing labels first
+        linksView.querySelectorAll('.rel-order-group').forEach(function(g){ g.remove(); });
+
+        if(!Object.keys(relOrderMap).length) return;
+
+        svgEl.querySelectorAll('path.link').forEach(function(pathEl){
+          var d=pathEl.__data__;
+          if(!d||!d.spouse) return;
+          var srcId=d.source&&d.source.data?d.source.data.id:null;
+          var tgtId=d.target&&d.target.data?d.target.data.id:null;
+          if(!srcId||!tgtId) return;
+          var key=[srcId,tgtId].sort().join('|');
+          var info=relOrderMap[key];
+          if(!info) return;
+
+          // Position: midpoint between the two spouse cards
+          var sx=d.source.x, sy=d.source.y;
+          var tx=d.target.x, ty=d.target.y;
+          var mx=(sx+tx)/2, my=(sy+ty)/2;
+
+          var ns='http://www.w3.org/2000/svg';
+          var g=document.createElementNS(ns,'g');
+          g.setAttribute('class','rel-order-group');
+          g.setAttribute('transform','translate('+mx+','+(my-10)+')');
+
+          var text=document.createElementNS(ns,'text');
+          text.setAttribute('class','rel-order-label');
+          text.setAttribute('y','0');
+          text.setAttribute('x','0');
+          text.textContent=info.order+'\u00aa';
+          g.appendChild(text);
+          linksView.appendChild(g);
+        });
+      }
 
       /**
        * Refresh chart data in-place after a create/edit/delete, preserving the
@@ -713,6 +876,11 @@
                     }
                   });
                 }
+
+                // ── Mark past-relationship links (dashed + transparent) ──
+                // Delay to run after D3 transitions complete (~1200ms)
+                // so inline styles from the library are already set.
+                setTimeout(function(){ _applyPastRelationshipStyles(fcWrap); }, 1400);
               });
             });
           }catch(err){

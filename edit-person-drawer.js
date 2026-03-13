@@ -479,7 +479,18 @@
     var rels = [];
     DB.getParents(personId).forEach(function  (p) { rels.push({ type: 'ancestor', targetId: p.id, name: DB.getDisplayName(p), sex: p.sex }); });
     DB.getChildren(personId).forEach(function (c) { rels.push({ type: 'child',    targetId: c.id, name: DB.getDisplayName(c), sex: c.sex }); });
-    DB.getSpouses(personId).forEach(function  (s) { rels.push({ type: 'mate',     targetId: s.id, name: DB.getDisplayName(s), sex: s.sex }); });
+    /* Mates: enrich with relationship order from FAM */
+    var spouseFamsByTarget = {};
+    DB.getFamiliesAsSpouse(personId).forEach(function (fam) {
+      var spouseId = (fam.husb === personId) ? fam.wife : fam.husb;
+      if (spouseId) spouseFamsByTarget[spouseId] = fam;
+    });
+    var totalMates = DB.getSpouses(personId).length;
+    DB.getSpouses(personId).forEach(function  (s) {
+      var fam = spouseFamsByTarget[s.id];
+      var relOrder = fam && fam.relationshipOrder ? fam.relationshipOrder : null;
+      rels.push({ type: 'mate', targetId: s.id, name: DB.getDisplayName(s), sex: s.sex, famId: fam ? fam.id : null, relationshipOrder: relOrder, totalMates: totalMates });
+    });
     DB.getSiblings(personId).forEach(function (s) { rels.push({ type: 'siblin',   targetId: s.id, name: DB.getDisplayName(s), sex: s.sex }); });
     var pid  = _esc(personId);
     var html = editable ? '<div style="margin-bottom:12px;"><button class="btn btn-sm" onclick="_drawerShowAddRelation(\'' + pid + '\')" style="font-size:0.83rem;"><i class="mdi mdi-plus"></i> Adicionar Rela\u00e7\u00e3o</button></div>' : '';
@@ -490,11 +501,35 @@
       if (r.sex === 'F') { if (desc.includes('Filho')) desc = 'Filha'; else if (desc.includes('Pai')) desc = 'M\u00e3e'; else if (desc.includes('Compan')) desc = 'Companheira'; else if (desc.includes('Irm')) desc = 'Irm\u00e3'; }
       else if (r.sex === 'M') { if (desc.includes('Filho')) desc = 'Filho'; else if (desc.includes('M\u00e3e') || desc.includes('Pai')) desc = 'Pai'; else if (desc.includes('Compan')) desc = 'Companheiro'; else if (desc.includes('Irm')) desc = 'Irm\u00e3o'; }
       var delBtn = editable ? '<button onclick="_drawerDeleteRelation(\'' + pid + '\',\'' + _esc(r.targetId) + '\',\'' + _esc(r.type) + '\')" title="Apagar" style="background:none;border:none;cursor:pointer;color:#e06060;padding:2px 4px;font-size:1rem;flex-shrink:0;"><i class="mdi mdi-trash-can-outline"></i></button>' : '';
-      html += '<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">' + _esc(r.name) + '</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">' + _esc(desc) + '</span></div>' + delBtn + '</div></div>';
+      /* Relationship order badge + controls for mates with multiple partners */
+      var orderHtml = '';
+      if (r.type === 'mate' && r.totalMates > 1 && editable && r.famId) {
+        var curOrd = r.relationshipOrder || '';
+        orderHtml = '<div style="display:flex;align-items:center;gap:4px;margin-top:4px;">'
+          + '<span style="color:#aaa;font-size:0.78rem;">Ordem da rela\u00e7\u00e3o:</span>'
+          + '<select onchange="_drawerSetRelationshipOrder(\'' + pid + '\',\'' + _esc(r.famId) + '\',this.value)" style="font-size:0.8rem;padding:1px 4px;min-width:48px;background:var(--bg-card,#23263a);color:var(--text-main,#e2e4f0);border:1px solid rgba(200,210,230,0.2);border-radius:4px;">'
+          + '<option value=""' + (!curOrd ? ' selected' : '') + '>—</option>';
+        for (var oi = 1; oi <= Math.max(r.totalMates, curOrd || 0); oi++) {
+          orderHtml += '<option value="' + oi + '"' + (curOrd == oi ? ' selected' : '') + '>' + oi + '\u00aa</option>';
+        }
+        orderHtml += '</select></div>';
+      } else if (r.type === 'mate' && r.totalMates > 1 && r.relationshipOrder) {
+        orderHtml = '<div style="margin-top:2px;"><span style="color:#aaa;font-size:0.78rem;">' + r.relationshipOrder + '\u00aa rela\u00e7\u00e3o</span></div>';
+      }
+      html += '<div class="mini-card" style="padding:10px 12px;"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;"><div style="flex:1;"><span style="font-weight:600;font-size:0.9rem;">' + _esc(r.name) + '</span><span style="color:#aaa;font-size:0.82rem;margin-left:8px;">' + _esc(desc) + '</span>' + orderHtml + '</div>' + delBtn + '</div></div>';
     });
     html += '</div>';
     return html;
   }
+
+  window._drawerSetRelationshipOrder = function (personId, famId, value) {
+    var DB = _db(); if (!DB) return;
+    var fam = DB.getFamily(famId); if (!fam) return;
+    fam.relationshipOrder = value ? parseInt(value, 10) : null;
+    DB.saveFamily(fam);
+    document.getElementById('drawerBody').innerHTML = _renderRelations(personId);
+    if (window.DRAWER_CONFIG && window.DRAWER_CONFIG.afterSave) window.DRAWER_CONFIG.afterSave(personId);
+  };
 
   window._drawerDeleteRelation = function (personId, targetId, relType) {
     var DB = _db(); if (!DB) return;

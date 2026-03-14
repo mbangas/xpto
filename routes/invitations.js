@@ -369,6 +369,53 @@ userRouter.post('/:id/decline', async (req, res) => {
   }
 });
 
+/**
+ * POST /:id/resend — Owner resends a pending invitation email.
+ * Regenerates the token and resets expires_at.
+ */
+treeRouter.post('/:id/resend', async (req, res) => {
+  try {
+    if (req.treeRole !== 'owner' && req.treeRole !== 'admin') {
+      return res.status(403).json({ error: 'Apenas o proprietário pode reenviar convites' });
+    }
+
+    const { rows: invRows } = await query(
+      `SELECT id, tree_id, inviter_id, invitee_email, role, status FROM invitations WHERE id = $1 AND tree_id = $2`,
+      [req.params.id, req.params.treeId],
+    );
+    if (!invRows.length) return res.status(404).json({ error: 'Convite não encontrado' });
+    const inv = invRows[0];
+
+    if (inv.status !== 'pending') {
+      return res.status(409).json({ error: 'Apenas convites pendentes podem ser reenviados' });
+    }
+
+    // Regenerate token and reset expiry (7 days from now)
+    const newToken = crypto.randomBytes(48).toString('base64url');
+    await query(
+      `UPDATE invitations SET token = $1, expires_at = NOW() + INTERVAL '7 days', created_at = NOW() WHERE id = $2`,
+      [newToken, inv.id],
+    );
+
+    const inviterResult = await query('SELECT name FROM users WHERE id = $1', [req.user.id]);
+    const treeResult    = await query('SELECT name FROM trees WHERE id = $1', [req.params.treeId]);
+    const inviterName   = (inviterResult.rows[0] || {}).name || req.user.email;
+    const treeName      = (treeResult.rows[0] || {}).name || 'Árvore';
+
+    sendInvitationEmail({
+      email: inv.invitee_email,
+      inviterName,
+      treeName,
+      role: inv.role,
+      token: newToken,
+    }).catch(err => console.error('[email] Erro ao reenviar convite:', err.message));
+
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: String(err) });
+  }
+});
+
 /* ═══════════════════════════════════════════════════════════════════════
    Public router — mounted BEFORE authMiddleware for token-based access
    ═══════════════════════════════════════════════════════════════════════ */

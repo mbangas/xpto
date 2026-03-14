@@ -77,6 +77,13 @@
       .ts-inv-status.accepted { background: var(--green-soft); color: var(--green); }
       .ts-inv-status.declined { background: var(--red-soft); color: var(--red); }
       .ts-inv-status.expired { background: rgba(255,255,255,0.06); color: var(--text-disabled); }
+      .ts-resend-btn {
+        background: none; border: 1px solid var(--border); border-radius: 6px;
+        color: var(--text-secondary); padding: 3px 9px; font-size: 0.72rem;
+        cursor: pointer; transition: border-color 0.15s, color 0.15s; white-space: nowrap;
+      }
+      .ts-resend-btn:hover { border-color: var(--accent); color: var(--accent); }
+      .ts-resend-btn:disabled { opacity: 0.4; cursor: default; }
 
       /* GEDCOM import / export */
       .ts-gedcom .tab-bar {
@@ -510,14 +517,42 @@
             var html = '<div class="ts-inv-list">';
             invites.forEach(function(inv) {
               var st = inv.status || 'pending';
+              var resendBtn = (st === 'pending')
+                ? '<button class="ts-resend-btn" data-inv-id="' + esc(inv.id) + '" title="Reenviar email de convite">'
+                  + '<i class="mdi mdi-email-sync-outline" style="margin-right:3px;"></i>Reenviar</button>'
+                : '';
               html += '<div class="ts-inv-item">'
                 + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-main);">' + esc(inv.inviteeEmail) + '</span>'
                 + '<span style="font-size:0.78rem;color:var(--text-secondary);">' + esc(ROLE_LABELS[inv.role] || inv.role) + '</span>'
+                + resendBtn
                 + '<span class="ts-inv-status ' + esc(st) + '">' + esc(STATUS_LABELS[st] || st) + '</span>'
                 + '</div>';
             });
             html += '</div>';
-            document.getElementById('invListWrap').innerHTML = html;
+            var wrap = document.getElementById('invListWrap');
+            wrap.innerHTML = html;
+            // Attach resend handlers
+            wrap.querySelectorAll('.ts-resend-btn').forEach(function(btn) {
+              btn.addEventListener('click', function() {
+                var invId = this.dataset.invId;
+                var self = this;
+                self.disabled = true;
+                self.textContent = 'A enviar…';
+                fetch('/api/trees/' + treeId + '/invitations/' + invId + '/resend', {
+                  method: 'POST', headers: headers()
+                })
+                  .then(function(r) { return r.ok ? r.json() : r.json().then(function(d) { throw new Error(d.error || 'Erro'); }); })
+                  .then(function() {
+                    self.textContent = 'Enviado ✓';
+                    setTimeout(loadInvitations, 1500);
+                  })
+                  .catch(function(err) {
+                    self.disabled = false;
+                    self.innerHTML = '<i class="mdi mdi-email-sync-outline" style="margin-right:3px;"></i>Reenviar';
+                    alert('Erro: ' + err.message);
+                  });
+              });
+            });
           })
           .catch(function() {});
       }

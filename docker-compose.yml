@@ -55,11 +55,11 @@ services:
       - ADMIN_EMAIL=${ADMIN_EMAIL:-miguel.bangueses@gmail.com}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123}
       - APP_URL=${APP_URL:-http://localhost:3000}
-      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_HOST=${SMTP_HOST:-smtp.mailersend.net}
       - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_USER=${SMTP_USER:-}
-      - SMTP_PASS=${SMTP_PASS:-}
-      - SMTP_FROM=${SMTP_FROM:-myLineage <noreply@mylineage.local>}
+      - SMTP_USER=${SMTP_USER:-MS_Vvnfir@test-nrw7gymwp9kg2k8e.mlsender.net}
+      - SMTP_PASS=${SMTP_PASS:-mssp.jbtqhby.3z0vklo2jj747qrx.aQVTR35}
+      - SMTP_FROM=${SMTP_FROM:-myLineage <MS_Vvnfir@test-nrw7gymwp9kg2k8e.mlsender.net>}
 
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000"]

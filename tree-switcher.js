@@ -109,9 +109,17 @@
 
     container.appendChild(btn);
 
-    // Insert after the first child (title area) of the topbar
+    // Insert inside the first child (title area) of the topbar.
+    // Ensure that div is a flex row so the tree-switcher pill sits beside the title
+    // instead of wrapping to a second line (block h1 takes full row width).
     var firstDiv = topbar.querySelector('div');
     if (firstDiv) {
+      var cs = window.getComputedStyle(firstDiv);
+      if (cs.display !== 'flex' && cs.display !== 'inline-flex') {
+        firstDiv.style.display = 'flex';
+        firstDiv.style.alignItems = 'center';
+        firstDiv.style.gap = '8px';
+      }
       firstDiv.appendChild(container);
     } else {
       topbar.insertBefore(container, topbar.firstChild);

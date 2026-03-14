@@ -216,7 +216,6 @@ h3 { font-size: 0.95rem; font-weight: 600; margin: 0 0 6px;  color: var(--text-s
   align-items: center;
   justify-content: space-between;
   flex-wrap: nowrap;
-  overflow: hidden;
   gap: 12px;
   padding: 0 24px;
   height: 52px;

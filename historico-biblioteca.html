@@ -102,11 +102,11 @@
             </div>
             <div class="form-field">
               <label>Ano início *</label>
-              <input type="number" id="fAnoInicio" placeholder="ex. 1910" />
+              <input type="text" id="fAnoInicio" placeholder="ex. 1910 ou c. 700 a.C." />
             </div>
             <div class="form-field">
               <label>Ano fim</label>
-              <input type="number" id="fAnoFim" placeholder="(opt.)" />
+              <input type="text" id="fAnoFim" placeholder="(opt.)" />
             </div>
           </div>
           <div class="form-field" style="margin-top:10px;">
@@ -236,10 +236,15 @@
         const q = (document.getElementById('filterInput').value || '').toLowerCase();
         const pFilter = document.getElementById('filterPais').value.trim();
         const filtered = allFacts.filter(n => {
-          if (pFilter && normPais(n.pais) !== pFilter) return false;
+          if (pFilter && (n.pais || '') !== pFilter) return false;
           if (q && !(n.facto || '').toLowerCase().includes(q) && !(n.titulo || '').toLowerCase().includes(q)) return false;
           return true;
         });
+
+        /* Keep the filter datalist up-to-date with actual countries in data */
+        const allCountries = [...new Set(allFacts.map(n => n.pais || '').filter(Boolean))].sort();
+        const datalistEl = document.getElementById('filterPaisDatalist');
+        datalistEl.innerHTML = allCountries.map(function(c) { return '<option value="' + escHtml(c) + '">'; }).join('');
 
         document.getElementById('countBadge').textContent = filtered.length + ' facto' + (filtered.length !== 1 ? 's' : '');
 
@@ -402,15 +407,16 @@
         const facto = document.getElementById('fFacto').value.trim();
         const msg = document.getElementById('addMsg');
 
-        if (!pais || !COUNTRY_LIST.includes(pais)) { msg.textContent = 'País inválido. Escolha da lista.'; msg.style.color = '#f05252'; return; }
+        if (!pais) { msg.textContent = 'O país é obrigatório.'; msg.style.color = '#f05252'; return; }
         if (!anoInicio) { msg.textContent = 'O ano de início é obrigatório.'; msg.style.color = '#f05252'; return; }
         if (!facto) { msg.textContent = 'O texto do facto é obrigatório.'; msg.style.color = '#f05252'; return; }
 
+        function smartYear(v) { var n = +v; return (v !== '' && !isNaN(n)) ? n : v; }
         const body = {
           dia: dia ? +dia : null,
           mes: mes ? +mes : null,
-          anoInicio: +anoInicio,
-          anoFim: anoFim ? +anoFim : null,
+          anoInicio: smartYear(anoInicio),
+          anoFim: anoFim ? smartYear(anoFim) : null,
           pais,
           titulo,
           facto
@@ -536,9 +542,10 @@
               elErrs.textContent = errs;
             }
 
-            /* Resolve raw country string to a known COUNTRY_LIST entry */
+            /* Resolve raw country string — tries known entries first, falls back to the raw value */
             function resolvePais(raw) {
               var v = String(raw || '').trim();
+              if (!v) return 'Mundial';
               /* exact match */
               if (COUNTRY_LIST.includes(v)) return v;
               /* case-insensitive match */
@@ -553,7 +560,7 @@
                 'WORLD': 'Mundial', 'WLD': 'Mundial' };
               var upper = v.toUpperCase();
               if (legacyMap[upper]) return legacyMap[upper];
-              /* partial/normalised match */
+              /* accent-normalised match */
               var normStr = lower.replace(/[áàâã]/g,'a').replace(/[éèê]/g,'e')
                 .replace(/[íìî]/g,'i').replace(/[óòôõ]/g,'o')
                 .replace(/[úùû]/g,'u').replace(/ç/g,'c').replace(/ñ/g,'n');
@@ -563,7 +570,16 @@
                   .replace(/[úùû]/g,'u').replace(/ç/g,'c').replace(/ñ/g,'n');
                 return cn === normStr;
               });
-              return found || 'Mundial';
+              /* free-text: keep the raw value as-is if nothing matched */
+              return found || v;
+            }
+
+            /* Smart year: numeric if parseable, otherwise keep as free-text string */
+            function smartYear(raw) {
+              var s = String(raw || '').trim();
+              if (s === '') return null;
+              var n = +s;
+              return !isNaN(n) ? n : s;
             }
 
             /* Sequential import — avoids concurrent ID collisions on the server */
@@ -583,16 +599,15 @@
                 return;
               }
               var row = rowQueue.shift();
-              var anoInicioRaw = row[C.anoInicio];
-              var anoInicio = String(anoInicioRaw).trim() !== '' ? +anoInicioRaw : null;
+              var anoInicio = smartYear(row[C.anoInicio]);
               var facto = String(row[C.facto]||'').trim();
-              if (!facto || !anoInicio) { errs++; updateProgress(); importNext(); return; }
+              if (!facto || anoInicio === null || anoInicio === '') { errs++; updateProgress(); importNext(); return; }
               var body = {
                 pais: resolvePais(row[C.pais]),
                 dia:  String(row[C.dia]).trim() !== '' ? (+row[C.dia] || null) : null,
                 mes:  String(row[C.mes]).trim() !== '' ? (+row[C.mes] || null) : null,
                 anoInicio,
-                anoFim: String(row[C.anoFim]).trim() !== '' ? (+row[C.anoFim] || null) : null,
+                anoFim: smartYear(row[C.anoFim]),
                 titulo: String(row[C.titulo]||'').trim(),
                 facto
               };

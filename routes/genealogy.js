@@ -388,7 +388,9 @@ router.get('/stats', async (req, res) => {
 router.get('/gedcom/export', async (req, res) => {
   try {
     const tid = req.treeId;
-    const gedText = buildGedcomText({
+    const withPhotos = req.query.photos === '1';
+
+    const collections = {
       individuals:  await resolve(readCollection(tid, 'individuals')),
       families:     await resolve(readCollection(tid, 'families')),
       multimedia:   await resolve(readCollection(tid, 'multimedia')),
@@ -396,13 +398,63 @@ router.get('/gedcom/export', async (req, res) => {
       repositories: await resolve(readCollection(tid, 'repositories')),
       notes:        await resolve(readCollection(tid, 'notes')),
       submitters:   await resolve(readCollection(tid, 'submitters')),
-    });
-    if (req.query.format === 'file') {
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-      res.setHeader('Content-Disposition', 'attachment; filename="myLineage_export.ged"');
+    };
+
+    // Collect all locally-stored photo paths referenced by multimedia records
+    // Map: original path → { diskPath, zipPath }
+    const photoMap = new Map();
+    if (withPhotos) {
+      for (const mm of Object.values(collections.multimedia)) {
+        if (mm.deletedAt) continue;
+        for (const f of (mm.files || [])) {
+          if (f.file && /^\/uploads\//i.test(f.file) && !photoMap.has(f.file)) {
+            const diskPath = path.join(__dirname, '..', f.file);
+            const zipPath  = 'fotos/' + path.basename(f.file);
+            photoMap.set(f.file, { diskPath, zipPath });
+          }
+        }
+      }
     }
-    res.send(gedText);
-  } catch (e) { res.status(500).json({ error: String(e) }); }
+
+    const gedText = buildGedcomText(collections, {
+      rewriteFilePath: withPhotos
+        ? (f => (photoMap.has(f) ? photoMap.get(f).zipPath : f))
+        : undefined,
+    });
+
+    if (!withPhotos) {
+      if (req.query.format === 'file') {
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename="myLineage_export.ged"');
+      }
+      return res.send(gedText);
+    }
+
+    // ── ZIP export (GEDCOM + photos) ──────────────────────────────────
+    const archiver = require('archiver');
+    const date     = new Date().toISOString().slice(0, 10);
+    const zipName  = `myLineage_export_${date}.zip`;
+    const gedName  = `myLineage_export_${date}.ged`;
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${zipName}"`);
+
+    const archive = archiver('zip', { zlib: { level: 6 } });
+    archive.on('error', err => { if (!res.headersSent) res.status(500).json({ error: String(err) }); });
+    archive.pipe(res);
+
+    archive.append(gedText, { name: gedName });
+
+    let photoCount = 0;
+    for (const { diskPath, zipPath } of photoMap.values()) {
+      if (fs.existsSync(diskPath)) {
+        archive.file(diskPath, { name: zipPath });
+        photoCount++;
+      }
+    }
+
+    await archive.finalize();
+  } catch (e) { if (!res.headersSent) res.status(500).json({ error: String(e) }); }
 });
 
 /* ── GEDCOM Import ───────────────────────────────────────────────────── */

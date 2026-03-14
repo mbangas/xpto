@@ -862,10 +862,41 @@
               function(d){ return d.data.deathday ? '\u271D '+d.data.deathday : ''; }
             ]);
             card.setCardDim({w:230, h:80, text_x:75, text_y:12, img_w:62, img_h:72, img_x:4, img_y:4});
-            card.setMiniTree(false);
+            card.setMiniTree(true);
             card.setOnCardClick(function(e,d){
               if(d&&d.data&&d.data.id) openDrawer('edit',d.data.id);
             });
+            // Once-bind: capture-phase click handler that intercepts native mini-tree
+            // indicator clicks and calls our renderChart instead of the library's
+            // internal updateMainId (so all post-render customisations are re-applied).
+            if(!fcWrap._miniTreeBound){
+              fcWrap._miniTreeBound=true;
+              fcWrap.addEventListener('click',function(e){
+                var el=e.target;
+                // Identify the mini-tree <g>: a direct child of g.card that is NOT
+                // g.card-inner and contains rect.card-male or rect.card-female.
+                var miniG=null;
+                if(el.tagName==='rect'&&(el.classList.contains('card-male')||el.classList.contains('card-female'))){
+                  var pg=el.parentElement;
+                  if(pg&&pg.tagName==='g'&&pg.parentElement&&pg.parentElement.classList&&
+                     pg.parentElement.classList.contains('card')&&!pg.classList.contains('card-inner')) miniG=pg;
+                }else if(el.tagName==='g'&&el.parentElement&&el.parentElement.classList&&
+                          el.parentElement.classList.contains('card')&&!el.classList.contains('card-inner')&&
+                          el.querySelector&&el.querySelector('rect.card-male,rect.card-female')){
+                  miniG=el;
+                }
+                if(!miniG) return;
+                var cc=miniG.closest('g.card_cont');
+                if(!cc||!cc.__data__) return;
+                var rels=(cc.__data__.rels)||{};
+                var navId=(rels.parents&&rels.parents[0])||(rels.children&&rels.children[0])||(rels.spouses&&rels.spouses[0]);
+                if(!navId) return;
+                e.stopPropagation();
+                _pathFilter=null;
+                document.getElementById('pathBanner').style.display='none';
+                renderChart(navId);
+              },true);
+            }
             // Always let the library do its initial layout (valid tree_position value).
             // We override the transform afterwards via double-rAF so it runs AFTER
             // any d3 transition frames that updateTree may have scheduled.

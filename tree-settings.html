@@ -281,8 +281,12 @@
               <p style="color:var(--text-secondary);margin:0 0 16px 0;font-size:0.82rem;">
                 Exporta os dados atuais para um ficheiro GEDCOM (.ged) compatível com outras ferramentas de genealogia.
               </p>
-              <div style="display:flex;gap:12px;align-items:center;">
+              <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
                 <button class="btn btn-sm" id="exportBtn">Exportar GEDCOM</button>
+                <label style="display:flex;align-items:center;gap:6px;font-size:0.82rem;color:var(--text-secondary);cursor:pointer;user-select:none;">
+                  <input type="checkbox" id="exportPhotos" style="accent-color:var(--accent);width:14px;height:14px;">
+                  Incluir fotos (exporta como .zip)
+                </label>
               </div>
               <div id="exportLog" style="margin-top:16px;color:var(--text-secondary);font-size:0.88rem;white-space:pre-wrap;"></div>
             </div>
@@ -570,6 +574,8 @@
     (function() {
       'use strict';
       var DB = window.GedcomDB;
+      var TREE_KEY = 'ml_current_tree';
+      var treeId = localStorage.getItem(TREE_KEY);
 
       /* ── Tab switching ─────────────────── */
       window.switchGedcomTab = function(name) {
@@ -647,7 +653,7 @@
 
         try {
           var text = await f.text();
-          var resp = await fetch('/api/gedcom/import', {
+          var resp = await fetch('/api/trees/' + treeId + '/gedcom/import', {
             method: 'POST',
             headers: { 'Content-Type': 'text/plain; charset=utf-8' },
             body: text
@@ -685,7 +691,7 @@
             summary += '\n\n\ud83d\udce5 ' + result.pendingImages + ' fotos a descarregar em segundo plano.\nO \u00e1lbum ser\u00e1 preenchido progressivamente \u2014 aguarde alguns minutos.';
             var pollInterval = setInterval(async function() {
               try {
-                var st = await fetch('/api/multimedia/cache-status').then(function(r) { return r.json(); });
+                var st = await fetch('/api/trees/' + treeId + '/multimedia/cache-status').then(function(r) { return r.json(); });
                 if (!st.running) {
                   clearInterval(pollInterval);
                   DB.reload();
@@ -728,22 +734,30 @@
       }
 
       document.getElementById('exportBtn').addEventListener('click', async function() {
+        var withPhotos = document.getElementById('exportPhotos').checked;
         showExportLog('A exportar\u2026');
         try {
-          var resp = await fetch('/api/gedcom/export');
+          var url = '/api/trees/' + treeId + '/gedcom/export' + (withPhotos ? '?photos=1' : '');
+          var resp = await fetch(url);
           if (!resp.ok) throw new Error('Server error: ' + resp.status);
-          var ged = await resp.text();
-          var name = 'myLineage_export_' + new Date().toISOString().slice(0, 10) + '.ged';
-          download(name, ged);
-
-          DB.addHistory([{
-            ts: new Date().toISOString(),
-            action: 'GEDCOM exportado',
-            detail: name + ' (' + ged.length + ' bytes)',
-            category: 'gedcom'
-          }]);
-
-          showExportLog('GEDCOM gerado: ' + name + '\nTamanho: ' + ged.length + ' bytes');
+          var date = new Date().toISOString().slice(0, 10);
+          if (withPhotos) {
+            var blob = await resp.blob();
+            var name = 'myLineage_export_' + date + '.zip';
+            var a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = name;
+            document.body.appendChild(a); a.click();
+            setTimeout(function() { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+            DB.addHistory([{ ts: new Date().toISOString(), action: 'GEDCOM exportado (com fotos)', detail: name + ' (' + blob.size + ' bytes)', category: 'gedcom' }]);
+            showExportLog('ZIP gerado: ' + name + '\nTamanho: ' + blob.size + ' bytes');
+          } else {
+            var ged = await resp.text();
+            var name = 'myLineage_export_' + date + '.ged';
+            download(name, ged);
+            DB.addHistory([{ ts: new Date().toISOString(), action: 'GEDCOM exportado', detail: name + ' (' + ged.length + ' bytes)', category: 'gedcom' }]);
+            showExportLog('GEDCOM gerado: ' + name + '\nTamanho: ' + ged.length + ' bytes');
+          }
         } catch(err) {
           console.error(err);
           showExportLog('Erro ao exportar: ' + (err.message || err));
